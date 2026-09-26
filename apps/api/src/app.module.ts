@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { configModule, loggerModule } from './config/root-modules';
 import { HealthModule } from './health/health.module';
+import { ProjectsModule } from './projects/projects.module';
 import { DatabaseModule } from './infrastructure/database/database.module';
 import { QueueModule } from './infrastructure/queue/queue.module';
 import { RedisModule } from './infrastructure/redis/redis.module';
@@ -28,6 +29,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     UsersModule,
     AdminModule,
+    ProjectsModule,
     HealthModule,
   ],
   providers: [

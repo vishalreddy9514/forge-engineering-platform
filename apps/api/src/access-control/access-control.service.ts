@@ -6,7 +6,14 @@ import { PrismaService } from '../infrastructure/database/prisma.service';
 import { REDIS_CLIENT } from '../infrastructure/redis/redis.module';
 
 /** Where a guarded route's project comes from. */
-export type ProjectScope = 'project' | 'issue' | 'sprint';
+export type ProjectScope = 'project' | 'projectKey' | 'issue' | 'sprint' | 'label';
+
+export interface ResolvedProject {
+  id: string;
+  archived: boolean;
+}
+
+const PROJECT_KEY = /^[A-Za-z][A-Za-z0-9]{1,9}$/;
 
 const CACHE_TTL_SECONDS = 60;
 const NO_MEMBERSHIP = '-';
@@ -45,32 +52,42 @@ export class AccessControlService {
   }
 
   /** Project that owns the resource, or null if the resource does not exist (→ 404). */
-  async resolveProjectId(scope: ProjectScope, id: string): Promise<string | null> {
+  async resolveProject(scope: ProjectScope, id: string): Promise<ResolvedProject | null> {
     // Malformed IDs cannot exist; answering 404 early also keeps them away from the database.
-    if (!UUID.test(id)) return null;
+    if (scope === 'projectKey' ? !PROJECT_KEY.test(id) : !UUID.test(id)) return null;
+
+    const select = { id: true, archivedAt: true } as const;
+    let project: { id: string; archivedAt: Date | null } | null | undefined;
     switch (scope) {
-      case 'project': {
-        const project = await this.prisma.project.findUnique({
-          where: { id },
-          select: { id: true },
+      case 'project':
+        project = await this.prisma.project.findUnique({ where: { id }, select });
+        break;
+      case 'projectKey':
+        project = await this.prisma.project.findUnique({
+          where: { key: id.toUpperCase() },
+          select,
         });
-        return project?.id ?? null;
-      }
-      case 'issue': {
-        const issue = await this.prisma.issue.findFirst({
-          where: { id, deletedAt: null },
-          select: { projectId: true },
-        });
-        return issue?.projectId ?? null;
-      }
-      case 'sprint': {
-        const sprint = await this.prisma.sprint.findUnique({
-          where: { id },
-          select: { projectId: true },
-        });
-        return sprint?.projectId ?? null;
-      }
+        break;
+      case 'issue':
+        project = (
+          await this.prisma.issue.findFirst({
+            where: { id, deletedAt: null },
+            select: { project: { select } },
+          })
+        )?.project;
+        break;
+      case 'sprint':
+        project = (
+          await this.prisma.sprint.findUnique({ where: { id }, select: { project: { select } } })
+        )?.project;
+        break;
+      case 'label':
+        project = (
+          await this.prisma.label.findUnique({ where: { id }, select: { project: { select } } })
+        )?.project;
+        break;
     }
+    return project ? { id: project.id, archived: project.archivedAt !== null } : null;
   }
 
   /** Every project the user can see; the permission filter for search and RAG (§7.4). */

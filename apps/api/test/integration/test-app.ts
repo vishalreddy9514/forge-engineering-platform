@@ -9,6 +9,7 @@ import request from 'supertest';
 
 import { RequireProjectPermission } from '../../src/access-control/require-project-permission.decorator';
 import { AppModule } from '../../src/app.module';
+import { hashPassword } from '../../src/common/security/password-hasher';
 import { configureApp } from '../../src/app.setup';
 import { PrismaService } from '../../src/infrastructure/database/prisma.service';
 import { QUEUES } from '../../src/infrastructure/queue/queue.module';
@@ -92,4 +93,44 @@ export function setCookieHeader(res: request.Response, name: string): string | u
   return ([] as string[])
     .concat(res.headers['set-cookie'] ?? [])
     .find((c) => c.startsWith(`${name}=`));
+}
+
+export const TEST_PASSWORD = 'correct horse battery staple';
+let cachedHash: Promise<string> | undefined;
+
+export interface SignedInUser {
+  id: string;
+  email: string;
+  token: string;
+  cookie: string;
+  auth: { Authorization: string };
+}
+
+/** Creates a user directly in the database, then signs in through the real API. */
+export async function signIn(
+  t: TestApp,
+  options: { isAdmin?: boolean; displayName?: string } = {},
+): Promise<SignedInUser> {
+  cachedHash ??= hashPassword(TEST_PASSWORD);
+  const email = `u-${Math.random().toString(36).slice(2, 10)}@example.test`;
+  const user = await t.prisma.user.create({
+    data: {
+      email,
+      displayName: options.displayName ?? 'Test User',
+      passwordHash: await cachedHash,
+      isAdmin: options.isAdmin ?? false,
+    },
+  });
+  const res = await t.http
+    .post('/api/v1/auth/login')
+    .send({ email, password: TEST_PASSWORD })
+    .expect(200);
+  const token = res.body.accessToken as string;
+  return {
+    id: user.id,
+    email,
+    token,
+    cookie: refreshCookie(res) ?? '',
+    auth: { Authorization: `Bearer ${token}` },
+  };
 }

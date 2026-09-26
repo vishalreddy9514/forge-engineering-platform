@@ -8,10 +8,10 @@ history with cited sources.
 AI is a feature of the product, not the product. Every core workflow works with the AI service
 switched off.
 
-> **Status: Phase 4 of 20 (authentication and RBAC).** Sign-up, sign-in, rotating refresh
-> tokens, password reset by email, admin user management and project-level permissions work end
-> to end in the browser, on top of the monorepo, CI and the full database schema from earlier
-> phases. Project and issue features start in Phase 5.
+> **Status: Phase 5 of 20 (project management).** Teams can create projects, manage members and
+> roles, labels and settings, and archive or delete projects, all enforced by the project-level
+> permission model. This builds on authentication (Phase 4), the full database schema (Phase 3)
+> and the monorepo, CI and local infrastructure (Phase 2). Issues arrive in Phase 6.
 
 ## Stack
 
