@@ -1,0 +1,29 @@
+{
+  "name": "@forge/config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared TypeScript, ESLint and Prettier presets",
+  "type": "module",
+  "exports": {
+    "./prettier": "./prettier.js",
+    "./eslint/base": "./eslint/base.js",
+    "./eslint/node": "./eslint/node.js",
+    "./tsconfig/base.json": "./tsconfig/base.json",
+    "./tsconfig/node.json": "./tsconfig/node.json",
+    "./tsconfig/nextjs.json": "./tsconfig/nextjs.json",
+    "./tsconfig/library.json": "./tsconfig/library.json"
+  },
+  "dependencies": {
+    "@eslint/js": "9.39.5",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.12.0",
+    "typescript-eslint": "8.70.1"
+  },
+  "peerDependencies": {
+    "eslint": "^9",
+    "prettier": ">=3"
+  },
+  "devDependencies": {
+    "eslint": "9.39.5"
+  }
+}

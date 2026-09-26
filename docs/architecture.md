@@ -9,12 +9,12 @@
 Forge is a **modular monolith plus one AI service**, running as four deployable processes that
 share one PostgreSQL database and one Redis instance.
 
-| Process | Tech | Responsibility |
-|---|---|---|
-| `web` | Next.js (App Router), TypeScript | UI. Server components for first paint, TanStack Query for client state |
-| `api` | NestJS, Prisma | REST API, auth, RBAC, all core domain logic, webhook intake, enqueueing jobs |
-| `worker` | NestJS (same codebase, separate entrypoint), BullMQ | Background jobs: notifications, GitHub sync, indexing, AI jobs |
-| `ai-service` | Python, FastAPI | Chunking, embeddings, retrieval, LLM calls, prompt management, AI evaluation |
+| Process      | Tech                                                | Responsibility                                                               |
+| ------------ | --------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `web`        | Next.js (App Router), TypeScript                    | UI. Server components for first paint, TanStack Query for client state       |
+| `api`        | NestJS, Prisma                                      | REST API, auth, RBAC, all core domain logic, webhook intake, enqueueing jobs |
+| `worker`     | NestJS (same codebase, separate entrypoint), BullMQ | Background jobs: notifications, GitHub sync, indexing, AI jobs               |
+| `ai-service` | Python, FastAPI                                     | Chunking, embeddings, retrieval, LLM calls, prompt management, AI evaluation |
 
 Why this shape (full reasoning in [ADR-0001](adr/0001-modular-monolith-plus-ai-service.md)):
 
@@ -94,7 +94,9 @@ flowchart TB
 
 Key points:
 
-- **One origin.** The browser only talks to the proxy, so `web` and `api` share an origin. The
+- **One origin.** The browser only talks to the proxy, so `web` and `api` share an origin.
+  During development (apps running on the host with hot reload), a Next.js rewrite of
+  `/api/*` plays the proxy's role; Nginx takes over in the fully containerised stack (Phase 14). The
   refresh cookie can be `SameSite=Strict` and CORS is only needed for local tooling.
 - **`ai-service` is never exposed publicly.** It accepts calls from `api` and `worker` only,
   authenticated with a shared service token (an internal network plus a bearer secret, as
@@ -162,7 +164,7 @@ issues/
 └── __tests__/
 ```
 
-**Rules** (enforced with `eslint-plugin-boundaries` in Phase 2):
+**Rules** (enforced with `eslint-plugin-boundaries` from Phase 4, when the first domain modules exist):
 
 1. Controllers never import repositories.
 2. A module talks to another module only through its exported service, never through its repository.
@@ -174,13 +176,13 @@ issues/
 
 ### 5.1 Queues
 
-| Queue | Producer | Job examples | Concurrency | Retry |
-|---|---|---|---|---|
-| `notifications` | outbox relay | `issue.assigned`, `comment.added`, `sprint.started` | 10 | 5 × exp. backoff |
-| `github-sync` | api (connect, webhook), scheduler | `repo.initial-sync`, `pr.upsert`, `reconcile` | 2 (rate limits) | 8 × exp., respects reset header |
-| `indexing` | outbox relay | `source.index`, `source.delete` | 4 | 5 × exp. |
-| `ai` | api | `issue.summarise`, `pr.review` | 2 | 3 × exp. |
-| `email` | notifications processor | `send` | 5 | 5 × exp. |
+| Queue           | Producer                          | Job examples                                        | Concurrency     | Retry                           |
+| --------------- | --------------------------------- | --------------------------------------------------- | --------------- | ------------------------------- |
+| `notifications` | outbox relay                      | `issue.assigned`, `comment.added`, `sprint.started` | 10              | 5 × exp. backoff                |
+| `github-sync`   | api (connect, webhook), scheduler | `repo.initial-sync`, `pr.upsert`, `reconcile`       | 2 (rate limits) | 8 × exp., respects reset header |
+| `indexing`      | outbox relay                      | `source.index`, `source.delete`                     | 4               | 5 × exp.                        |
+| `ai`            | api                               | `issue.summarise`, `pr.review`                      | 2               | 3 × exp.                        |
+| `email`         | notifications processor           | `send`                                              | 5               | 5 × exp.                        |
 
 - Failed jobs go to a per-queue **dead-letter** state, kept for 7 days and shown on an admin page.
 - **Idempotency:** every job ID is deterministic (for example `index:issue:{id}:{contentHash}`),
@@ -225,16 +227,16 @@ This gives at-least-once delivery, and deterministic job IDs make that safe to r
 
 ### 5.3 What is synchronous and what is not
 
-| Operation | Mode | Why |
-|---|---|---|
-| Issue CRUD, search, dashboard | Sync | Pure DB work, fast |
-| AI issue draft (FR-7.1) | Sync, **streamed** (SSE) | The user is waiting at a form. One small LLM call streamed from the first token feels immediate, and Node streams it with non-blocking I/O |
-| Related issues (FR-7.3) | Sync | One embedding plus one indexed vector query, under 300 ms |
-| Assistant chat (FR-7.4) | Sync, **streamed** (SSE) | Interactive, the same reasoning as drafting |
-| Summarise thread (FR-7.2) | **Async** job → `202` + job ID | Long threads mean long prompts. The result is cached and a notification is sent when ready |
-| PR code review (FR-9) | **Async** job | Multi-file, multiple LLM calls, can take tens of seconds |
-| Indexing / embeddings (FR-8) | **Async** | Triggered by writes and never visible to the user as latency |
-| GitHub sync (FR-6) | **Async** | Paginated external API with rate limits |
+| Operation                     | Mode                           | Why                                                                                                                                        |
+| ----------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Issue CRUD, search, dashboard | Sync                           | Pure DB work, fast                                                                                                                         |
+| AI issue draft (FR-7.1)       | Sync, **streamed** (SSE)       | The user is waiting at a form. One small LLM call streamed from the first token feels immediate, and Node streams it with non-blocking I/O |
+| Related issues (FR-7.3)       | Sync                           | One embedding plus one indexed vector query, under 300 ms                                                                                  |
+| Assistant chat (FR-7.4)       | Sync, **streamed** (SSE)       | Interactive, the same reasoning as drafting                                                                                                |
+| Summarise thread (FR-7.2)     | **Async** job → `202` + job ID | Long threads mean long prompts. The result is cached and a notification is sent when ready                                                 |
+| PR code review (FR-9)         | **Async** job                  | Multi-file, multiple LLM calls, can take tens of seconds                                                                                   |
+| Indexing / embeddings (FR-8)  | **Async**                      | Triggered by writes and never visible to the user as latency                                                                               |
+| GitHub sync (FR-6)            | **Async**                      | Paginated external API with rate limits                                                                                                    |
 
 The brief says "do not make expensive AI operations block normal API requests". Streaming
 endpoints hold a connection open but do not block the event loop or any other request.
@@ -298,39 +300,39 @@ mitigated by `SameSite=Strict`, the narrow cookie `Path` and an `Origin` header 
 
 ### 6.3 Threat model: OWASP Top 10 (2021) mapping
 
-| Risk | Control in Forge |
-|---|---|
-| A01 Broken access control | Global auth guard; project guard on every project-scoped route; 404 on non-membership; IDOR tests for every resource type in the Supertest suite |
-| A02 Cryptographic failures | TLS at the ALB; argon2id; hashed refresh and reset tokens; RDS/S3 encryption at rest; no secrets in the repo (gitleaks) |
-| A03 Injection | Prisma parameterised queries; `$queryRaw` only with tagged templates (lint rule bans `$queryRawUnsafe`); Zod validation on every input; Markdown sanitised with DOMPurify on render |
-| A04 Insecure design | This threat model; rate limits; state machines for status and sprint transitions |
-| A05 Security misconfiguration | Helmet (strict CSP, HSTS, `X-Content-Type-Options`, `frame-ancestors 'none'`); explicit CORS allow-list; production error responses without stack traces |
-| A06 Vulnerable components | Dependabot; `pnpm audit` / `pip-audit`; Trivy image scan in CI |
-| A07 Auth failures | Refresh rotation with reuse detection; login throttling; breached-password check; generic login errors |
-| A08 Integrity failures | GitHub webhook HMAC verified with a constant-time compare on the raw body; pinned action SHAs in CI; signed image digests deployed |
-| A09 Logging failures | Audit log (FR-13); structured logs with request ID; secrets and tokens redacted by a logger serializer |
-| A10 SSRF | Only fixed outbound hosts (GitHub API, OpenAI). No user-supplied URLs are fetched server-side. Attachments go browser → S3 directly |
+| Risk                          | Control in Forge                                                                                                                                                                    |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A01 Broken access control     | Global auth guard; project guard on every project-scoped route; 404 on non-membership; IDOR tests for every resource type in the Supertest suite                                    |
+| A02 Cryptographic failures    | TLS at the ALB; argon2id; hashed refresh and reset tokens; RDS/S3 encryption at rest; no secrets in the repo (gitleaks)                                                             |
+| A03 Injection                 | Prisma parameterised queries; `$queryRaw` only with tagged templates (lint rule bans `$queryRawUnsafe`); Zod validation on every input; Markdown sanitised with DOMPurify on render |
+| A04 Insecure design           | This threat model; rate limits; state machines for status and sprint transitions                                                                                                    |
+| A05 Security misconfiguration | Helmet (strict CSP, HSTS, `X-Content-Type-Options`, `frame-ancestors 'none'`); explicit CORS allow-list; production error responses without stack traces                            |
+| A06 Vulnerable components     | Dependabot; `pnpm audit` / `pip-audit`; Trivy image scan in CI                                                                                                                      |
+| A07 Auth failures             | Refresh rotation with reuse detection; login throttling; breached-password check; generic login errors                                                                              |
+| A08 Integrity failures        | GitHub webhook HMAC verified with a constant-time compare on the raw body; pinned action SHAs in CI; signed image digests deployed                                                  |
+| A09 Logging failures          | Audit log (FR-13); structured logs with request ID; secrets and tokens redacted by a logger serializer                                                                              |
+| A10 SSRF                      | Only fixed outbound hosts (GitHub API, OpenAI). No user-supplied URLs are fetched server-side. Attachments go browser → S3 directly                                                 |
 
 ### 6.4 LLM-specific risks (OWASP LLM Top 10)
 
-| Risk | Control |
-|---|---|
+| Risk                                                             | Control                                                                                                                                                                                                                                |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Prompt injection (direct and indirect via indexed issues or PRs) | Retrieved content is wrapped in delimited `<context>` blocks and labelled as untrusted data. The model has **no write tools**: its only tool is read-only structured queries. Output is only ever shown to the user and never executed |
-| Sensitive information disclosure | Permission-aware retrieval (§7.4); per-project filtering is enforced in SQL, not by the prompt |
-| Insecure output handling | LLM output is rendered as sanitised Markdown; structured outputs are validated against a JSON schema before use |
-| Excessive agency | AI drafts are suggestions the user must confirm; PR comments are only posted on an explicit click |
-| Unbounded consumption / cost | Per-user rate limit and daily token budget; max input tokens per request; diff size cap for reviews |
+| Sensitive information disclosure                                 | Permission-aware retrieval (§7.4); per-project filtering is enforced in SQL, not by the prompt                                                                                                                                         |
+| Insecure output handling                                         | LLM output is rendered as sanitised Markdown; structured outputs are validated against a JSON schema before use                                                                                                                        |
+| Excessive agency                                                 | AI drafts are suggestions the user must confirm; PR comments are only posted on an explicit click                                                                                                                                      |
+| Unbounded consumption / cost                                     | Per-user rate limit and daily token budget; max input tokens per request; diff size cap for reviews                                                                                                                                    |
 
 ### 6.5 Rate limiting
 
 Redis-backed sliding-window limits (`@nestjs/throttler` with Redis storage):
 
-| Scope | Limit |
-|---|---|
-| `POST /auth/login`, `/auth/password-reset/*` | 5 / min per IP and per email |
-| Authenticated API (default) | 300 / min per user |
-| AI endpoints | 20 / min per user, plus a daily token budget |
-| Webhook intake | 100 / s globally (GitHub retries on failure) |
+| Scope                                        | Limit                                        |
+| -------------------------------------------- | -------------------------------------------- |
+| `POST /auth/login`, `/auth/password-reset/*` | 5 / min per IP and per email                 |
+| Authenticated API (default)                  | 300 / min per user                           |
+| AI endpoints                                 | 20 / min per user, plus a daily token budget |
+| Webhook intake                               | 100 / s globally (GitHub retries on failure) |
 
 ## 7. AI and RAG architecture
 
@@ -394,12 +396,12 @@ flowchart LR
 
 **Chunking strategy** (source-aware, not a fixed-size split everywhere):
 
-| Source | Unit | Strategy |
-|---|---|---|
-| Issue | issue | Title + metadata header + description. Split on Markdown headings only if > 800 tokens |
-| Comment | comment | One chunk per comment, prefixed with "Comment on PAY-123 by X:" for context |
-| PR | PR | Title + body + list of changed files |
-| Commit | commit | Message + list of files (diffs are not embedded because they are noisy and expensive) |
+| Source   | Unit    | Strategy                                                                                                        |
+| -------- | ------- | --------------------------------------------------------------------------------------------------------------- |
+| Issue    | issue   | Title + metadata header + description. Split on Markdown headings only if > 800 tokens                          |
+| Comment  | comment | One chunk per comment, prefixed with "Comment on PAY-123 by X:" for context                                     |
+| PR       | PR      | Title + body + list of changed files                                                                            |
+| Commit   | commit  | Message + list of files (diffs are not embedded because they are noisy and expensive)                           |
 | Document | section | Split by Markdown heading hierarchy, target 500 tokens with 50 tokens of overlap, heading path kept as metadata |
 
 Each chunk stores `source_type`, `source_id`, `project_id`, a `url` for citation, `content_hash`,
@@ -418,13 +420,13 @@ and "how many" questions. The answer cites both kinds of source.
 
 ### 7.3 Feature flows
 
-| Feature | Flow |
-|---|---|
-| Issue draft | api → ai `/v1/drafts` with text and the project's label list → structured output (JSON schema) → validated → streamed to the form |
-| Related issues | api → ai `/v1/related` with issue ID → reuse the stored issue embedding → kNN in the same project, excluding itself → threshold 0.78 |
-| Summary | worker → ai `/v1/summaries` → stored in `ai_summaries` keyed by thread hash → notification |
-| Chat | api → ai `/v1/chat` (SSE) with message history, `allowed_project_ids` and a tool callback URL → stream tokens + final `sources[]` |
-| PR review | worker fetches the PR and files from GitHub → filters (skip lock, generated, binary; cap 60k tokens) → ai `/v1/reviews` → per-file findings + summary + missing tests → stored → notification |
+| Feature        | Flow                                                                                                                                                                                          |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Issue draft    | api → ai `/v1/drafts` with text and the project's label list → structured output (JSON schema) → validated → streamed to the form                                                             |
+| Related issues | api → ai `/v1/related` with issue ID → reuse the stored issue embedding → kNN in the same project, excluding itself → threshold 0.78                                                          |
+| Summary        | worker → ai `/v1/summaries` → stored in `ai_summaries` keyed by thread hash → notification                                                                                                    |
+| Chat           | api → ai `/v1/chat` (SSE) with message history, `allowed_project_ids` and a tool callback URL → stream tokens + final `sources[]`                                                             |
+| PR review      | worker fetches the PR and files from GitHub → filters (skip lock, generated, binary; cap 60k tokens) → ai `/v1/reviews` → per-file findings + summary + missing tests → stored → notification |
 
 ### 7.4 Permission-aware retrieval
 
@@ -484,15 +486,15 @@ erDiagram
 
 Tables beyond the brief's list, and why:
 
-| Table | Reason |
-|---|---|
-| `issue_events` | Field-level issue history (FR-4.7), which is also the input for burndown (FR-5.5). `audit_logs` covers security events, a different concern with different retention |
-| `refresh_tokens`, `password_reset_tokens` | Hashed, revocable token storage (FR-1) |
-| `outbox_events` | Transactional outbox (§5.2) |
-| `github_installations` | GitHub App installation per account or organisation (FR-6.1) |
-| `issue_links` | Issue ↔ PR/commit links detected from `PAY-123` mentions (FR-6.4) |
-| `ai_jobs`, `ai_summaries`, `ai_reviews`, `ai_usage` | Async job status, cached results and cost tracking |
-| `teams`, `team_members` | FR-2.3 |
+| Table                                               | Reason                                                                                                                                                               |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `issue_events`                                      | Field-level issue history (FR-4.7), which is also the input for burndown (FR-5.5). `audit_logs` covers security events, a different concern with different retention |
+| `refresh_tokens`, `password_reset_tokens`           | Hashed, revocable token storage (FR-1)                                                                                                                               |
+| `outbox_events`                                     | Transactional outbox (§5.2)                                                                                                                                          |
+| `github_installations`                              | GitHub App installation per account or organisation (FR-6.1)                                                                                                         |
+| `issue_links`                                       | Issue ↔ PR/commit links detected from `PAY-123` mentions (FR-6.4)                                                                                                    |
+| `ai_jobs`, `ai_summaries`, `ai_reviews`, `ai_usage` | Async job status, cached results and cost tracking                                                                                                                   |
+| `teams`, `team_members`                             | FR-2.3                                                                                                                                                               |
 
 `documents` is generalised: it represents **every** indexable source (`source_type` +
 `source_id`) as well as uploaded engineering documents. `document_chunks` therefore has a
@@ -560,14 +562,14 @@ flowchart TB
 
 Cost-aware choices ([ADR-0005](adr/0005-aws-ecs-fargate-cost-aware.md)):
 
-| Choice | Instead of | Saving / reason |
-|---|---|---|
-| ECS Fargate (+ Spot for worker/ai) | EKS | No ~$73/month control-plane fee; far less to operate |
-| fck-nat on t4g.nano | Managed NAT Gateway | ~$3/month vs ~$32/month + data processing |
-| SSM Parameter Store | Secrets Manager | Free for standard parameters |
-| RDS db.t4g.micro single-AZ (dev) | Aurora / Multi-AZ | Multi-AZ is a one-variable switch for prod |
-| pgvector in RDS | OpenSearch / Pinecone | No extra service; one backup; transactional with source data |
-| `desired_count = 0` switch | Always on | Scale to zero between demos (RDS stopped too) |
+| Choice                             | Instead of            | Saving / reason                                              |
+| ---------------------------------- | --------------------- | ------------------------------------------------------------ |
+| ECS Fargate (+ Spot for worker/ai) | EKS                   | No ~$73/month control-plane fee; far less to operate         |
+| fck-nat on t4g.nano                | Managed NAT Gateway   | ~$3/month vs ~$32/month + data processing                    |
+| SSM Parameter Store                | Secrets Manager       | Free for standard parameters                                 |
+| RDS db.t4g.micro single-AZ (dev)   | Aurora / Multi-AZ     | Multi-AZ is a one-variable switch for prod                   |
+| pgvector in RDS                    | OpenSearch / Pinecone | No extra service; one backup; transactional with source data |
+| `desired_count = 0` switch         | Always on             | Scale to zero between demos (RDS stopped too)                |
 
 Estimated dev cost when running is ~$60–75/month, and about $5/month when stopped (storage,
 Route 53, ECR). The itemised table is in `docs/deployment.md` (Phase 16).
@@ -579,13 +581,13 @@ keys.
 
 ## 11. Observability
 
-| Signal | Local | AWS |
-|---|---|---|
-| Logs | pino (api/worker) and structlog (ai) as JSON to stdout; `docker compose logs` | CloudWatch Logs, 14-day retention |
-| Metrics | `/metrics` (prom-client, prometheus-fastapi-instrumentator) → Prometheus → Grafana | CloudWatch Container Insights + alarms; Prometheus/Grafana optional |
-| Traces | OpenTelemetry → Jaeger (Could) | X-Ray via ADOT sidecar (Could) |
-| Errors | Sentry (all three apps; free tier) | Same |
-| Health | `/health/live` (process up), `/health/ready` (DB, Redis and, for api, *not* ai-service, because the AI service being down is a degraded state, not "not ready") | ALB target group health checks |
+| Signal  | Local                                                                                                                                                           | AWS                                                                 |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Logs    | pino (api/worker) and structlog (ai) as JSON to stdout; `docker compose logs`                                                                                   | CloudWatch Logs, 14-day retention                                   |
+| Metrics | `/metrics` (prom-client, prometheus-fastapi-instrumentator) → Prometheus → Grafana                                                                              | CloudWatch Container Insights + alarms; Prometheus/Grafana optional |
+| Traces  | OpenTelemetry → Jaeger (Could)                                                                                                                                  | X-Ray via ADOT sidecar (Could)                                      |
+| Errors  | Sentry (all three apps; free tier)                                                                                                                              | Same                                                                |
+| Health  | `/health/live` (process up), `/health/ready` (DB, Redis and, for api, _not_ ai-service, because the AI service being down is a degraded state, not "not ready") | ALB target group health checks                                      |
 
 **Correlation:** the proxy or ALB assigns `X-Request-ID`. The API logs it and puts it in job data
 and in calls to ai-service, and every log line in every service carries it. One ID follows a
@@ -627,16 +629,17 @@ check.
 
 ## 13. Architecture decision records
 
-| ADR | Decision |
-|---|---|
-| [0001](adr/0001-modular-monolith-plus-ai-service.md) | Modular monolith (NestJS) + separate Python AI service |
-| [0002](adr/0002-per-project-rbac.md) | Per-project roles + global Admin, permissions in code |
-| [0003](adr/0003-auth-tokens.md) | Short-lived JWT in memory + rotating hashed refresh token in an httpOnly cookie |
-| [0004](adr/0004-single-migration-owner.md) | Prisma owns the whole schema; ai-service uses a restricted DB role |
-| [0005](adr/0005-aws-ecs-fargate-cost-aware.md) | ECS Fargate with cost-aware networking over EKS or a single EC2 |
-| [0006](adr/0006-transactional-outbox.md) | Transactional outbox for DB → queue side effects |
-| [0007](adr/0007-no-rag-framework-for-core-pipeline.md) | Hand-written RAG pipeline; hybrid retrieval in pgvector |
-| [0008](adr/0008-github-app-integration.md) | GitHub App (not OAuth app / PAT) with webhooks + reconciliation |
+| ADR                                                    | Decision                                                                         |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| [0001](adr/0001-modular-monolith-plus-ai-service.md)   | Modular monolith (NestJS) + separate Python AI service                           |
+| [0002](adr/0002-per-project-rbac.md)                   | Per-project roles + global Admin, permissions in code                            |
+| [0003](adr/0003-auth-tokens.md)                        | Short-lived JWT in memory + rotating hashed refresh token in an httpOnly cookie  |
+| [0004](adr/0004-single-migration-owner.md)             | Prisma owns the whole schema; ai-service uses a restricted DB role               |
+| [0005](adr/0005-aws-ecs-fargate-cost-aware.md)         | ECS Fargate with cost-aware networking over EKS or a single EC2                  |
+| [0006](adr/0006-transactional-outbox.md)               | Transactional outbox for DB → queue side effects                                 |
+| [0007](adr/0007-no-rag-framework-for-core-pipeline.md) | Hand-written RAG pipeline; hybrid retrieval in pgvector                          |
+| [0008](adr/0008-github-app-integration.md)             | GitHub App (not OAuth app / PAT) with webhooks + reconciliation                  |
+| [0009](adr/0009-toolchain-versions.md)                 | NestJS 11, TypeScript 5.9, ESLint 9 until the ecosystem supports the next majors |
 
 ## 14. API design conventions
 
@@ -661,11 +664,11 @@ The full reference is generated from OpenAPI (Swagger UI at `/api/docs`) and sum
 
 Where the endpoint list in the original brief was adjusted, and why:
 
-| Brief | Designed as | Reason |
-|---|---|---|
-| `POST /issues/:id/ai/generate` | `POST /projects/:id/ai/issue-drafts` | A draft is generated **before** the issue exists, so it cannot hang off an issue ID. The project gives the label vocabulary and the permission scope |
-| `POST /issues/:id/ai/summarize` | `POST /issues/:id/ai/summaries` → `202` | Async job, and a noun for the created resource |
-| `GET /sprints`, `POST /sprints` | `GET/POST /projects/:id/sprints`; `POST /sprints/:id/start`, `/complete` | A sprint always belongs to a project. Start and complete are state-machine commands, so they are modelled as action sub-resources |
-| `GET /github/pull-requests` | `GET /projects/:id/pull-requests`, `GET /github/repositories/:id/pull-requests` | PRs are only visible through a project the caller can access |
-| `POST /ai/index` | `POST /projects/:id/documents` (upload → auto-index), `POST /admin/ai/reindex` | Indexing is a side effect of creating content, not a user action. A manual full re-index is an admin operation |
-| `POST /github/connect` | `GET /github/install` (redirect to the GitHub App install) + `GET /github/callback` + `POST /webhooks/github` | This is how GitHub App installation works (ADR-0008) |
+| Brief                           | Designed as                                                                                                   | Reason                                                                                                                                               |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /issues/:id/ai/generate`  | `POST /projects/:id/ai/issue-drafts`                                                                          | A draft is generated **before** the issue exists, so it cannot hang off an issue ID. The project gives the label vocabulary and the permission scope |
+| `POST /issues/:id/ai/summarize` | `POST /issues/:id/ai/summaries` → `202`                                                                       | Async job, and a noun for the created resource                                                                                                       |
+| `GET /sprints`, `POST /sprints` | `GET/POST /projects/:id/sprints`; `POST /sprints/:id/start`, `/complete`                                      | A sprint always belongs to a project. Start and complete are state-machine commands, so they are modelled as action sub-resources                    |
+| `GET /github/pull-requests`     | `GET /projects/:id/pull-requests`, `GET /github/repositories/:id/pull-requests`                               | PRs are only visible through a project the caller can access                                                                                         |
+| `POST /ai/index`                | `POST /projects/:id/documents` (upload → auto-index), `POST /admin/ai/reindex`                                | Indexing is a side effect of creating content, not a user action. A manual full re-index is an admin operation                                       |
+| `POST /github/connect`          | `GET /github/install` (redirect to the GitHub App install) + `GET /github/callback` + `POST /webhooks/github` | This is how GitHub App installation works (ADR-0008)                                                                                                 |

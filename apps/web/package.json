@@ -1,0 +1,41 @@
+{
+  "name": "@forge/web",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Forge web app (Next.js)",
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev --port 3000",
+    "start": "next start --port 3000",
+    "lint": "eslint .",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "jest",
+    "clean": "rm -rf .next coverage"
+  },
+  "dependencies": {
+    "@forge/types": "workspace:*",
+    "@forge/ui": "workspace:*",
+    "@tanstack/react-query": "5.104.0",
+    "lucide-react": "1.48.0",
+    "next": "16.3.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@forge/config": "workspace:*",
+    "@tailwindcss/postcss": "4.3.3",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@types/jest": "30.0.0",
+    "@types/node": "22.20.4",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.6",
+    "jest": "30.5.2",
+    "jest-environment-jsdom": "30.5.2",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3"
+  }
+}

@@ -11,7 +11,7 @@ to XSS and CSRF, and whether sessions can be revoked.
 ## Decision
 
 - **Access token:** JWT, 15 min, EdDSA-signed with a `kid` header for key rotation. Claims are
-  kept minimal (`sub`, `isAdmin`, `iat`, `exp`, `jti`); project roles are *not* in the token
+  kept minimal (`sub`, `isAdmin`, `iat`, `exp`, `jti`); project roles are _not_ in the token
   because they change and are looked up (cached) per request. Held **in memory** by the
   frontend.
 - **Refresh token:** opaque 256-bit random value, stored in the DB as a SHA-256 hash, 7-day

@@ -25,13 +25,13 @@ pgvector) and Redis.
 
 ## Alternatives considered
 
-| Option | Why not |
-|---|---|
-| EKS | ~$73/month control plane before any workload; Kubernetes operations aren't the skill being demonstrated here |
+| Option                      | Why not                                                                                                                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| EKS                         | ~$73/month control plane before any workload; Kubernetes operations aren't the skill being demonstrated here                                                                   |
 | Single EC2 + Docker Compose | Cheapest (~$15/month), but no managed DB backups, no rolling deploys, no health-based replacement. It would be documented as the budget option, not the reference architecture |
-| App Runner | No private networking to ElastiCache without VPC connectors, less control, and service discontinuation risk |
-| Lambda | Long-lived SSE streams and BullMQ workers are a poor fit |
-| Managed NAT Gateway | ~$32/month + $0.045/GB, which is the single largest line item for a small dev environment |
+| App Runner                  | No private networking to ElastiCache without VPC connectors, less control, and service discontinuation risk                                                                    |
+| Lambda                      | Long-lived SSE streams and BullMQ workers are a poor fit                                                                                                                       |
+| Managed NAT Gateway         | ~$32/month + $0.045/GB, which is the single largest line item for a small dev environment                                                                                      |
 
 ## Consequences
 

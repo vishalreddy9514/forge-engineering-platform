@@ -1,0 +1,11 @@
+{
+  "extends": "@forge/config/tsconfig/nextjs.json",
+  "compilerOptions": {
+    "types": ["node", "jest", "@testing-library/jest-dom"],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "src", ".next/types/**/*.ts", "next.config.ts", "jest.setup.ts"],
+  "exclude": ["node_modules"]
+}

@@ -1,0 +1,5 @@
+@import 'tailwindcss';
+@import '@forge/ui/styles.css';
+
+/* Generate utilities used inside the shared UI package, not only in this app. */
+@source '../../../../packages/ui/src';
