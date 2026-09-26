@@ -14,4 +14,10 @@ Object.assign(process.env, {
   HIBP_ENABLED: 'false',
   WEB_ORIGIN: 'http://localhost:3000',
   CORS_ORIGINS: 'http://localhost:3000',
+  S3_ENDPOINT: process.env.INTEGRATION_S3_ENDPOINT,
+  S3_BUCKET: 'forge-test',
+  S3_ACCESS_KEY_ID: 'forge',
+  S3_SECRET_ACCESS_KEY: 'forge_dev_storage_secret',
+  S3_FORCE_PATH_STYLE: 'true',
+  S3_ENSURE_BUCKET: 'true',
 });

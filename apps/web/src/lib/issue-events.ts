@@ -50,6 +50,10 @@ export function describeEvent(
       return 'edited a comment';
     case 'COMMENT_DELETED':
       return 'deleted a comment';
+    case 'ATTACHMENT_ADDED':
+      return `attached ${nameOf(event.newValue) ?? 'a file'}`;
+    case 'ATTACHMENT_REMOVED':
+      return `removed the attachment ${nameOf(event.oldValue) ?? ''}`.trimEnd();
     case 'LABEL_ADDED':
       return `added the label ${nameOf(event.newValue) ?? '(deleted label)'}`;
     case 'LABEL_REMOVED':

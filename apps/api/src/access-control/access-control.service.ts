@@ -7,7 +7,7 @@ import { REDIS_CLIENT } from '../infrastructure/redis/redis.module';
 
 /** Where a guarded route's project comes from. */
 export type ProjectScope =
-  'project' | 'projectKey' | 'issue' | 'issueKey' | 'comment' | 'sprint' | 'label';
+  'project' | 'projectKey' | 'issue' | 'issueKey' | 'comment' | 'attachment' | 'sprint' | 'label';
 
 export interface ResolvedProject {
   id: string;
@@ -94,6 +94,14 @@ export class AccessControlService {
         project = (
           await this.prisma.issueComment.findFirst({
             where: { id, deletedAt: null, issue: { deletedAt: null } },
+            select: { issue: { select: { project: { select } } } },
+          })
+        )?.issue.project;
+        break;
+      case 'attachment':
+        project = (
+          await this.prisma.attachment.findFirst({
+            where: { id, issue: { deletedAt: null } },
             select: { issue: { select: { project: { select } } } },
           })
         )?.issue.project;

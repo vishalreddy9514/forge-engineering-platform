@@ -52,6 +52,31 @@ services:
       retries: 10
     restart: unless-stopped
 
+  object-storage:
+    # S3-compatible object storage for attachments (AWS S3 in deployed environments). The app
+    # only speaks the S3 API through the AWS SDK, so nothing is SeaweedFS-specific. The API
+    # creates the bucket and its CORS rule on startup when S3_ENSURE_BUCKET=true.
+    image: chrislusf/seaweedfs:3.97
+    command:
+      - server
+      - -dir=/data
+      - -volume.max=10
+      - -s3
+      - -s3.port=8333
+      - -s3.config=/etc/seaweedfs/s3.json
+    ports:
+      - '127.0.0.1:${S3_PORT:-8333}:8333'
+    volumes:
+      - object-data:/data
+      - ./infrastructure/docker/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8333/status']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
 volumes:
   postgres-data:
   redis-data:
+  object-data:

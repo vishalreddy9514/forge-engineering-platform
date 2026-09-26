@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 
+import { NotificationBell } from '@/components/app/notification-bell';
 import { useAuth } from '@/components/auth/auth-provider';
 
 /** Signed-in chrome. The proxy already redirected visitors without a session hint. */
@@ -45,6 +46,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
           </nav>
           <div className="flex items-center gap-3 text-sm">
+            <NotificationBell active={pathname.startsWith('/notifications')} />
             <span aria-label="Signed in as">{state.user.displayName}</span>
             <Button variant="ghost" size="sm" onClick={() => void logout()}>
               <LogOut aria-hidden="true" />

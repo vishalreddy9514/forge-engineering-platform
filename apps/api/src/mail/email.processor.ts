@@ -3,9 +3,9 @@ import { Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
 
 import { QUEUES } from '../infrastructure/queue/queue.module';
-import { EMAIL_JOBS, type PasswordResetEmailJob } from './email.jobs';
+import { EMAIL_JOBS, type IssueAssignedEmailJob, type PasswordResetEmailJob } from './email.jobs';
 import { MailerService } from './mailer.service';
-import { renderPasswordReset } from './templates';
+import { renderIssueAssigned, renderPasswordReset } from './templates';
 
 /** Runs in the worker process. Failures throw, so BullMQ retries with backoff. */
 @Processor(QUEUES.EMAIL, { concurrency: 5 })
@@ -21,6 +21,11 @@ export class EmailProcessor extends WorkerHost {
       case EMAIL_JOBS.PASSWORD_RESET: {
         const data = job.data as PasswordResetEmailJob;
         await this.mailer.send(data.to, renderPasswordReset(data));
+        break;
+      }
+      case EMAIL_JOBS.ISSUE_ASSIGNED: {
+        const data = job.data as IssueAssignedEmailJob;
+        await this.mailer.send(data.to, renderIssueAssigned(data));
         break;
       }
       default:

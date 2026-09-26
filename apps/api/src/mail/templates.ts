@@ -1,4 +1,4 @@
-import type { PasswordResetEmailJob } from './email.jobs';
+import type { IssueAssignedEmailJob, PasswordResetEmailJob } from './email.jobs';
 
 export interface RenderedEmail {
   subject: string;
@@ -39,5 +39,22 @@ export function renderPasswordReset(job: PasswordResetEmailJob): RenderedEmail {
 Use this link within ${job.expiresInMinutes} minutes to choose a new one:</p>
 <p><a href="${url}">Reset your password</a></p>
 <p>If you didn't ask for this, you can ignore this email. Your password won't change.</p>`,
+  };
+}
+
+export function renderIssueAssigned(job: IssueAssignedEmailJob): RenderedEmail {
+  const url = escapeHtml(job.issueUrl);
+  return {
+    subject: `[${job.issueKey}] ${job.issueTitle}`,
+    text: [
+      `Hi ${job.displayName},`,
+      '',
+      `${job.actorName} assigned you ${job.issueKey}: ${job.issueTitle}`,
+      '',
+      job.issueUrl,
+    ].join('\n'),
+    html: `<p>Hi ${escapeHtml(job.displayName)},</p>
+<p>${escapeHtml(job.actorName)} assigned you
+<a href="${url}">${escapeHtml(job.issueKey)}: ${escapeHtml(job.issueTitle)}</a>.</p>`,
   };
 }

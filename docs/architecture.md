@@ -68,7 +68,7 @@ flowchart TB
     subgraph data["Data"]
         pg[("PostgreSQL 16<br/>+ pgvector")]
         redis[("Redis 7<br/>queues · rate limits · cache")]
-        s3[("Object storage<br/>S3 / MinIO")]
+        s3[("Object storage<br/>S3 (SeaweedFS locally)")]
     end
 
     ext_gh["GitHub"]
@@ -176,13 +176,14 @@ issues/
 
 ### 5.1 Queues
 
-| Queue           | Producer                          | Job examples                                        | Concurrency     | Retry                           |
-| --------------- | --------------------------------- | --------------------------------------------------- | --------------- | ------------------------------- |
-| `notifications` | outbox relay                      | `issue.assigned`, `comment.added`, `sprint.started` | 10              | 5 × exp. backoff                |
-| `github-sync`   | api (connect, webhook), scheduler | `repo.initial-sync`, `pr.upsert`, `reconcile`       | 2 (rate limits) | 8 × exp., respects reset header |
-| `indexing`      | outbox relay                      | `source.index`, `source.delete`                     | 4               | 5 × exp.                        |
-| `ai`            | api                               | `issue.summarise`, `pr.review`                      | 2               | 3 × exp.                        |
-| `email`         | notifications processor           | `send`                                              | 5               | 5 × exp.                        |
+| Queue           | Producer                          | Job examples                                           | Concurrency     | Retry                           |
+| --------------- | --------------------------------- | ------------------------------------------------------ | --------------- | ------------------------------- |
+| `notifications` | outbox relay                      | `issue.assigned`, `comment.added`, `sprint.started`    | 10              | 5 × exp. backoff                |
+| `github-sync`   | api (connect, webhook), scheduler | `repo.initial-sync`, `pr.upsert`, `reconcile`          | 2 (rate limits) | 8 × exp., respects reset header |
+| `indexing`      | outbox relay                      | `source.index`, `source.delete`                        | 4               | 5 × exp.                        |
+| `ai`            | api                               | `issue.summarise`, `pr.review`                         | 2               | 3 × exp.                        |
+| `email`         | notifications processor           | `send`                                                 | 5               | 5 × exp.                        |
+| `maintenance`   | job schedulers (worker)           | `attachments.cleanup` (hourly), `outbox.prune` (daily) | 1               | none (next run retries)         |
 
 - Failed jobs go to a per-queue **dead-letter** state, kept for 7 days and shown on an admin page.
 - **Idempotency:** every job ID is deterministic (for example `index:issue:{id}:{contentHash}`),
@@ -224,6 +225,17 @@ sequenceDiagram
 
 This gives at-least-once delivery, and deterministic job IDs make that safe to repeat. See
 [ADR-0006](adr/0006-transactional-outbox.md).
+
+**As built (Phase 6b).** Issue and comment services call `writeOutbox(tx, …)` inside their
+transaction. An `AFTER INSERT … FOR EACH STATEMENT` trigger issues `pg_notify('outbox_events')`,
+which Postgres delivers only on commit; the relay (`OutboxRelay`, worker) LISTENs on a dedicated
+connection and falls back to a 500 ms poll if that connection drops. Each batch is claimed with
+`FOR UPDATE SKIP LOCKED`, added to BullMQ with job ID `outbox-{id}`, and marked published in the
+same transaction, so a Redis failure leaves the rows pending. The notifications processor
+reloads current state (skipping events that no longer apply, such as a reassigned issue) and
+inserts with a per-recipient `dedupe_key`, so a redelivered event creates nothing new. Tests
+prove three relays draining 250 rows concurrently never publish one twice, and that removing
+the row lock or the dedupe key breaks them.
 
 ### 5.3 What is synchronous and what is not
 
@@ -629,18 +641,19 @@ check.
 
 ## 13. Architecture decision records
 
-| ADR                                                    | Decision                                                                         |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| [0001](adr/0001-modular-monolith-plus-ai-service.md)   | Modular monolith (NestJS) + separate Python AI service                           |
-| [0002](adr/0002-per-project-rbac.md)                   | Per-project roles + global Admin, permissions in code                            |
-| [0003](adr/0003-auth-tokens.md)                        | Short-lived JWT in memory + rotating hashed refresh token in an httpOnly cookie  |
-| [0004](adr/0004-single-migration-owner.md)             | Prisma owns the whole schema; ai-service uses a restricted DB role               |
-| [0005](adr/0005-aws-ecs-fargate-cost-aware.md)         | ECS Fargate with cost-aware networking over EKS or a single EC2                  |
-| [0006](adr/0006-transactional-outbox.md)               | Transactional outbox for DB → queue side effects                                 |
-| [0007](adr/0007-no-rag-framework-for-core-pipeline.md) | Hand-written RAG pipeline; hybrid retrieval in pgvector                          |
-| [0008](adr/0008-github-app-integration.md)             | GitHub App (not OAuth app / PAT) with webhooks + reconciliation                  |
-| [0009](adr/0009-toolchain-versions.md)                 | NestJS 11, TypeScript 5.9, ESLint 9 until the ecosystem supports the next majors |
-| [0010](adr/0010-es256-access-tokens-and-revocation.md) | ES256 via @nestjs/jwt; Redis revocation cutoff for immediate deactivation        |
+| ADR                                                    | Decision                                                                          |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| [0001](adr/0001-modular-monolith-plus-ai-service.md)   | Modular monolith (NestJS) + separate Python AI service                            |
+| [0002](adr/0002-per-project-rbac.md)                   | Per-project roles + global Admin, permissions in code                             |
+| [0003](adr/0003-auth-tokens.md)                        | Short-lived JWT in memory + rotating hashed refresh token in an httpOnly cookie   |
+| [0004](adr/0004-single-migration-owner.md)             | Prisma owns the whole schema; ai-service uses a restricted DB role                |
+| [0005](adr/0005-aws-ecs-fargate-cost-aware.md)         | ECS Fargate with cost-aware networking over EKS or a single EC2                   |
+| [0006](adr/0006-transactional-outbox.md)               | Transactional outbox for DB → queue side effects                                  |
+| [0007](adr/0007-no-rag-framework-for-core-pipeline.md) | Hand-written RAG pipeline; hybrid retrieval in pgvector                           |
+| [0008](adr/0008-github-app-integration.md)             | GitHub App (not OAuth app / PAT) with webhooks + reconciliation                   |
+| [0009](adr/0009-toolchain-versions.md)                 | NestJS 11, TypeScript 5.9, ESLint 9 until the ecosystem supports the next majors  |
+| [0010](adr/0010-es256-access-tokens-and-revocation.md) | ES256 via @nestjs/jwt; Redis revocation cutoff for immediate deactivation         |
+| [0011](adr/0011-local-object-storage-seaweedfs.md)     | SeaweedFS as the local S3-compatible store (MinIO images are no longer published) |
 
 ## 14. API design conventions
 

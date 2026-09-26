@@ -17,6 +17,7 @@ import type { AuthUser } from '../auth/auth.types';
 import { decodeCursorParts, encodeCursorParts } from '../common/http/cursor';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../infrastructure/database/prisma.service';
+import { writeOutbox } from '../outbox/outbox.writer';
 import { allocateIssueNumber } from './issue-number.allocator';
 import { diffIssue, type Person } from './issue-changes';
 import {
@@ -102,6 +103,18 @@ export class IssuesService {
           newValue: { title: created.title, status: created.status },
         },
       });
+      if (assigneeId) {
+        await writeOutbox(
+          tx,
+          'issue.assigned',
+          { type: 'issue', id: created.id },
+          {
+            issueId: created.id,
+            assigneeId,
+            actorId: user.id,
+          },
+        );
+      }
       return created;
     });
     return this.get(issue.id);
@@ -183,6 +196,18 @@ export class IssuesService {
           newValue: event.newValue ?? Prisma.JsonNull,
         })),
       });
+      if (newAssignee && changes.data.assigneeId !== undefined) {
+        await writeOutbox(
+          tx,
+          'issue.assigned',
+          { type: 'issue', id: issueId },
+          {
+            issueId,
+            assigneeId: newAssignee.id,
+            actorId: user.id,
+          },
+        );
+      }
     });
     return this.get(issueId);
   }

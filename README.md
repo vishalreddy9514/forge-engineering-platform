@@ -8,13 +8,15 @@ history with cited sources.
 AI is a feature of the product, not the product. Every core workflow works with the AI service
 switched off.
 
-> **Status: Phase 6 of 20 (issues, part 1).** Teams track work as issues (`PAY-42`) with a
-> status workflow, priorities, assignees, labels, story points and due dates; search and filter
-> them; move them on a Kanban board; discuss them in Markdown comments; and see a full change
-> history. Concurrent edits are caught with optimistic locking instead of silently overwriting.
-> This builds on projects and members (Phase 5), authentication and RBAC (Phase 4), the database
-> schema (Phase 3) and the monorepo, CI and local infrastructure (Phase 2). Attachments and
-> notifications follow in the second half of Phase 6.
+> **Status: Phase 6 of 20 (issues).** Teams track work as issues (`PAY-42`) with a status
+> workflow, priorities, assignees, labels, story points and due dates; search and filter them;
+> move them on a Kanban board; discuss them in Markdown comments; attach files, uploaded straight
+> to object storage with pre-signed URLs; and get notified in the app (and by email) when they are
+> assigned an issue or someone comments on one they are involved in. Notifications flow through a
+> transactional outbox, so a change and its notification are never out of step. Concurrent edits
+> are caught with optimistic locking. This builds on projects and members (Phase 5),
+> authentication and RBAC (Phase 4), the database schema (Phase 3) and the monorepo, CI and local
+> infrastructure (Phase 2).
 
 ## Stack
 
@@ -52,16 +54,17 @@ docs/           Requirements, architecture, ADRs
 cp .env.example .env
 pnpm install
 (cd apps/ai-service && uv sync)
-pnpm infra:up        # Postgres (pgvector), Redis and Mailpit, waits until healthy
+pnpm infra:up        # Postgres (pgvector), Redis, Mailpit and SeaweedFS (S3), waits until healthy
 pnpm --filter @forge/api db:deploy   # apply database migrations
 pnpm --filter @forge/api db:seed     # demo users, projects, sprints and issues
-pnpm dev             # web :3000, api :4000 (+ email worker), ai-service :8000, hot reload
+pnpm dev             # web :3000, api :4000 (+ worker), ai-service :8000, hot reload
 ```
 
 Sign in at http://localhost:3000 with a seeded account: `priya@forge.local` (project manager),
 `sam@forge.local` (developer), `jordan@forge.local` (viewer on PAY) or `admin@forge.local`, all
-with the password `forge-demo-password`. Password-reset emails land in Mailpit at
-http://localhost:8025.
+with the password `forge-demo-password`. Password-reset and assignment emails land in Mailpit at
+http://localhost:8025. Attachments upload straight from the browser to the local S3-compatible
+store on port 8333 ([ADR-0011](docs/adr/0011-local-object-storage-seaweedfs.md)).
 
 The home page's system status card calls the API through the same-origin
 `/api` rewrite and shows the live readiness of each dependency. Stop Redis

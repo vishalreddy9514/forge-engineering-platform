@@ -1,0 +1,25 @@
+import { Processor, WorkerHost } from '@nestjs/bullmq';
+import type { Job } from 'bullmq';
+
+import { QUEUES } from '../infrastructure/queue/queue.module';
+import type { OutboxJob } from '../outbox/outbox.events';
+import { NotificationFanout } from './notification-fanout.service';
+
+/** Consumes domain events relayed from the outbox. Throws on failure so BullMQ retries. */
+@Processor(QUEUES.NOTIFICATIONS, { concurrency: 10 })
+export class NotificationsProcessor extends WorkerHost {
+  constructor(private readonly fanout: NotificationFanout) {
+    super();
+  }
+
+  async process(job: Job): Promise<number> {
+    switch (job.name) {
+      case 'issue.assigned':
+        return this.fanout.issueAssigned(job.data as OutboxJob<'issue.assigned'>);
+      case 'comment.added':
+        return this.fanout.commentAdded(job.data as OutboxJob<'comment.added'>);
+      default:
+        throw new Error(`Unknown notification job: ${job.name}`);
+    }
+  }
+}
