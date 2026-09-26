@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.build.json",
+  "compilerOptions": {
+    // Separate output so `nest start --watch` for the API and the worker never delete or
+    // overwrite each other's build during development.
+    "outDir": "dist-worker"
+  }
+}

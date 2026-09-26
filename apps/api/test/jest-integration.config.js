@@ -11,5 +11,6 @@ module.exports = {
   testRegex: '\\.int-spec\\.ts$',
   globalSetup: '<rootDir>/integration/global-setup.ts',
   globalTeardown: '<rootDir>/integration/global-teardown.ts',
+  setupFiles: ['<rootDir>/integration/setup-env.ts'],
   testTimeout: 30_000,
 };

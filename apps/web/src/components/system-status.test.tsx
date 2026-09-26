@@ -28,6 +28,8 @@ describe('SystemStatus', () => {
     expect(await screen.findByText('Operational')).toBeInTheDocument();
     expect(screen.getByText('redis')).toBeInTheDocument();
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/health/ready', expect.anything());
+    const [, init] = (global.fetch as jest.Mock).mock.calls[0] as [string, RequestInit];
+    expect(new Headers(init.headers).has('Authorization')).toBe(false);
   });
 
   it('shows the failing dependency when the API reports 503', async () => {

@@ -9,6 +9,15 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   transpilePackages: ['@forge/ui'],
+  headers() {
+    return Promise.resolve([
+      {
+        // The URL carries a password-reset token: never leak it in Referer headers.
+        source: '/reset-password',
+        headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
+      },
+    ]);
+  },
   rewrites() {
     return Promise.resolve([{ source: '/api/:path*', destination: `${apiUrl}/api/:path*` }]);
   },

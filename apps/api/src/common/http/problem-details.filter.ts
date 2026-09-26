@@ -8,6 +8,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+
+import { TooManyRequestsException } from '../errors/too-many-requests.exception';
 import { STATUS_CODES } from 'node:http';
 
 /**
@@ -31,6 +33,9 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       );
     }
 
+    if (exception instanceof TooManyRequestsException) {
+      res.setHeader('Retry-After', exception.retryAfterSeconds);
+    }
     res.status(problem.status).type(PROBLEM_JSON_CONTENT_TYPE).json(problem);
   }
 
