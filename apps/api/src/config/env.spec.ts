@@ -1,6 +1,9 @@
 import { validateEnv } from './env';
 
-const valid = { REDIS_URL: 'redis://localhost:6379' };
+const valid = {
+  DATABASE_URL: 'postgresql://forge:secret@localhost:5432/forge',
+  REDIS_URL: 'redis://localhost:6379',
+};
 
 describe('validateEnv', () => {
   it('applies defaults for optional values', () => {
@@ -12,6 +15,7 @@ describe('validateEnv', () => {
       LOG_PRETTY: false,
       CORS_ORIGINS: [],
       TRUST_PROXY_HOPS: 0,
+      DATABASE_POOL_MAX: 10,
     });
     expect(env.SWAGGER_ENABLED).toBeUndefined();
   });
@@ -39,7 +43,15 @@ describe('validateEnv', () => {
     expect(attempt).toThrow(/CORS_ORIGINS/);
   });
 
-  it('requires REDIS_URL', () => {
-    expect(() => validateEnv({})).toThrow(/REDIS_URL/);
+  it('requires the database and Redis URLs', () => {
+    const attempt = () => validateEnv({});
+    expect(attempt).toThrow(/DATABASE_URL/);
+    expect(attempt).toThrow(/REDIS_URL/);
+  });
+
+  it('rejects a non-Postgres DATABASE_URL', () => {
+    expect(() => validateEnv({ ...valid, DATABASE_URL: 'mysql://localhost/forge' })).toThrow(
+      /DATABASE_URL/,
+    );
   });
 });

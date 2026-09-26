@@ -1,0 +1,914 @@
+// Forge database schema. See docs/database.md for the design rationale behind each table,
+// index and constraint. Prisma owns every migration, including the pgvector and full-text
+// parts that Prisma cannot express natively (ADR-0004); those are written as raw SQL inside
+// the migration files and declared here as `Unsupported` so the client and migrate agree.
+//
+// Conventions
+// - Tables and columns are snake_case (@@map / @map); models and fields are camelCase.
+// - Entities exposed through the API use UUIDv7 keys: unguessable, and time-ordered so
+//   B-tree inserts stay local. High-volume internal rows (events, chunks, logs) use bigint
+//   identity keys, which are half the size and never leave the backend.
+// - Timestamps are timestamptz, stored in UTC.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum IssueStatus {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  CANCELLED
+
+  @@map("issue_status")
+}
+
+enum IssuePriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+
+  @@map("issue_priority")
+}
+
+enum IssueType {
+  BUG
+  FEATURE
+  TASK
+  CHORE
+
+  @@map("issue_type")
+}
+
+enum IssueEventType {
+  CREATED
+  FIELD_CHANGED
+  COMMENT_ADDED
+  COMMENT_EDITED
+  COMMENT_DELETED
+  ATTACHMENT_ADDED
+  ATTACHMENT_REMOVED
+  LABEL_ADDED
+  LABEL_REMOVED
+  SPRINT_CHANGED
+  LINKED
+  DELETED
+  RESTORED
+
+  @@map("issue_event_type")
+}
+
+enum SprintStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+
+  @@map("sprint_status")
+}
+
+/// Why an issue left a sprint. NULL while the issue is still in the sprint.
+enum SprintIssueOutcome {
+  COMPLETED
+  CARRIED_OVER
+  REMOVED
+
+  @@map("sprint_issue_outcome")
+}
+
+enum AttachmentStatus {
+  PENDING_UPLOAD
+  AVAILABLE
+
+  @@map("attachment_status")
+}
+
+enum NotificationType {
+  ISSUE_ASSIGNED
+  COMMENT_ADDED
+  MENTIONED
+  SPRINT_STARTED
+  SPRINT_COMPLETED
+  PULL_REQUEST_OPENED
+  AI_JOB_COMPLETED
+  AI_JOB_FAILED
+
+  @@map("notification_type")
+}
+
+enum GithubAccountType {
+  USER
+  ORGANIZATION
+
+  @@map("github_account_type")
+}
+
+enum PullRequestState {
+  OPEN
+  CLOSED
+  MERGED
+
+  @@map("pull_request_state")
+}
+
+enum IssueLinkType {
+  PULL_REQUEST
+  COMMIT
+
+  @@map("issue_link_type")
+}
+
+enum DocumentSourceType {
+  ISSUE
+  COMMENT
+  PULL_REQUEST
+  COMMIT
+  UPLOAD
+
+  @@map("document_source_type")
+}
+
+enum AiMessageRole {
+  USER
+  ASSISTANT
+  TOOL
+
+  @@map("ai_message_role")
+}
+
+enum AiJobType {
+  ISSUE_SUMMARY
+  PR_REVIEW
+  REINDEX
+
+  @@map("ai_job_type")
+}
+
+enum AiJobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+
+  @@map("ai_job_status")
+}
+
+enum AiFeature {
+  ISSUE_DRAFT
+  ISSUE_SUMMARY
+  RELATED_ISSUES
+  CHAT
+  SEMANTIC_SEARCH
+  PR_REVIEW
+  EMBEDDING
+
+  @@map("ai_feature")
+}
+
+// ─────────────────────── Identity & access ───────────────────────
+
+model User {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  /// citext: `Alice@x.com` and `alice@x.com` are the same account.
+  email        String    @unique @db.Citext
+  displayName  String    @map("display_name") @db.VarChar(100)
+  /// argon2id hash (PHC string format); never selected by default in repositories.
+  passwordHash String    @map("password_hash")
+  avatarUrl    String?   @map("avatar_url")
+  isAdmin      Boolean   @default(false) @map("is_admin")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  refreshTokens       RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+  memberships         ProjectMember[]      @relation("MemberUser")
+  membershipsAdded    ProjectMember[]      @relation("MemberAddedBy")
+  teamMemberships     TeamMember[]
+  projectsCreated     Project[]            @relation("ProjectCreator")
+  defaultAssigneeFor  Project[]            @relation("ProjectDefaultAssignee")
+  issuesReported      Issue[]              @relation("IssueReporter")
+  issuesAssigned      Issue[]              @relation("IssueAssignee")
+  comments            IssueComment[]
+  issueEvents         IssueEvent[]
+  attachments         Attachment[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+  githubInstallations GithubInstallation[]
+  documents           Document[]
+  aiConversations     AiConversation[]
+  aiJobs              AiJob[]
+  aiUsage             AiUsage[]
+
+  @@map("users")
+}
+
+/// Reference data: the three project roles (ADR-0002). Rows are inserted by a migration,
+/// and permissions per role live in code, not here.
+model Role {
+  id          Int     @id @db.SmallInt
+  key         String  @unique @db.VarChar(32)
+  name        String  @db.VarChar(64)
+  description String?
+
+  members ProjectMember[]
+
+  @@map("roles")
+}
+
+/// Opaque refresh tokens, stored as SHA-256 hashes. Rotated on every use; reuse of a rotated
+/// token revokes its whole family (ADR-0003).
+model RefreshToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  /// hex SHA-256 of the token; the token itself is never stored.
+  tokenHash String    @unique @map("token_hash") @db.Char(64)
+  familyId  String    @map("family_id") @db.Uuid
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+  userAgent String?   @map("user_agent") @db.VarChar(512)
+  ipAddress String?   @map("ip_address") @db.Inet
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.Char(64)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model Team {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  name        String   @unique @db.Citext
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  members TeamMember[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  teamId  String   @map("team_id") @db.Uuid
+  userId  String   @map("user_id") @db.Uuid
+  addedAt DateTime @default(now()) @map("added_at") @db.Timestamptz
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, userId])
+  @@index([userId])
+  @@map("team_members")
+}
+
+// ─────────────────────────── Projects ────────────────────────────
+
+model Project {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  /// Short uppercase key used in issue keys (PAY → PAY-123). CHECK-constrained in SQL.
+  key               String    @unique @db.VarChar(10)
+  name              String    @db.VarChar(100)
+  description       String?
+  /// Last issue number handed out. Incremented with UPDATE … RETURNING inside the issue-insert
+  /// transaction, so concurrent creates serialise on this row and numbers have no gaps.
+  issueSeq          Int       @default(0) @map("issue_seq")
+  defaultAssigneeId String?   @map("default_assignee_id") @db.Uuid
+  createdById       String    @map("created_by_id") @db.Uuid
+  archivedAt        DateTime? @map("archived_at") @db.Timestamptz
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  createdBy       User                @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  defaultAssignee User?               @relation("ProjectDefaultAssignee", fields: [defaultAssigneeId], references: [id], onDelete: SetNull)
+  members         ProjectMember[]
+  issues          Issue[]
+  labels          Label[]
+  sprints         Sprint[]
+  sprintIssues    SprintIssue[]
+  issueLabels     IssueLabel[]
+  repositories    ProjectRepository[]
+  documents       Document[]
+  documentChunks  DocumentChunk[]
+  aiConversations AiConversation[]
+  aiJobs          AiJob[]
+  aiUsage         AiUsage[]
+
+  @@map("projects")
+}
+
+model ProjectMember {
+  projectId String   @map("project_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  roleId    Int      @map("role_id") @db.SmallInt
+  addedById String?  @map("added_by_id") @db.Uuid
+  addedAt   DateTime @default(now()) @map("added_at") @db.Timestamptz
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation("MemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  role    Role    @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  addedBy User?   @relation("MemberAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@id([projectId, userId])
+  /// "Which projects can this user see?" is on the hot path of every request (RBAC).
+  @@index([userId])
+  @@map("project_members")
+}
+
+model Label {
+  id          String  @id @default(uuid(7)) @db.Uuid
+  projectId   String  @map("project_id") @db.Uuid
+  name        String  @db.Citext
+  /// #rrggbb, CHECK-constrained in SQL.
+  color       String  @db.Char(7)
+  description String?
+
+  project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issues  IssueLabel[]
+
+  @@unique([projectId, name])
+  /// Target of the composite FK from issue_labels (label must belong to the issue's project).
+  @@unique([id, projectId])
+  @@map("labels")
+}
+
+// ──────────────────────────── Issues ─────────────────────────────
+
+model Issue {
+  id           String                   @id @default(uuid(7)) @db.Uuid
+  projectId    String                   @map("project_id") @db.Uuid
+  /// Per-project sequence number (PAY-123 → 123).
+  number       Int
+  title        String                   @db.VarChar(200)
+  description  String?
+  type         IssueType                @default(TASK)
+  status       IssueStatus              @default(BACKLOG)
+  priority     IssuePriority            @default(MEDIUM)
+  reporterId   String                   @map("reporter_id") @db.Uuid
+  assigneeId   String?                  @map("assignee_id") @db.Uuid
+  storyPoints  Int?                     @map("story_points") @db.SmallInt
+  dueDate      DateTime?                @map("due_date") @db.Date
+  /// Optimistic concurrency: every update is `WHERE id = ? AND version = ?` and increments it.
+  version      Int                      @default(1)
+  /// Set when the issue enters DONE/CANCELLED, cleared if it is reopened (resolution-time metrics).
+  resolvedAt   DateTime?                @map("resolved_at") @db.Timestamptz
+  /// Soft delete: history, links and audit references stay intact; PMs can restore.
+  deletedAt    DateTime?                @map("deleted_at") @db.Timestamptz
+  createdAt    DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime                 @updatedAt @map("updated_at") @db.Timestamptz
+  /// Generated column (weighted title A, description B), maintained by Postgres. The
+  /// dbgenerated() default mirrors the GENERATED expression so migrate sees no drift.
+  searchVector Unsupported("tsvector")? @default(dbgenerated("(setweight(to_tsvector('english'::regconfig, (COALESCE(title, ''::character varying))::text), 'A'::\"char\") || setweight(to_tsvector('english'::regconfig, COALESCE(description, ''::text)), 'B'::\"char\"))")) @map("search_vector")
+
+  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reporter     User           @relation("IssueReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  assignee     User?          @relation("IssueAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  labels       IssueLabel[]
+  comments     IssueComment[]
+  events       IssueEvent[]
+  attachments  Attachment[]
+  sprintIssues SprintIssue[]
+  links        IssueLink[]
+  aiSummaries  AiSummary[]
+
+  @@unique([projectId, number])
+  /// Target of composite FKs that require same-project relationships.
+  @@unique([id, projectId])
+  @@index([assigneeId, status])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "issues_title_trgm_idx")
+  @@index([searchVector], type: Gin, map: "issues_search_vector_idx")
+  // Partial indexes (active issues by status / by recency) are created in raw SQL in the
+  // migration; Prisma ignores partial indexes, so they do not show up as drift.
+  @@map("issues")
+}
+
+/// Issue ↔ label. project_id is carried so composite FKs can guarantee the label and the
+/// issue belong to the same project (prevents cross-project tagging at the database level).
+model IssueLabel {
+  issueId   String   @map("issue_id") @db.Uuid
+  labelId   String   @map("label_id") @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  addedAt   DateTime @default(now()) @map("added_at") @db.Timestamptz
+
+  issue   Issue   @relation(fields: [issueId, projectId], references: [id, projectId], onDelete: Cascade)
+  label   Label   @relation(fields: [labelId, projectId], references: [id, projectId], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([issueId, labelId])
+  @@index([labelId])
+  @@map("issue_labels")
+}
+
+model IssueComment {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  issueId   String    @map("issue_id") @db.Uuid
+  authorId  String    @map("author_id") @db.Uuid
+  body      String
+  editedAt  DateTime? @map("edited_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  issue  Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  author User  @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([issueId, createdAt])
+  @@map("issue_comments")
+}
+
+/// Field-level issue history (FR-4.7). Also the source of truth for burndown (FR-5.5):
+/// remaining points on any day are reconstructed from status and story-point changes.
+model IssueEvent {
+  id        BigInt         @id @default(autoincrement())
+  issueId   String         @map("issue_id") @db.Uuid
+  actorId   String?        @map("actor_id") @db.Uuid
+  type      IssueEventType
+  /// For FIELD_CHANGED: the field name (e.g. "status", "storyPoints").
+  field     String?        @db.VarChar(64)
+  oldValue  Json?          @map("old_value")
+  newValue  Json?          @map("new_value")
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([issueId, createdAt])
+  @@map("issue_events")
+}
+
+/// Files live in object storage; this row is the metadata. Uploads go browser → S3 via a
+/// pre-signed URL, so a row starts PENDING_UPLOAD and becomes AVAILABLE once confirmed.
+model Attachment {
+  id           String           @id @default(uuid(7)) @db.Uuid
+  issueId      String           @map("issue_id") @db.Uuid
+  uploadedById String           @map("uploaded_by_id") @db.Uuid
+  fileName     String           @map("file_name") @db.VarChar(255)
+  contentType  String           @map("content_type") @db.VarChar(127)
+  /// Bytes; CHECK 1..10 MiB in SQL (FR-4.6).
+  sizeBytes    Int              @map("size_bytes")
+  storageKey   String           @unique @map("storage_key") @db.VarChar(512)
+  status       AttachmentStatus @default(PENDING_UPLOAD)
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  issue      Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  uploadedBy User  @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([issueId])
+  @@map("attachments")
+}
+
+// ──────────────────────────── Sprints ────────────────────────────
+
+model Sprint {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  projectId   String       @map("project_id") @db.Uuid
+  name        String       @db.VarChar(100)
+  goal        String?
+  status      SprintStatus @default(PLANNED)
+  startDate   DateTime     @map("start_date") @db.Date
+  endDate     DateTime     @map("end_date") @db.Date
+  startedAt   DateTime?    @map("started_at") @db.Timestamptz
+  completedAt DateTime?    @map("completed_at") @db.Timestamptz
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issues  SprintIssue[]
+
+  @@unique([projectId, name])
+  @@unique([id, projectId])
+  // "At most one ACTIVE sprint per project" is a partial unique index in the migration.
+  @@map("sprints")
+}
+
+/// Sprint membership over time. An issue is in at most one sprint at a time (partial unique
+/// index on issue_id WHERE removed_at IS NULL), and the rows it leaves behind record what
+/// happened to it in each sprint, which velocity and carry-over reporting need.
+model SprintIssue {
+  id               BigInt              @id @default(autoincrement())
+  sprintId         String              @map("sprint_id") @db.Uuid
+  issueId          String              @map("issue_id") @db.Uuid
+  projectId        String              @map("project_id") @db.Uuid
+  /// Story points when the issue joined the sprint (scope-change reporting).
+  storyPointsAtAdd Int?                @map("story_points_at_add") @db.SmallInt
+  addedAt          DateTime            @default(now()) @map("added_at") @db.Timestamptz
+  removedAt        DateTime?           @map("removed_at") @db.Timestamptz
+  outcome          SprintIssueOutcome?
+
+  sprint  Sprint  @relation(fields: [sprintId, projectId], references: [id, projectId], onDelete: Cascade)
+  issue   Issue   @relation(fields: [issueId, projectId], references: [id, projectId], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([sprintId])
+  @@index([issueId])
+  @@map("sprint_issues")
+}
+
+// ───────────────────── Notifications & audit ─────────────────────
+
+model Notification {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  /// Denormalised display data (issue key, title, actor name) so the list renders without joins.
+  payload   Json
+  readAt    DateTime?        @map("read_at") @db.Timestamptz
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  // Unread count uses a partial index (WHERE read_at IS NULL) created in the migration.
+  @@map("notifications")
+}
+
+/// Append-only security/audit trail (FR-13). A trigger rejects UPDATE and DELETE.
+/// Users are deactivated, never hard-deleted, so the actor reference is RESTRICT.
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  actorId    String?  @map("actor_id") @db.Uuid
+  /// e.g. "auth.login.failed", "project.member.role_changed"
+  action     String   @db.VarChar(100)
+  entityType String?  @map("entity_type") @db.VarChar(50)
+  entityId   String?  @map("entity_id") @db.VarChar(100)
+  ipAddress  String?  @map("ip_address") @db.Inet
+  userAgent  String?  @map("user_agent") @db.VarChar(512)
+  requestId  String?  @map("request_id") @db.VarChar(128)
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt(sort: Desc)])
+  @@index([actorId, createdAt(sort: Desc)])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+/// Transactional outbox (ADR-0006): written in the same transaction as the domain change,
+/// relayed to BullMQ by the worker.
+model OutboxEvent {
+  id            BigInt    @id @default(autoincrement())
+  aggregateType String    @map("aggregate_type") @db.VarChar(50)
+  aggregateId   String    @map("aggregate_id") @db.VarChar(100)
+  eventType     String    @map("event_type") @db.VarChar(100)
+  payload       Json
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz
+
+  // The relay's "unpublished, oldest first" scan uses a partial index created in the migration.
+  @@map("outbox_events")
+}
+
+// ─────────────────────────── GitHub ──────────────────────────────
+
+/// One GitHub App installation on a user or organisation account (ADR-0008).
+model GithubInstallation {
+  id             String            @id @default(uuid(7)) @db.Uuid
+  installationId BigInt            @unique @map("installation_id")
+  accountLogin   String            @map("account_login") @db.VarChar(100)
+  accountType    GithubAccountType @map("account_type")
+  installedById  String?           @map("installed_by_id") @db.Uuid
+  suspendedAt    DateTime?         @map("suspended_at") @db.Timestamptz
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  installedBy  User?              @relation(fields: [installedById], references: [id], onDelete: SetNull)
+  repositories GithubRepository[]
+
+  @@map("github_installations")
+}
+
+model GithubRepository {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  installationId String    @map("installation_id") @db.Uuid
+  /// GitHub's numeric repository ID: stable across renames, unlike owner/name.
+  githubId       BigInt    @unique @map("github_id")
+  fullName       String    @map("full_name") @db.VarChar(200)
+  defaultBranch  String    @map("default_branch") @db.VarChar(255)
+  isPrivate      Boolean   @map("is_private")
+  htmlUrl        String    @map("html_url")
+  lastSyncedAt   DateTime? @map("last_synced_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  installation GithubInstallation  @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  projects     ProjectRepository[]
+  pullRequests GithubPullRequest[]
+  commits      GithubCommit[]
+  contributors GithubContributor[]
+
+  @@index([installationId])
+  @@map("github_repositories")
+}
+
+/// Project ↔ repository is many-to-many: a monorepo can serve several projects, and a project
+/// can span several repositories.
+model ProjectRepository {
+  projectId    String   @map("project_id") @db.Uuid
+  repositoryId String   @map("repository_id") @db.Uuid
+  linkedAt     DateTime @default(now()) @map("linked_at") @db.Timestamptz
+
+  project    Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  repository GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, repositoryId])
+  @@index([repositoryId])
+  @@map("project_repositories")
+}
+
+model GithubPullRequest {
+  id              String           @id @default(uuid(7)) @db.Uuid
+  repositoryId    String           @map("repository_id") @db.Uuid
+  githubId        BigInt           @unique @map("github_id")
+  number          Int
+  title           String
+  body            String?
+  state           PullRequestState
+  isDraft         Boolean          @default(false) @map("is_draft")
+  authorLogin     String?          @map("author_login") @db.VarChar(100)
+  headRef         String           @map("head_ref") @db.VarChar(255)
+  headSha         String           @map("head_sha") @db.Char(40)
+  baseRef         String           @map("base_ref") @db.VarChar(255)
+  additions       Int?
+  deletions       Int?
+  changedFiles    Int?             @map("changed_files")
+  htmlUrl         String           @map("html_url")
+  openedAt        DateTime         @map("opened_at") @db.Timestamptz
+  mergedAt        DateTime?        @map("merged_at") @db.Timestamptz
+  closedAt        DateTime?        @map("closed_at") @db.Timestamptz
+  /// GitHub's updated_at: webhook upserts only apply if newer (out-of-order delivery safe).
+  githubUpdatedAt DateTime         @map("github_updated_at") @db.Timestamptz
+  syncedAt        DateTime         @default(now()) @map("synced_at") @db.Timestamptz
+
+  repository GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  issueLinks IssueLink[]
+  aiReviews  AiReview[]
+
+  @@unique([repositoryId, number])
+  @@index([repositoryId, state, openedAt(sort: Desc)])
+  @@map("github_pull_requests")
+}
+
+model GithubCommit {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  repositoryId String   @map("repository_id") @db.Uuid
+  sha          String   @db.Char(40)
+  message      String
+  authorLogin  String?  @map("author_login") @db.VarChar(100)
+  authorName   String?  @map("author_name") @db.VarChar(200)
+  committedAt  DateTime @map("committed_at") @db.Timestamptz
+  htmlUrl      String   @map("html_url")
+  syncedAt     DateTime @default(now()) @map("synced_at") @db.Timestamptz
+
+  repository GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  issueLinks IssueLink[]
+
+  @@unique([repositoryId, sha])
+  @@index([repositoryId, committedAt(sort: Desc)])
+  @@map("github_commits")
+}
+
+model GithubContributor {
+  repositoryId  String   @map("repository_id") @db.Uuid
+  login         String   @db.VarChar(100)
+  avatarUrl     String?  @map("avatar_url")
+  contributions Int
+  syncedAt      DateTime @default(now()) @map("synced_at") @db.Timestamptz
+
+  repository GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@id([repositoryId, login])
+  @@map("github_contributors")
+}
+
+/// Issue ↔ PR/commit links detected from "PAY-123" mentions (FR-6.4). Exactly one target is
+/// set, enforced by a CHECK constraint that matches link_type.
+model IssueLink {
+  id            String        @id @default(uuid(7)) @db.Uuid
+  issueId       String        @map("issue_id") @db.Uuid
+  linkType      IssueLinkType @map("link_type")
+  pullRequestId String?       @map("pull_request_id") @db.Uuid
+  commitId      String?       @map("commit_id") @db.Uuid
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  issue       Issue              @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  pullRequest GithubPullRequest? @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  commit      GithubCommit?      @relation(fields: [commitId], references: [id], onDelete: Cascade)
+
+  @@unique([issueId, pullRequestId])
+  @@unique([issueId, commitId])
+  @@index([pullRequestId])
+  @@index([commitId])
+  @@map("issue_links")
+}
+
+// ───────────────────────────── RAG ───────────────────────────────
+
+/// One indexable source (architecture §8): an issue, comment, PR, commit or uploaded document,
+/// normalised to text. The AI service's database role can read and write this table.
+model Document {
+  id          String             @id @default(uuid(7)) @db.Uuid
+  projectId   String             @map("project_id") @db.Uuid
+  sourceType  DocumentSourceType @map("source_type")
+  /// ID of the source row (issue, comment, PR, commit). NULL for uploaded documents, whose
+  /// source is this row itself.
+  sourceId    String?            @map("source_id") @db.Uuid
+  title       String             @db.VarChar(300)
+  content     String
+  /// Link back to the source, used for citations.
+  url         String
+  /// sha256 of the normalised content: unchanged sources are not re-embedded.
+  contentHash String             @map("content_hash") @db.Char(64)
+  metadata    Json               @default("{}")
+  createdById String?            @map("created_by_id") @db.Uuid
+  indexedAt   DateTime?          @map("indexed_at") @db.Timestamptz
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  chunks    DocumentChunk[]
+
+  @@unique([sourceType, sourceId])
+  @@unique([id, projectId])
+  @@index([projectId, sourceType])
+  @@map("documents")
+}
+
+/// Retrieval unit for RAG. project_id is duplicated from the parent document (guaranteed equal
+/// by a composite FK) so permission filtering and vector search run on one table (§7.4).
+model DocumentChunk {
+  id             BigInt                      @id @default(autoincrement())
+  documentId     String                      @map("document_id") @db.Uuid
+  projectId      String                      @map("project_id") @db.Uuid
+  chunkIndex     Int                         @map("chunk_index")
+  content        String
+  tokenCount     Int                         @map("token_count")
+  /// Heading path for documents ("Setup > Database"), used in citations.
+  headingPath    String?                     @map("heading_path")
+  contentHash    String                      @map("content_hash") @db.Char(64)
+  /// Which model produced the embedding: changing models triggers a re-embed.
+  embeddingModel String                      @map("embedding_model") @db.VarChar(100)
+  embedding      Unsupported("vector(1536)")
+  /// Generated column for the keyword half of hybrid retrieval (see note on Issue.searchVector).
+  searchVector   Unsupported("tsvector")?    @default(dbgenerated("(setweight(to_tsvector('english'::regconfig, COALESCE(heading_path, ''::text)), 'A'::\"char\") || setweight(to_tsvector('english'::regconfig, content), 'B'::\"char\"))")) @map("search_vector")
+  createdAt      DateTime                    @default(now()) @map("created_at") @db.Timestamptz
+
+  document Document @relation(fields: [documentId, projectId], references: [id, projectId], onDelete: Cascade)
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, chunkIndex])
+  @@index([projectId])
+  @@index([searchVector], type: Gin, map: "document_chunks_search_vector_idx")
+  // Created in raw SQL as HNSW (vector_cosine_ops). Prisma cannot express the HNSW access
+  // method; declaring the index by name stops migrate from proposing to drop it.
+  @@index([embedding], map: "document_chunks_embedding_hnsw_idx")
+  @@map("document_chunks")
+}
+
+// ───────────────────────────── AI ────────────────────────────────
+
+model AiConversation {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  /// The project the conversation is scoped to; NULL = all projects the user can access.
+  projectId String?  @map("project_id") @db.Uuid
+  title     String   @db.VarChar(200)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project  Project?    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  messages AiMessage[]
+
+  @@index([userId, updatedAt(sort: Desc)])
+  @@map("ai_conversations")
+}
+
+model AiMessage {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  conversationId String        @map("conversation_id") @db.Uuid
+  role           AiMessageRole
+  content        String
+  /// [{ n, sourceType, sourceId, title, url }] for assistant answers (FR-8.5).
+  citations      Json?
+  model          String?       @db.VarChar(100)
+  inputTokens    Int?          @map("input_tokens")
+  outputTokens   Int?          @map("output_tokens")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("ai_messages")
+}
+
+/// Status of async AI work exposed at GET /ai/jobs/:id (architecture §5.3).
+model AiJob {
+  id            String      @id @default(uuid(7)) @db.Uuid
+  type          AiJobType
+  status        AiJobStatus @default(QUEUED)
+  requestedById String      @map("requested_by_id") @db.Uuid
+  projectId     String      @map("project_id") @db.Uuid
+  /// What the job is about, e.g. { issueId } or { pullRequestId, headSha }.
+  input         Json
+  result        Json?
+  error         String?
+  attempts      Int         @default(0)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  startedAt     DateTime?   @map("started_at") @db.Timestamptz
+  finishedAt    DateTime?   @map("finished_at") @db.Timestamptz
+
+  requestedBy User    @relation(fields: [requestedById], references: [id], onDelete: Cascade)
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([requestedById, createdAt(sort: Desc)])
+  @@index([projectId, type, createdAt(sort: Desc)])
+  @@map("ai_jobs")
+}
+
+/// Cached thread summaries, keyed by a hash of the thread content (FR-7.2): the same thread is
+/// never summarised twice.
+model AiSummary {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  issueId       String   @map("issue_id") @db.Uuid
+  threadHash    String   @map("thread_hash") @db.Char(64)
+  content       Json
+  model         String   @db.VarChar(100)
+  promptVersion String   @map("prompt_version") @db.VarChar(50)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@unique([issueId, threadHash])
+  @@map("ai_summaries")
+}
+
+/// AI code review for one PR head commit (FR-9). A new push produces a new review.
+model AiReview {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  pullRequestId String   @map("pull_request_id") @db.Uuid
+  headSha       String   @map("head_sha") @db.Char(40)
+  summary       String
+  /// [{ file, line, severity, category, explanation, suggestion }]
+  findings      Json
+  missingTests  Json     @map("missing_tests")
+  model         String   @db.VarChar(100)
+  promptVersion String   @map("prompt_version") @db.VarChar(50)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  pullRequest GithubPullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([pullRequestId, headSha])
+  @@map("ai_reviews")
+}
+
+/// One row per LLM/embedding call: feeds the AI usage dashboard and per-user budgets (NFR-12).
+model AiUsage {
+  id            BigInt    @id @default(autoincrement())
+  userId        String?   @map("user_id") @db.Uuid
+  projectId     String?   @map("project_id") @db.Uuid
+  feature       AiFeature
+  model         String    @db.VarChar(100)
+  promptVersion String?   @map("prompt_version") @db.VarChar(50)
+  inputTokens   Int       @map("input_tokens")
+  outputTokens  Int       @default(0) @map("output_tokens")
+  latencyMs     Int       @map("latency_ms")
+  /// Estimated cost in USD from the configured price table.
+  costUsd       Decimal   @map("cost_usd") @db.Decimal(12, 6)
+  success       Boolean
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([projectId, createdAt(sort: Desc)])
+  @@map("ai_usage")
+}

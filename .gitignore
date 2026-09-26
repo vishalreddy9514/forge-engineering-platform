@@ -40,3 +40,6 @@ crash.log
 .vscode/*
 !.vscode/extensions.json
 *.log
+
+# Generated Prisma client (rebuilt by `pnpm db:generate`, a dependency of every task)
+apps/api/src/generated/

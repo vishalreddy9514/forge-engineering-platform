@@ -6,5 +6,12 @@ packages:
 allowBuilds:
   sharp: true # Next.js image optimisation (native binary)
   unrs-resolver: true # eslint import resolver (native binary)
+  '@prisma/engines': true # downloads the Prisma schema engine used by migrate
+  prisma: true
+  esbuild: true # tsx (seed/scripts) verifies its native binary
   '@parcel/watcher': false # prebuilt binaries are used; no build needed
   '@scarf/scarf': false # install telemetry pulled in by swagger-ui-dist
+  # Optional native add-ons of Testcontainers' Docker SSH transport (unused; we use the socket).
+  cpu-features: false
+  ssh2: false
+  protobufjs: false

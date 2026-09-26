@@ -55,18 +55,38 @@ jobs:
       - run: uv run pytest
 
   compose:
-    name: Docker Compose (config + dependencies healthy)
+    name: Docker Compose (bootstrap, migrate, seed)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: postgresql://forge:forge_dev_password@localhost:5432/forge
     steps:
       - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
       - run: cp .env.example .env
       - run: docker compose config --quiet
       - run: docker compose up --detach --wait --wait-timeout 120
-      - name: Postgres extensions installed by the init script
+      - run: pnpm install --frozen-lockfile
+      - name: Apply migrations to the compose database (as a deployment would)
+        run: pnpm --filter @forge/api exec prisma migrate deploy
+      - name: Schema matches migrations (no drift)
+        run: >
+          pnpm --filter @forge/api exec prisma migrate diff
+          --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+      - name: Seed, then confirm a second run is a no-op
         run: |
-          docker compose exec -T postgres psql -U forge -d forge -tAc \
-            "select count(*) from pg_extension where extname in ('vector','pg_trgm','citext')" \
-            | grep -qx 3
+          pnpm --filter @forge/api exec prisma db seed
+          pnpm --filter @forge/api exec prisma db seed | grep -q 'already has data'
+      - name: AI service role can reach RAG tables but not user data
+        run: |
+          export PGPASSWORD=forge_ai_dev_password
+          docker compose exec -T -e PGPASSWORD postgres \
+            psql -h localhost -U forge_ai_service -d forge -tAc 'select count(*) from documents'
+          ! docker compose exec -T -e PGPASSWORD postgres \
+            psql -h localhost -U forge_ai_service -d forge -tAc 'select count(*) from users'
       - if: always()
         run: docker compose down --volumes
