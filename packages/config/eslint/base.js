@@ -7,7 +7,15 @@ import tseslint from 'typescript-eslint';
  * no-floating-promises can catch un-awaited async calls, a common source of lost errors.
  */
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/.next/**', '**/coverage/**', '**/node_modules/**'] },
+  {
+    ignores: [
+      '**/dist/**',
+      '**/dist-worker/**',
+      '**/.next/**',
+      '**/coverage/**',
+      '**/node_modules/**',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   {

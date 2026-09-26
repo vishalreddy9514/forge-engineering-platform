@@ -6,28 +6,63 @@ const booleanString = z.enum(['true', 'false']).transform((value) => value === '
  * Every environment variable the API reads, validated once at startup. A missing or malformed
  * value stops the process with a readable error instead of failing later at first use.
  */
-export const EnvSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  API_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
-  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
-  LOG_PRETTY: booleanString.default(false),
-  DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
-  DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
-  REDIS_URL: z.url({ protocol: /^rediss?$/ }),
-  CORS_ORIGINS: z
-    .string()
-    .default('')
-    .transform((value) =>
-      value
-        .split(',')
-        .map((origin) => origin.trim())
-        .filter(Boolean),
-    )
-    .pipe(z.array(z.url())),
-  SWAGGER_ENABLED: booleanString.optional(),
-  /** Number of reverse proxies in front of the API (Nginx/ALB), so req.ip is the client IP. */
-  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
-});
+export const EnvSchema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    API_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
+    LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+    LOG_PRETTY: booleanString.default(false),
+    DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+    DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
+    REDIS_URL: z.url({ protocol: /^rediss?$/ }),
+    CORS_ORIGINS: z
+      .string()
+      .default('')
+      .transform((value) =>
+        value
+          .split(',')
+          .map((origin) => origin.trim())
+          .filter(Boolean),
+      )
+      .pipe(z.array(z.url())),
+    SWAGGER_ENABLED: booleanString.optional(),
+    /** Number of reverse proxies in front of the API (Nginx/ALB), so req.ip is the client IP. */
+    TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
+
+    // ---- Authentication (ADR-0003, ADR-0010) ----
+    /** Origin of the web app: used in emailed links and to reject cross-site cookie requests. */
+    WEB_ORIGIN: z.url().default('http://localhost:3000'),
+    /**
+     * ES256 key pair (PEM, "\n"-escaped allowed). Optional outside production: a throwaway pair
+     * is generated at boot, so tokens stop working on restart, which is fine for development.
+     */
+    JWT_PRIVATE_KEY: z.string().optional(),
+    JWT_PUBLIC_KEY: z.string().optional(),
+    ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
+    REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(7),
+    PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().min(5).max(240).default(30),
+    /** Secure cookies need HTTPS; browsers treat http://localhost as secure, so this stays on. */
+    COOKIE_SECURE: booleanString.default(true),
+    /** Reject passwords found in public breaches (k-anonymity range API; fails open). */
+    HIBP_ENABLED: booleanString.default(true),
+
+    // ---- Email ----
+    SMTP_HOST: z.string().default('localhost'),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(1025),
+    SMTP_SECURE: booleanString.default(false),
+    SMTP_USER: z.string().optional(),
+    SMTP_PASSWORD: z.string().optional(),
+    MAIL_FROM: z.string().default('Forge <no-reply@forge.local>'),
+  })
+  .superRefine((env, ctx) => {
+    if (env.NODE_ENV === 'production' && (!env.JWT_PRIVATE_KEY || !env.JWT_PUBLIC_KEY)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['JWT_PRIVATE_KEY'],
+        message: 'JWT_PRIVATE_KEY and JWT_PUBLIC_KEY are required in production',
+      });
+    }
+  });
 
 export type Env = z.infer<typeof EnvSchema>;
 

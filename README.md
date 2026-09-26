@@ -8,10 +8,10 @@ history with cited sources.
 AI is a feature of the product, not the product. Every core workflow works with the AI service
 switched off.
 
-> **Status: Phase 3 of 20 (database).** The monorepo, CI and local infrastructure are in place,
-> and the full PostgreSQL schema (34 tables with constraints, full-text and vector indexes) is
-> migrated, seeded with demo data and covered by integration tests against a real database.
-> API features start in Phase 4. Each phase lands with tests, CI and updated docs.
+> **Status: Phase 4 of 20 (authentication and RBAC).** Sign-up, sign-in, rotating refresh
+> tokens, password reset by email, admin user management and project-level permissions work end
+> to end in the browser, on top of the monorepo, CI and the full database schema from earlier
+> phases. Project and issue features start in Phase 5.
 
 ## Stack
 
@@ -52,14 +52,15 @@ pnpm install
 pnpm infra:up        # Postgres (pgvector), Redis and Mailpit, waits until healthy
 pnpm --filter @forge/api db:deploy   # apply database migrations
 pnpm --filter @forge/api db:seed     # demo users, projects, sprints and issues
-pnpm dev             # web :3000, api :4000, ai-service :8000, all with hot reload
+pnpm dev             # web :3000, api :4000 (+ email worker), ai-service :8000, hot reload
 ```
 
-Seeded logins: `priya@forge.local` (project manager), `sam@forge.local` (developer),
-`jordan@forge.local` (viewer on PAY) and `admin@forge.local`, all with the password
-`forge-demo-password`. Authentication itself arrives in Phase 4.
+Sign in at http://localhost:3000 with a seeded account: `priya@forge.local` (project manager),
+`sam@forge.local` (developer), `jordan@forge.local` (viewer on PAY) or `admin@forge.local`, all
+with the password `forge-demo-password`. Password-reset emails land in Mailpit at
+http://localhost:8025.
 
-Open http://localhost:3000. The system status card calls the API through the same-origin
+The home page's system status card calls the API through the same-origin
 `/api` rewrite and shows the live readiness of each dependency. Stop Redis
 (`docker compose stop redis`) and it turns red within 15 seconds.
 
@@ -95,6 +96,8 @@ including the Python service, in dependency order and caches the results.
 - [Architecture](docs/architecture.md): system and container diagrams, module structure,
   async and outbox design, security and threat model, AI/RAG design, AWS deployment,
   observability, API conventions
+- [API reference](docs/api.md): conventions, errors, and the auth, user and admin endpoints
+- [Security](docs/security.md): implemented controls, how each is tested, and deliberate trade-offs
 - [Database design](docs/database.md): ER diagrams, integrity rules, indexes, search, and
   why each constraint exists
 - [Architecture decision records](docs/adr): the significant choices and the alternatives rejected

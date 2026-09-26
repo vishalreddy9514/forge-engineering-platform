@@ -1,45 +1,39 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { LoggerModule } from 'nestjs-pino';
+import { APP_GUARD } from '@nestjs/core';
 
-import { resolveRequestId } from './common/http/request-id';
-import { type Env, validateEnv } from './config/env';
+import { AccessControlModule } from './access-control/access-control.module';
+import { AdminModule } from './admin/admin.module';
+import { AuditModule } from './audit/audit.module';
+import { AuthModule } from './auth/auth.module';
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { configModule, loggerModule } from './config/root-modules';
 import { HealthModule } from './health/health.module';
 import { DatabaseModule } from './infrastructure/database/database.module';
+import { QueueModule } from './infrastructure/queue/queue.module';
 import { RedisModule } from './infrastructure/redis/redis.module';
+import { RateLimitGuard } from './rate-limit/rate-limit.guard';
+import { RateLimitModule } from './rate-limit/rate-limit.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      cache: true,
-      // apps/api/.env for overrides, then the monorepo root .env shared with docker compose.
-      envFilePath: ['.env', '../../.env'],
-      validate: validateEnv,
-    }),
-    LoggerModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService<Env, true>) => ({
-        pinoHttp: {
-          level: config.get('LOG_LEVEL', { infer: true }),
-          genReqId: resolveRequestId,
-          // Credentials must never reach log storage.
-          redact: {
-            paths: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
-            censor: '[REDACTED]',
-          },
-          customProps: () => ({ service: 'api' }),
-          // Health probes run every few seconds; logging them only adds noise.
-          autoLogging: { ignore: (req) => req.url?.includes('/health/') ?? false },
-          ...(config.get('LOG_PRETTY', { infer: true })
-            ? { transport: { target: 'pino-pretty', options: { singleLine: true } } }
-            : {}),
-        },
-      }),
-    }),
+    configModule(),
+    loggerModule('api'),
     DatabaseModule,
     RedisModule,
+    QueueModule.forRoot('producer'),
+    RateLimitModule,
+    AuditModule,
+    AccessControlModule,
+    AuthModule,
+    UsersModule,
+    AdminModule,
     HealthModule,
+  ],
+  providers: [
+    // Order matters: authenticate first, so rate limits can count per user.
+    { provide: APP_GUARD, useExisting: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RateLimitGuard },
   ],
 })
 export class AppModule {}

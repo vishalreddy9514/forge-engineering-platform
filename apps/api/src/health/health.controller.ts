@@ -3,8 +3,13 @@ import { Controller, Get, HttpCode, HttpStatus, Res } from '@nestjs/common';
 import { ApiOkResponse, ApiServiceUnavailableResponse, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 
+import { Public } from '../auth/decorators';
+import { SkipRateLimit } from '../rate-limit/rate-limit.decorator';
 import { HealthService } from './health.service';
 
+/** Probed by the load balancer and orchestrator: unauthenticated and never rate limited. */
+@Public()
+@SkipRateLimit()
 @ApiTags('health')
 @Controller('health')
 export class HealthController {

@@ -15,7 +15,7 @@ import { apiFetch } from '@/lib/api';
 
 async function fetchReadiness(): Promise<ReadinessResponse> {
   // 503 still carries a readiness body describing which dependency is down.
-  const res = await apiFetch('/health/ready');
+  const res = await apiFetch('/health/ready', {}, { auth: false, acceptStatuses: [503] });
   return ReadinessResponse.parse(await res.json());
 }
 

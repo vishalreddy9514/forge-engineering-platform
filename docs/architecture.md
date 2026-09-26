@@ -281,8 +281,8 @@ sequenceDiagram
     end
 ```
 
-Decisions ([ADR-0003](adr/0003-auth-tokens.md)): argon2id password hashing; access JWT signed
-with an asymmetric key pair (EdDSA) so the key can be rotated through `kid`; refresh tokens are
+Decisions ([ADR-0003](adr/0003-auth-tokens.md), [ADR-0010](adr/0010-es256-access-tokens-and-revocation.md)): argon2id password hashing; access JWT signed
+with an asymmetric key pair (ES256) so the key can be rotated through `kid`; refresh tokens are
 opaque random 256-bit values stored **hashed** (SHA-256); CSRF risk on the refresh endpoint is
 mitigated by `SameSite=Strict`, the narrow cookie `Path` and an `Origin` header check.
 
@@ -640,6 +640,7 @@ check.
 | [0007](adr/0007-no-rag-framework-for-core-pipeline.md) | Hand-written RAG pipeline; hybrid retrieval in pgvector                          |
 | [0008](adr/0008-github-app-integration.md)             | GitHub App (not OAuth app / PAT) with webhooks + reconciliation                  |
 | [0009](adr/0009-toolchain-versions.md)                 | NestJS 11, TypeScript 5.9, ESLint 9 until the ecosystem supports the next majors |
+| [0010](adr/0010-es256-access-tokens-and-revocation.md) | ES256 via @nestjs/jwt; Redis revocation cutoff for immediate deactivation        |
 
 ## 14. API design conventions
 

@@ -1,3 +1,4 @@
+import { getQueueToken } from '@nestjs/bullmq';
 import { type NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -5,13 +6,22 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/infrastructure/database/prisma.service';
+import { QUEUES } from '../src/infrastructure/queue/queue.module';
 import { REDIS_CLIENT } from '../src/infrastructure/redis/redis.module';
 
 describe('API (e2e)', () => {
   let app: NestExpressApplication;
   // HTTP-level tests replace the two infrastructure clients; the real database is exercised by
   // the integration suite (test/integration).
-  const redis = { ping: jest.fn(), status: 'ready', quit: jest.fn(), disconnect: jest.fn() };
+  const redis = {
+    ping: jest.fn(),
+    // Rate limiter (atomic counter script) and revocation lookups.
+    eval: jest.fn().mockResolvedValue([1, 60_000]),
+    get: jest.fn().mockResolvedValue(null),
+    status: 'ready',
+    quit: jest.fn(),
+    disconnect: jest.fn(),
+  };
   const prisma = { $queryRaw: jest.fn(), $connect: jest.fn(), $disconnect: jest.fn() };
 
   beforeAll(async () => {
@@ -20,6 +30,8 @@ describe('API (e2e)', () => {
       .useValue(redis)
       .overrideProvider(PrismaService)
       .useValue(prisma)
+      .overrideProvider(getQueueToken(QUEUES.EMAIL))
+      .useValue({ add: jest.fn(), close: jest.fn() })
       .compile();
 
     app = configureApp(
@@ -121,6 +133,49 @@ describe('API (e2e)', () => {
         .set('Origin', 'https://evil.example')
         .set('Access-Control-Request-Method', 'GET');
       expect(denied.headers['access-control-allow-origin']).toBeUndefined();
+    });
+
+    it('requires a bearer token on every route that is not explicitly public', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/users/me')
+        .expect(401)
+        .expect('www-authenticate', 'Bearer');
+      expect(res.body).toMatchObject({ status: 401, detail: 'Missing bearer token' });
+    });
+
+    it('rejects a forged token', async () => {
+      const forged = [
+        Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url'),
+        Buffer.from(JSON.stringify({ sub: 'someone', adm: true })).toString('base64url'),
+        '',
+      ].join('.');
+      await request(app.getHttpServer())
+        .get('/api/v1/users/me')
+        .set('Authorization', `Bearer ${forged}`)
+        .expect(401);
+    });
+
+    it('rejects validation errors with field-level problem details', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/auth/register')
+        .send({ email: 'not-an-email', displayName: '', password: 'short' })
+        .expect(400);
+      expect(res.body.errors.map((e: { path: string }) => e.path).sort()).toEqual([
+        'displayName',
+        'email',
+        'password',
+      ]);
+    });
+
+    it('reports rate-limit headers and answers 429 with Retry-After when exceeded', async () => {
+      redis.eval.mockResolvedValueOnce([11, 42_000]);
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: 'a@b.co', password: 'x' })
+        .expect(429);
+      expect(res.headers['retry-after']).toBe('42');
+      expect(res.headers['ratelimit-limit']).toBe('10');
+      expect(res.headers['ratelimit-remaining']).toBe('0');
     });
 
     it('serves the OpenAPI document', async () => {
