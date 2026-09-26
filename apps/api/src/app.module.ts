@@ -5,6 +5,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { resolveRequestId } from './common/http/request-id';
 import { type Env, validateEnv } from './config/env';
 import { HealthModule } from './health/health.module';
+import { DatabaseModule } from './infrastructure/database/database.module';
 import { RedisModule } from './infrastructure/redis/redis.module';
 
 @Module({
@@ -36,6 +37,7 @@ import { RedisModule } from './infrastructure/redis/redis.module';
         },
       }),
     }),
+    DatabaseModule,
     RedisModule,
     HealthModule,
   ],

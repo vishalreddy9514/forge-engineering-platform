@@ -26,19 +26,27 @@ describe('HealthService.readiness', () => {
     });
   });
 
-  it('reports the failing dependency and its error', async () => {
+  it('reports the failing dependency without leaking the driver error', async () => {
     const service = new HealthService([
-      indicator('redis', () => Promise.reject(new Error('ECONNREFUSED'))),
+      indicator('redis', () => Promise.reject(new Error('connect ECONNREFUSED 10.0.3.17:6379'))),
       indicator('database', () => Promise.resolve()),
     ]);
 
     await expect(service.readiness()).resolves.toEqual({
       status: 'error',
       checks: {
-        redis: { status: 'error', message: 'ECONNREFUSED' },
+        redis: { status: 'error', message: 'Unavailable' },
         database: { status: 'ok' },
       },
     });
+  });
+
+  it('logs the full error for operators', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn');
+    const error = new Error('connect ECONNREFUSED 10.0.3.17:6379');
+    await new HealthService([indicator('redis', () => Promise.reject(error))]).readiness();
+
+    expect(warn).toHaveBeenCalledWith({ check: 'redis', err: error }, 'Readiness check failed');
   });
 
   it('fails a check that hangs instead of hanging itself', async () => {

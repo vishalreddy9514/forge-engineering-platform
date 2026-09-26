@@ -24,8 +24,10 @@ export class HealthService {
           await withTimeout(indicator.check(), HEALTH_CHECK_TIMEOUT_MS);
           return [indicator.name, { status: 'ok' }];
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          this.logger.warn({ check: indicator.name, message }, 'Readiness check failed');
+          // Full details go to the logs only. The endpoint is reachable through the public load
+          // balancer, and driver errors name internal hosts and ports.
+          this.logger.warn({ check: indicator.name, err: error }, 'Readiness check failed');
+          const message = error instanceof HealthCheckTimeoutError ? error.message : 'Unavailable';
           return [indicator.name, { status: 'error', message }];
         }
       }),
@@ -37,11 +39,13 @@ export class HealthService {
   }
 }
 
+class HealthCheckTimeoutError extends Error {}
+
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
-      reject(new Error(`Timed out after ${ms} ms`));
+      reject(new HealthCheckTimeoutError(`Timed out after ${ms} ms`));
     }, ms);
   });
   try {

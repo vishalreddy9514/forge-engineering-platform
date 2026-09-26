@@ -8,9 +8,10 @@ history with cited sources.
 AI is a feature of the product, not the product. Every core workflow works with the AI service
 switched off.
 
-> **Status: Phase 2 of 20 (repository structure and configuration).** The monorepo, tooling,
-> CI and local infrastructure are in place, and the three services boot and talk to each other.
-> Domain features start in Phase 3. Each phase lands with tests, CI and updated docs.
+> **Status: Phase 3 of 20 (database).** The monorepo, CI and local infrastructure are in place,
+> and the full PostgreSQL schema (34 tables with constraints, full-text and vector indexes) is
+> migrated, seeded with demo data and covered by integration tests against a real database.
+> API features start in Phase 4. Each phase lands with tests, CI and updated docs.
 
 ## Stack
 
@@ -28,14 +29,14 @@ switched off.
 ```
 apps/
   web/          Next.js app (App Router, Tailwind, TanStack Query)
-  api/          NestJS REST API (Prisma from Phase 3; a BullMQ worker entrypoint from Phase 6)
+  api/          NestJS REST API, Prisma schema + migrations + seed (a BullMQ worker from Phase 6)
   ai-service/   FastAPI service for embeddings, RAG and LLM features (Python, uv)
 packages/
   types/        Zod schemas + TypeScript types shared by web and api
   ui/           shadcn/ui components and design tokens
   config/       Shared TypeScript, ESLint and Prettier presets
 infrastructure/
-  docker/       Postgres init script (extensions, test database)
+  docker/       Postgres init scripts (extensions, test database, AI service login)
 docs/           Requirements, architecture, ADRs
 ```
 
@@ -49,8 +50,14 @@ cp .env.example .env
 pnpm install
 (cd apps/ai-service && uv sync)
 pnpm infra:up        # Postgres (pgvector), Redis and Mailpit, waits until healthy
+pnpm --filter @forge/api db:deploy   # apply database migrations
+pnpm --filter @forge/api db:seed     # demo users, projects, sprints and issues
 pnpm dev             # web :3000, api :4000, ai-service :8000, all with hot reload
 ```
+
+Seeded logins: `priya@forge.local` (project manager), `sam@forge.local` (developer),
+`jordan@forge.local` (viewer on PAY) and `admin@forge.local`, all with the password
+`forge-demo-password`. Authentication itself arrives in Phase 4.
 
 Open http://localhost:3000. The system status card calls the API through the same-origin
 `/api` rewrite and shows the live readiness of each dependency. Stop Redis
@@ -76,6 +83,9 @@ including the Python service, in dependency order and caches the results.
 | `pnpm build`                                 | Production builds                                                    |
 | `pnpm format`                                | Prettier over the repository (Ruff formats Python)                   |
 | `pnpm --filter @forge/api test:e2e`          | Only the API's HTTP-level tests                                      |
+| `pnpm --filter @forge/api test:integration`  | Database tests against a throwaway Postgres (needs Docker)           |
+| `pnpm --filter @forge/api db:migrate`        | Create and apply a migration after editing `schema.prisma`           |
+| `pnpm --filter @forge/api db:studio`         | Browse the database in Prisma Studio                                 |
 | `pnpm infra:down`                            | Stop the containers (add `-v` to `docker compose down` to wipe data) |
 
 ## Documentation
@@ -85,6 +95,8 @@ including the Python service, in dependency order and caches the results.
 - [Architecture](docs/architecture.md): system and container diagrams, module structure,
   async and outbox design, security and threat model, AI/RAG design, AWS deployment,
   observability, API conventions
+- [Database design](docs/database.md): ER diagrams, integrity rules, indexes, search, and
+  why each constraint exists
 - [Architecture decision records](docs/adr): the significant choices and the alternatives rejected
 
 ## Licence

@@ -10,6 +10,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-forge}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-forge_dev_password}
       POSTGRES_DB: ${POSTGRES_DB:-forge}
+      # Password for the AI service's least-privilege login (init/02-ai-service-role.sh).
+      AI_DB_PASSWORD: ${AI_DB_PASSWORD:-forge_ai_dev_password}
     ports:
       - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     volumes:
