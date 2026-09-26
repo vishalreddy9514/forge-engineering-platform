@@ -27,6 +27,13 @@
   Non-members get 404, so project IDs cannot be probed. Memberships are cached in Redis for
   60 seconds and invalidated on change.
 - **Admin routes** re-check `isAdmin` in the database instead of trusting the token claim.
+- **Archived projects are read-only.** The guard answers `409` for every permission except
+  reading and restoring, so no feature can forget the check.
+- **A project always has a manager.** Demotions and removals lock the project row, so two
+  managers demoting each other concurrently cannot leave it with none (tested with a mutation:
+  without the lock, the race test fails).
+- **Irreversible actions are gated twice.** Deleting a project requires a platform admin, a
+  project that is already archived, and the project key repeated as `?confirm=`.
 - **Mass assignment.** Every request body is parsed by a Zod schema, and unknown keys (such as
   `isAdmin` on registration or a profile update) are dropped.
 
@@ -44,8 +51,10 @@
 Append-only (database triggers reject UPDATE, DELETE and TRUNCATE). Recorded today:
 `auth.register`, `auth.login.succeeded`, `auth.login.failed` (with reason), `auth.logout`,
 `auth.logout_all`, `auth.refresh.reuse_detected`, `auth.password_reset.requested`,
-`auth.password_reset.completed`, `auth.password_changed`, and `admin.user.updated` (with
-before/after values). Each entry has the actor, IP, user agent and request ID.
+`auth.password_reset.completed`, `auth.password_changed`, `admin.user.updated` (with
+before/after values), `project.created`, `project.updated` (only the fields that changed),
+`project.archived`, `project.restored`, `project.deleted`, and `project.member.added`,
+`.role_changed`, `.removed` and `.left`. Each entry has the actor, IP, user agent and request ID.
 
 ## Deliberate trade-offs
 

@@ -103,11 +103,51 @@ Requires `isAdmin`, which is re-checked against the database on every request.
 
 ## Project permissions
 
-Project-scoped routes (from Phase 5) declare a permission, e.g.
+Project-scoped routes declare a permission, e.g.
 `@RequireProjectPermission('issue:update', 'issue')`. The role → permission matrix is in
 [requirements §2](requirements.md#permission-matrix) and
 [`permissions.ts`](../apps/api/src/access-control/permissions.ts). Non-members get **404**,
 members without the permission **403**, and platform admins are allowed everything.
+
+## Projects
+
+Projects are addressed by ID in the API and by key in the web app (`/projects/PAY`).
+**Archived projects are read-only**: any write except restoring answers `409`.
+
+| Method | Path                                         | Permission        | Body → Response                                                                                                                            |
+| ------ | -------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/projects?q=&archived=false&limit=&cursor=` | signed in         | → `{ data: ProjectSummary[], nextCursor }`. Your projects (admins: all), by name                                                           |
+| POST   | `/projects`                                  | signed in         | `{ key, name, description? }` → **201** `ProjectDetail`; the creator becomes project manager. Taken key → **409** with a `key` field error |
+| GET    | `/projects/by-key/:projectKey`               | `project:read`    | → `ProjectDetail` (key is case-insensitive)                                                                                                |
+| GET    | `/projects/:projectId`                       | `project:read`    | → `ProjectDetail`                                                                                                                          |
+| PATCH  | `/projects/:projectId`                       | `project:update`  | `{ name?, description?, defaultAssigneeId? }` → `ProjectDetail`. The key is immutable; the default assignee must be a member               |
+| POST   | `/projects/:projectId/archive` · `/restore`  | `project:archive` | → `ProjectDetail` (idempotent)                                                                                                             |
+| DELETE | `/projects/:projectId?confirm=KEY`           | platform admin    | → **204**. The project must be archived first (**409**), and `confirm` must repeat its key (**400**)                                       |
+
+`ProjectSummary` has `id, key, name, description, archivedAt, createdAt, myRole, memberCount,
+openIssueCount`. `ProjectDetail` adds `defaultAssignee`, `createdBy` and `activeSprint`.
+
+### Members
+
+| Method | Path                                   | Permission                           | Body → Response                                                                                                                             |
+| ------ | -------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/projects/:projectId/members`         | `project:read`                       | → `ProjectMember[]` (managers first, then by name)                                                                                          |
+| POST   | `/projects/:projectId/members`         | `member:manage`                      | `{ email, role }` → **201** `ProjectMember`. Unknown or inactive email → **404**, already a member → **409** (both as `email` field errors) |
+| PATCH  | `/projects/:projectId/members/:userId` | `member:manage`                      | `{ role }` → `ProjectMember`                                                                                                                |
+| DELETE | `/projects/:projectId/members/:userId` | `member:manage`, or yourself (leave) | → **204**                                                                                                                                   |
+
+Role changes and removals apply on the member's very next request (the membership cache entry is
+invalidated). A project always keeps at least one project manager: demoting or removing the last
+one answers **409**, even when two managers demote each other at the same moment.
+
+### Labels
+
+| Method | Path                          | Permission       | Body → Response                                                                                                          |
+| ------ | ----------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/projects/:projectId/labels` | `project:read`   | → `Label[]` with `issueCount`, by name                                                                                   |
+| POST   | `/projects/:projectId/labels` | `project:update` | `{ name, color: "#rrggbb", description? }` → **201** `Label`. Names are unique per project, case-insensitively (**409**) |
+| PATCH  | `/labels/:labelId`            | `project:update` | any of the create fields → `Label`                                                                                       |
+| DELETE | `/labels/:labelId`            | `project:update` | → **204**, and the label is removed from its issues                                                                      |
 
 ## Health
 

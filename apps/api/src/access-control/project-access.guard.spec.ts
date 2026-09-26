@@ -1,4 +1,9 @@
-import { type ExecutionContext, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  type ExecutionContext,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { type Reflector } from '@nestjs/core';
 
 import type { AccessControlService } from './access-control.service';
@@ -11,7 +16,7 @@ const ISSUE_ID = '01920000-0000-7000-8000-0000000000aa';
 function setup(requirement: ProjectPermissionRequirement | undefined) {
   const reflector = { get: jest.fn().mockReturnValue(requirement) } as unknown as Reflector;
   const access = {
-    resolveProjectId: jest.fn(),
+    resolveProject: jest.fn(),
     getRole: jest.fn(),
   };
   const guard = new ProjectAccessGuard(reflector, access as unknown as AccessControlService);
@@ -35,7 +40,7 @@ describe('ProjectAccessGuard', () => {
 
   it('allows a member whose role has the permission, and records the access', async () => {
     const { access, run } = setup({ permission: 'issue:update', scope: 'issue', param: 'issueId' });
-    access.resolveProjectId.mockResolvedValue(PROJECT_ID);
+    access.resolveProject.mockResolvedValue({ id: PROJECT_ID, archived: false });
     access.getRole.mockResolvedValue('DEVELOPER');
     const req = {
       params: { issueId: ISSUE_ID },
@@ -43,13 +48,13 @@ describe('ProjectAccessGuard', () => {
     } as unknown as ProjectScopedRequest;
 
     await expect(run(req)).resolves.toBe(true);
-    expect(access.resolveProjectId).toHaveBeenCalledWith('issue', ISSUE_ID);
+    expect(access.resolveProject).toHaveBeenCalledWith('issue', ISSUE_ID);
     expect(req.projectAccess).toEqual({ projectId: PROJECT_ID, role: 'DEVELOPER' });
   });
 
   it('returns 403 for a member whose role lacks the permission', async () => {
     const { access, run } = setup({ permission: 'issue:delete', scope: 'issue', param: 'issueId' });
-    access.resolveProjectId.mockResolvedValue(PROJECT_ID);
+    access.resolveProject.mockResolvedValue({ id: PROJECT_ID, archived: false });
     access.getRole.mockResolvedValue('DEVELOPER');
 
     await expect(run({ params: { issueId: ISSUE_ID }, user: developer })).rejects.toBeInstanceOf(
@@ -63,7 +68,7 @@ describe('ProjectAccessGuard', () => {
       scope: 'project',
       param: 'projectId',
     });
-    access.resolveProjectId.mockResolvedValue(PROJECT_ID);
+    access.resolveProject.mockResolvedValue({ id: PROJECT_ID, archived: false });
     access.getRole.mockResolvedValue(null);
 
     await expect(
@@ -76,7 +81,7 @@ describe('ProjectAccessGuard', () => {
 
   it('returns 404 when the resource does not exist', async () => {
     const { access, run } = setup({ permission: 'issue:update', scope: 'issue', param: 'issueId' });
-    access.resolveProjectId.mockResolvedValue(null);
+    access.resolveProject.mockResolvedValue(null);
 
     await expect(run({ params: { issueId: ISSUE_ID }, user: developer })).rejects.toBeInstanceOf(
       NotFoundException,
@@ -90,7 +95,7 @@ describe('ProjectAccessGuard', () => {
       scope: 'project',
       param: 'projectId',
     });
-    access.resolveProjectId.mockResolvedValue(PROJECT_ID);
+    access.resolveProject.mockResolvedValue({ id: PROJECT_ID, archived: false });
     const req = {
       params: { projectId: PROJECT_ID },
       user: { id: 'admin', isAdmin: true },
@@ -99,5 +104,55 @@ describe('ProjectAccessGuard', () => {
     await expect(run(req)).resolves.toBe(true);
     expect(access.getRole).not.toHaveBeenCalled();
     expect(req.projectAccess.role).toBe('ADMIN');
+  });
+
+  describe('archived projects', () => {
+    const archivedProject = { id: PROJECT_ID, archived: true };
+    const pmReq = () =>
+      ({ params: { projectId: PROJECT_ID }, user: developer }) as unknown as ProjectScopedRequest;
+
+    it('stay readable', async () => {
+      const { access, run } = setup({
+        permission: 'project:read',
+        scope: 'project',
+        param: 'projectId',
+      });
+      access.resolveProject.mockResolvedValue(archivedProject);
+      access.getRole.mockResolvedValue('VIEWER');
+      await expect(run(pmReq())).resolves.toBe(true);
+    });
+
+    it('reject writes with 409', async () => {
+      const { access, run } = setup({
+        permission: 'issue:create',
+        scope: 'project',
+        param: 'projectId',
+      });
+      access.resolveProject.mockResolvedValue(archivedProject);
+      access.getRole.mockResolvedValue('PROJECT_MANAGER');
+      await expect(run(pmReq())).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('can still be restored', async () => {
+      const { access, run } = setup({
+        permission: 'project:archive',
+        scope: 'project',
+        param: 'projectId',
+      });
+      access.resolveProject.mockResolvedValue(archivedProject);
+      access.getRole.mockResolvedValue('PROJECT_MANAGER');
+      await expect(run(pmReq())).resolves.toBe(true);
+    });
+
+    it('still answer 404 to outsiders rather than revealing the archived state', async () => {
+      const { access, run } = setup({
+        permission: 'issue:create',
+        scope: 'project',
+        param: 'projectId',
+      });
+      access.resolveProject.mockResolvedValue(archivedProject);
+      access.getRole.mockResolvedValue(null);
+      await expect(run(pmReq())).rejects.toBeInstanceOf(NotFoundException);
+    });
   });
 });
