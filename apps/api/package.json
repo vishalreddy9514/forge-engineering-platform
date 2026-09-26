@@ -4,6 +4,7 @@
   "private": true,
   "description": "Forge REST API (NestJS)",
   "scripts": {
+    "postinstall": "prisma generate",
     "build": "nest build",
     "dev": "nest start --watch --preserveWatchOutput",
     "start": "node dist/main.js",
