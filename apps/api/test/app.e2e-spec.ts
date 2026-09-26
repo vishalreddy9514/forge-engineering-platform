@@ -4,16 +4,22 @@ import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
+import { PrismaService } from '../src/infrastructure/database/prisma.service';
 import { REDIS_CLIENT } from '../src/infrastructure/redis/redis.module';
 
 describe('API (e2e)', () => {
   let app: NestExpressApplication;
+  // HTTP-level tests replace the two infrastructure clients; the real database is exercised by
+  // the integration suite (test/integration).
   const redis = { ping: jest.fn(), status: 'ready', quit: jest.fn(), disconnect: jest.fn() };
+  const prisma = { $queryRaw: jest.fn(), $connect: jest.fn(), $disconnect: jest.fn() };
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(REDIS_CLIENT)
       .useValue(redis)
+      .overrideProvider(PrismaService)
+      .useValue(prisma)
       .compile();
 
     app = configureApp(
@@ -27,7 +33,8 @@ describe('API (e2e)', () => {
   });
 
   beforeEach(() => {
-    redis.ping.mockReset();
+    redis.ping.mockReset().mockResolvedValue('PONG');
+    prisma.$queryRaw.mockReset().mockResolvedValue([{ '?column?': 1 }]);
   });
 
   describe('GET /api/v1/health/live', () => {
@@ -37,22 +44,37 @@ describe('API (e2e)', () => {
         .expect(200)
         .expect({ status: 'ok' });
       expect(redis.ping).not.toHaveBeenCalled();
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
     });
   });
 
   describe('GET /api/v1/health/ready', () => {
-    it('returns 200 when Redis answers', async () => {
-      redis.ping.mockResolvedValue('PONG');
+    it('returns 200 when the database and Redis answer', async () => {
       const res = await request(app.getHttpServer()).get('/api/v1/health/ready').expect(200);
-      expect(res.body).toEqual({ status: 'ok', checks: { redis: { status: 'ok' } } });
+      expect(res.body).toEqual({
+        status: 'ok',
+        checks: { database: { status: 'ok' }, redis: { status: 'ok' } },
+      });
     });
 
-    it('returns 503 and names the failing dependency when Redis is down', async () => {
+    it('returns 503 when the database is down', async () => {
+      prisma.$queryRaw.mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:5432'));
+      const res = await request(app.getHttpServer()).get('/api/v1/health/ready').expect(503);
+      expect(res.body.checks).toEqual({
+        database: { status: 'error', message: 'Unavailable' },
+        redis: { status: 'ok' },
+      });
+    });
+
+    it('returns 503 and names the failing dependency (not the error) when Redis is down', async () => {
       redis.ping.mockRejectedValue(new Error('Connection is closed.'));
       const res = await request(app.getHttpServer()).get('/api/v1/health/ready').expect(503);
       expect(res.body).toEqual({
         status: 'error',
-        checks: { redis: { status: 'error', message: 'Connection is closed.' } },
+        checks: {
+          database: { status: 'ok' },
+          redis: { status: 'error', message: 'Unavailable' },
+        },
       });
     });
   });

@@ -33,12 +33,12 @@ describe('SystemStatus', () => {
   it('shows the failing dependency when the API reports 503', async () => {
     mockFetch(503, {
       status: 'error',
-      checks: { redis: { status: 'error', message: 'Connection is closed.' } },
+      checks: { redis: { status: 'error', message: 'Unavailable' } },
     });
     renderWithClient();
 
     const badge = await screen.findByText('Unavailable');
-    expect(badge).toHaveAttribute('title', 'Connection is closed.');
+    expect(badge).toHaveAttribute('title', 'Unavailable');
   });
 
   it('shows an alert when the API cannot be reached', async () => {

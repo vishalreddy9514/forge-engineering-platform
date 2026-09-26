@@ -11,6 +11,8 @@ export const EnvSchema = z.object({
   API_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   LOG_PRETTY: booleanString.default(false),
+  DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+  DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
   REDIS_URL: z.url({ protocol: /^rediss?$/ }),
   CORS_ORIGINS: z
     .string()

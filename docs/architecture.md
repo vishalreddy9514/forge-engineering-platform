@@ -454,7 +454,7 @@ from private project B. Prompting cannot prevent this; it has to be prevented in
 
 ## 8. Data architecture (overview)
 
-The detailed schema, indexes and constraints are the Phase 3 deliverable (`docs/database.md`).
+The detailed schema, indexes and constraints are documented in [`database.md`](database.md).
 The high-level entity model:
 
 ```mermaid
