@@ -1,0 +1,31 @@
+{
+  "name": "forge-engineering-platform",
+  "private": true,
+  "description": "AI-assisted engineering issue and project management platform",
+  "license": "MIT",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.12.0",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "check": "turbo run lint typecheck test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "infra:up": "docker compose up -d --wait",
+    "infra:down": "docker compose down",
+    "clean": "turbo run clean && rm -rf node_modules .turbo"
+  },
+  "devDependencies": {
+    "@forge/config": "workspace:*",
+    "prettier": "3.9.9",
+    "turbo": "2.11.4",
+    "typescript": "5.9.3"
+  },
+  "prettier": "@forge/config/prettier"
+}

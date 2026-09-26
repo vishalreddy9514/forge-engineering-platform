@@ -1,0 +1,10 @@
+packages:
+  - apps/*
+  - packages/*
+
+# pnpm runs no dependency install scripts unless explicitly allowed here.
+allowBuilds:
+  sharp: true # Next.js image optimisation (native binary)
+  unrs-resolver: true # eslint import resolver (native binary)
+  '@parcel/watcher': false # prebuilt binaries are used; no build needed
+  '@scarf/scarf': false # install telemetry pulled in by swagger-ui-dist

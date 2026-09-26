@@ -1,0 +1,9 @@
+{
+  "extends": "@forge/config/tsconfig/nextjs.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "plugins": [],
+    "incremental": false
+  },
+  "include": ["src"]
+}
