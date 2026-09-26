@@ -4,3 +4,4 @@ dist
 coverage
 .turbo
 apps/ai-service
+dist-worker
