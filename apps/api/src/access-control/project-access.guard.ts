@@ -1,5 +1,6 @@
 import {
   type CanActivate,
+  ConflictException,
   type ExecutionContext,
   ForbiddenException,
   Injectable,
@@ -9,11 +10,18 @@ import { Reflector } from '@nestjs/core';
 
 import type { AuthenticatedRequest } from '../auth/auth.types';
 import { AccessControlService } from './access-control.service';
-import { can, type EffectiveRole } from './permissions';
+import { can, type EffectiveRole, type Permission } from './permissions';
 import {
   PROJECT_PERMISSION_KEY,
   type ProjectPermissionRequirement,
 } from './project-permission.metadata';
+
+/** Archived projects are read-only; restoring (project:archive) is the only write allowed. */
+const ALLOWED_WHEN_ARCHIVED: ReadonlySet<Permission> = new Set([
+  'project:read',
+  'ai:read',
+  'project:archive',
+]);
 
 export interface ProjectAccess {
   projectId: string;
@@ -40,21 +48,25 @@ export class ProjectAccessGuard implements CanActivate {
     const resourceId = req.params[requirement.param];
     const notFound = () => new NotFoundException(`${capitalise(requirement.scope)} not found`);
 
-    const projectId =
+    const project =
       typeof resourceId === 'string'
-        ? await this.access.resolveProjectId(requirement.scope, resourceId)
+        ? await this.access.resolveProject(requirement.scope, resourceId)
         : null;
-    if (!projectId) throw notFound();
+    if (!project) throw notFound();
 
     const role: EffectiveRole | null = req.user.isAdmin
       ? 'ADMIN'
-      : await this.access.getRole(req.user.id, projectId);
+      : await this.access.getRole(req.user.id, project.id);
     // Same answer as "does not exist": outsiders cannot probe which IDs are real.
     if (!role) throw notFound();
     if (!can(role, requirement.permission)) {
       throw new ForbiddenException(`Your role in this project cannot ${requirement.permission}`);
     }
+    if (project.archived && !ALLOWED_WHEN_ARCHIVED.has(requirement.permission)) {
+      throw new ConflictException('This project is archived. Restore it to make changes.');
+    }
 
+    const projectId = project.id;
     req.projectAccess = { projectId, role };
     return true;
   }
