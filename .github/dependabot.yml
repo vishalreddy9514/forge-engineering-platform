@@ -1,0 +1,23 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    groups:
+      nestjs: { patterns: ['@nestjs/*'] }
+      nextjs-react:
+        { patterns: ['next', 'eslint-config-next', 'react', 'react-dom', '@types/react*'] }
+      lint-format:
+        { patterns: ['eslint', '@eslint/*', 'typescript-eslint', 'prettier', 'eslint-*'] }
+      testing: { patterns: ['jest', 'ts-jest', '@types/jest', '@testing-library/*', 'supertest'] }
+  - package-ecosystem: uv
+    directory: /apps/ai-service
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule: { interval: weekly }

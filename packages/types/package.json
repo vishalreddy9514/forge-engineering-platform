@@ -1,0 +1,37 @@
+{
+  "name": "@forge/types",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Zod schemas and inferred types shared by the web app and the API",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "clean": "rm -rf dist coverage"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@forge/config": "workspace:*",
+    "@types/jest": "30.0.0",
+    "@types/node": "22.20.4",
+    "eslint": "9.39.5",
+    "jest": "30.5.2",
+    "ts-jest": "29.4.14",
+    "typescript": "5.9.3"
+  }
+}
