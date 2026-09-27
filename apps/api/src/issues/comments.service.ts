@@ -5,6 +5,7 @@ import type { ProjectAccess } from '../access-control/project-access.guard';
 import { can } from '../access-control/permissions';
 import type { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../infrastructure/database/prisma.service';
+import { writeOutbox } from '../outbox/outbox.writer';
 import { COMMENT_INCLUDE, toComment } from './issue.mappers';
 
 @Injectable()
@@ -36,6 +37,16 @@ export class CommentsService {
       });
       // Activity counts as an update for "recently updated" ordering (not a version change).
       await tx.issue.update({ where: { id: issueId }, data: { updatedAt: new Date() } });
+      await writeOutbox(
+        tx,
+        'comment.added',
+        { type: 'issue', id: issueId },
+        {
+          issueId,
+          commentId: created.id,
+          actorId: user.id,
+        },
+      );
       return created;
     });
     return toComment(comment);

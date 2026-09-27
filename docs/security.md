@@ -44,6 +44,18 @@
 - **Mass assignment.** Every request body is parsed by a Zod schema, and unknown keys (such as
   `isAdmin` on registration or a profile update) are dropped.
 
+## File uploads
+
+| Control                  | Implementation                                                                                                                            | Verified by                                     |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| No bytes through the API | Browser → storage via pre-signed PUT (10 min); downloads via pre-signed GET (60 s) issued only after the project permission check         | `attachments.int-spec.ts`                       |
+| Size and type            | 10 MB and a type allow-list (no HTML, SVG, XML or script types) checked by the API; size, type and disposition signed into the upload URL | `attachments.int-spec.ts` (storage returns 403) |
+| Trust but verify         | On completion the API reads the stored object's size and type; a mismatch deletes the object and the record (tested with a mutation)      | `attachments.int-spec.ts`                       |
+| Served as downloads      | Every object is stored with `Content-Disposition: attachment` and an RFC 6266 file name; storage is a separate origin from the app        | `content-disposition.spec.ts`, browser run      |
+| Path and header safety   | File names are stripped of paths, control characters and quotes; storage keys are random UUIDs, never user input                          | `attachments.test.ts` (types)                   |
+| Cross-origin uploads     | Bucket CORS allows only the web origin for PUT and GET                                                                                    | verified against SeaweedFS (ADR-0011)           |
+| Abandoned uploads        | Hourly worker job deletes uploads not completed within an hour, from storage and the database                                             | `attachments.int-spec.ts`                       |
+
 ## Data protection in logs
 
 - The request logger records an allow-list (`id`, `method`, `url`, `userAgent`), never raw
@@ -61,7 +73,8 @@ Append-only (database triggers reject UPDATE, DELETE and TRUNCATE). Recorded tod
 `auth.password_reset.completed`, `auth.password_changed`, `admin.user.updated` (with
 before/after values), `project.created`, `project.updated` (only the fields that changed),
 `project.archived`, `project.restored`, `project.deleted`, and `project.member.added`,
-`.role_changed`, `.removed` and `.left`. Each entry has the actor, IP, user agent and request ID.
+`.role_changed`, `.removed` and `.left`. (Issue, comment and attachment changes are recorded
+in each issue's own history instead.) Each entry has the actor, IP, user agent and request ID.
 
 ## Deliberate trade-offs
 

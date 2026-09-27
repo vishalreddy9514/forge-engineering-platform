@@ -3,16 +3,19 @@ import { APP_GUARD } from '@nestjs/core';
 
 import { AccessControlModule } from './access-control/access-control.module';
 import { AdminModule } from './admin/admin.module';
+import { AttachmentsModule } from './attachments/attachments.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { configModule, loggerModule } from './config/root-modules';
 import { HealthModule } from './health/health.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { ProjectsModule } from './projects/projects.module';
 import { DatabaseModule } from './infrastructure/database/database.module';
 import { IssuesModule } from './issues/issues.module';
 import { QueueModule } from './infrastructure/queue/queue.module';
 import { RedisModule } from './infrastructure/redis/redis.module';
+import { StorageModule } from './infrastructure/storage/storage.module';
 import { RateLimitGuard } from './rate-limit/rate-limit.guard';
 import { RateLimitModule } from './rate-limit/rate-limit.module';
 import { UsersModule } from './users/users.module';
@@ -23,6 +26,7 @@ import { UsersModule } from './users/users.module';
     loggerModule('api'),
     DatabaseModule,
     RedisModule,
+    StorageModule,
     QueueModule.forRoot('producer'),
     RateLimitModule,
     AuditModule,
@@ -32,6 +36,8 @@ import { UsersModule } from './users/users.module';
     AdminModule,
     ProjectsModule,
     IssuesModule,
+    AttachmentsModule,
+    NotificationsModule,
     HealthModule,
   ],
   providers: [

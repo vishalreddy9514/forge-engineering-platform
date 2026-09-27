@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { AttachmentsPanel } from '@/components/issues/attachments-panel';
 import { CommentThread } from '@/components/issues/comment-thread';
 import { StatusBadge, TypeIcon } from '@/components/issues/issue-badges';
 import { IssueSidebar } from '@/components/issues/issue-sidebar';
@@ -62,6 +63,7 @@ function IssueView({ issue }: { issue: IssueDetail }) {
   const canDelete = useCan('issue:delete');
   const canComment = useCan('comment:create');
   const canModerate = useCan('comment:moderate');
+  const canAttach = useCan('attachment:create');
   const update = useUpdateIssue(issue);
   const remove = useDeleteIssue(issue);
   const { data: members = [] } = useMembers(project.id);
@@ -247,6 +249,8 @@ function IssueView({ issue }: { issue: IssueDetail }) {
               <p className="text-sm text-muted-foreground">No description.</p>
             )}
           </section>
+
+          <AttachmentsPanel issue={issue} canUpload={canAttach} canDeleteAny={canDelete} />
 
           <div>
             <div role="tablist" aria-label="Activity" className="mb-4 flex gap-1 border-b">

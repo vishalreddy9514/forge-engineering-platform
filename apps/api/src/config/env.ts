@@ -53,8 +53,29 @@ export const EnvSchema = z
     SMTP_USER: z.string().optional(),
     SMTP_PASSWORD: z.string().optional(),
     MAIL_FROM: z.string().default('Forge <no-reply@forge.local>'),
+
+    // ---- Object storage (attachments) ----
+    /** Unset in AWS (the SDK's default endpoint); SeaweedFS or another S3-compatible store locally. */
+    S3_ENDPOINT: z.url().optional(),
+    /** Endpoint browsers use for pre-signed URLs, when it differs from the one the API uses. */
+    S3_PUBLIC_ENDPOINT: z.url().optional(),
+    S3_REGION: z.string().default('us-east-1'),
+    S3_BUCKET: z.string().min(3).max(63).default('forge-attachments'),
+    /** Unset in AWS: the SDK's default credential chain (the ECS task role) is used. */
+    S3_ACCESS_KEY_ID: z.string().optional(),
+    S3_SECRET_ACCESS_KEY: z.string().optional(),
+    S3_FORCE_PATH_STYLE: booleanString.default(false),
+    /** Create the bucket and its browser-upload CORS rule at startup (local dev and tests). */
+    S3_ENSURE_BUCKET: booleanString.default(false),
   })
   .superRefine((env, ctx) => {
+    if (Boolean(env.S3_ACCESS_KEY_ID) !== Boolean(env.S3_SECRET_ACCESS_KEY)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['S3_ACCESS_KEY_ID'],
+        message: 'Set both S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY, or neither',
+      });
+    }
     if (env.NODE_ENV === 'production' && (!env.JWT_PRIVATE_KEY || !env.JWT_PUBLIC_KEY)) {
       ctx.addIssue({
         code: 'custom',

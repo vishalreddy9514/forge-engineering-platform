@@ -16,3 +16,4 @@ An ADR is never edited after it is accepted. A new ADR supersedes it.
 | 0008 | [GitHub App integration with webhooks and reconciliation](0008-github-app-integration.md)                 | Accepted |
 | 0009 | [Toolchain versions: NestJS 11, TypeScript 5.9, ESLint 9](0009-toolchain-versions.md)                     | Accepted |
 | 0010 | [ES256 access tokens and a per-user revocation cutoff](0010-es256-access-tokens-and-revocation.md)        | Accepted |
+| 0011 | [SeaweedFS for local S3-compatible object storage](0011-local-object-storage-seaweedfs.md)                | Accepted |

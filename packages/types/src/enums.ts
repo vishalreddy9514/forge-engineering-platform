@@ -27,3 +27,15 @@ export type IssueType = z.infer<typeof IssueType>;
 
 export const SprintStatus = z.enum(['PLANNED', 'ACTIVE', 'COMPLETED']);
 export type SprintStatus = z.infer<typeof SprintStatus>;
+
+export const NotificationType = z.enum([
+  'ISSUE_ASSIGNED',
+  'COMMENT_ADDED',
+  'MENTIONED',
+  'SPRINT_STARTED',
+  'SPRINT_COMPLETED',
+  'PULL_REQUEST_OPENED',
+  'AI_JOB_COMPLETED',
+  'AI_JOB_FAILED',
+]);
+export type NotificationType = z.infer<typeof NotificationType>;

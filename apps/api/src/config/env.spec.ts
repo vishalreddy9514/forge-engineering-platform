@@ -54,4 +54,16 @@ describe('validateEnv', () => {
       /DATABASE_URL/,
     );
   });
+
+  it('configures object storage for AWS by default and requires S3 keys in pairs', () => {
+    expect(validateEnv(valid)).toMatchObject({
+      S3_BUCKET: 'forge-attachments',
+      S3_FORCE_PATH_STYLE: false,
+      S3_ENSURE_BUCKET: false,
+    });
+    expect(validateEnv(valid).S3_ENDPOINT).toBeUndefined();
+    expect(() => validateEnv({ ...valid, S3_ACCESS_KEY_ID: 'only-the-id' })).toThrow(
+      /S3_ACCESS_KEY_ID/,
+    );
+  });
 });

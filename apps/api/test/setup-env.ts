@@ -5,3 +5,4 @@ process.env.DATABASE_URL = 'postgresql://forge:unused@localhost:5432/forge';
 process.env.REDIS_URL = 'redis://localhost:6379';
 process.env.CORS_ORIGINS = 'http://localhost:3000';
 process.env.LOG_LEVEL = 'fatal';
+process.env.S3_ENSURE_BUCKET = 'false';

@@ -41,6 +41,15 @@ describe('describeEvent', () => {
     );
   });
 
+  it('names attachments', () => {
+    expect(
+      describeEvent(event('ATTACHMENT_ADDED', null, null, { id: 'a', name: 'trace.log' })),
+    ).toBe('attached trace.log');
+    expect(describeEvent(event('ATTACHMENT_REMOVED', null, { id: 'a', name: 'x.png' }, null))).toBe(
+      'removed the attachment x.png',
+    );
+  });
+
   it('falls back to readable text for event types it does not know', () => {
     expect(describeEvent(event('CREATED', null, null, {}))).toBe('created the issue');
     expect(describeEvent(event('SPRINT_CHANGED', null, null, null))).toBe('sprint changed');
