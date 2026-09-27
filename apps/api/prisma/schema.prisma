@@ -538,9 +538,12 @@ model Notification {
   payload   Json
   readAt    DateTime?        @map("read_at") @db.Timestamptz
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  /// Idempotency for at-least-once delivery: e.g. "outbox:1234" (one per source event).
+  dedupeKey String?          @map("dedupe_key") @db.VarChar(200)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, dedupeKey])
   @@index([userId, createdAt(sort: Desc)])
   // Unread count uses a partial index (WHERE read_at IS NULL) created in the migration.
   @@map("notifications")

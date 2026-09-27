@@ -5,7 +5,11 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '../../config/env';
 
 /** Queue names, shared by producers (API) and processors (worker). */
-export const QUEUES = { EMAIL: 'email' } as const;
+export const QUEUES = {
+  EMAIL: 'email',
+  NOTIFICATIONS: 'notifications',
+  MAINTENANCE: 'maintenance',
+} as const;
 
 /**
  * BullMQ connection settings differ by role:

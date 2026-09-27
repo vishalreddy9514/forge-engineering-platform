@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "forge-dev",
+      "credentials": [{ "accessKey": "forge", "secretKey": "forge_dev_storage_secret" }],
+      "actions": ["Admin", "Read", "List", "Tagging", "Write"]
+    }
+  ]
+}

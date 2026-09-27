@@ -204,6 +204,54 @@ Deleted comments stay in the thread as `{ deleted: true, body: null }` so replie
 context; the text itself is not returned. Comments do not change the issue's `version`, so
 discussing an issue never conflicts with editing it.
 
+### Attachments
+
+Files go straight from the browser to object storage; the API never handles the bytes.
+
+| Method | Path                                  | Permission                                 | Body → Response                                                                                                              |
+| ------ | ------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/issues/:issueId/attachments`        | `attachment:create`                        | `{ fileName, contentType, sizeBytes }` → **201** `{ attachment, upload: { url, method: "PUT", headers, expiresAt } }`        |
+| POST   | `/attachments/:attachmentId/complete` | `attachment:create`, and you requested it  | → `Attachment` (`AVAILABLE`). Nothing uploaded yet → **409**; stored object differs from the request → **400** and discarded |
+| GET    | `/issues/:issueId/attachments`        | `project:read`                             | → `Attachment[]` (completed uploads only, oldest first)                                                                      |
+| GET    | `/attachments/:attachmentId/download` | `project:read`                             | → `{ url, expiresAt }`: a pre-signed GET valid for 60 seconds, served with `Content-Disposition: attachment`                 |
+| DELETE | `/attachments/:attachmentId`          | the uploader, or `issue:delete` (managers) | → **204**; the object is deleted from storage first                                                                          |
+
+The upload flow:
+
+1. Request an upload. The API checks the type against the allow-list (images, PDF, text, CSV,
+   Markdown, JSON, zip and gzip; never HTML or SVG), the 10 MB limit, and 50 files per issue.
+   It sanitises the file name and returns a pre-signed PUT valid for 10 minutes.
+2. `PUT` the file to `upload.url` with exactly `upload.headers`. Size, type and disposition are
+   part of the signature, so storage rejects any other body with `403`.
+3. Complete. The API reads the stored object's size and type before making it visible.
+
+Uploads that are never completed are deleted by an hourly worker job. Storage keys are random
+and never contain the file name.
+
+### Notifications
+
+Created by the worker from domain events (see [architecture §5.2](architecture.md#52-transactional-outbox)),
+so they appear a moment after the change. You only ever see your own.
+
+| Method | Path                                    | Body → Response                                               |
+| ------ | --------------------------------------- | ------------------------------------------------------------- |
+| GET    | `/notifications?unread=&limit=&cursor=` | → `{ data: Notification[], nextCursor }`, newest first        |
+| GET    | `/notifications/unread-count`           | → `{ count }`; the web app polls this every 30 seconds        |
+| POST   | `/notifications/:id/read`               | → **204** (idempotent; someone else's notification → **404**) |
+| POST   | `/notifications/read-all`               | → **204**                                                     |
+
+`Notification` is `{ id, type, payload: { projectKey, issueKey, issueTitle, actorName }, readAt,
+createdAt }`. Current triggers:
+
+| Event                     | Who is notified                                                   | Email |
+| ------------------------- | ----------------------------------------------------------------- | ----- |
+| Issue assigned to someone | The new assignee, unless they assigned themselves                 | Yes   |
+| Comment added             | The reporter, the assignee and earlier commenters, not the author | No    |
+
+Recipients must still be active members of the project when the worker runs. @mentions are not
+implemented yet; sprint, pull-request and AI events arrive with those features (Phases 7, 8 and
+9–11).
+
 ## Health
 
 | Method | Path            | Auth   | Response                                                                                                    |
