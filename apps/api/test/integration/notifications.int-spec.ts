@@ -343,6 +343,24 @@ describe('outbox relay and notifications (real Postgres + Redis)', () => {
       expect(after.body).toEqual({ count: 0 });
     });
 
+    it('skips rows whose payload is not in the current shape instead of failing the list', async () => {
+      const w = await world();
+      const issue = await createIssue(w, { assigneeId: w.dev.id });
+      await deliver(issue.id);
+      // e.g. written by an older seed or a future event type this build does not know
+      await t.prisma.notification.create({
+        data: {
+          userId: w.dev.id,
+          type: 'SPRINT_STARTED',
+          payload: { sprint: 'Old', project: 'X' },
+        },
+      });
+
+      const list = await t.http.get('/api/v1/notifications').set(w.dev.auth).expect(200);
+      expect(list.body.data).toHaveLength(1);
+      expect(list.body.data[0]).toMatchObject({ type: 'ISSUE_ASSIGNED' });
+    });
+
     it('requires authentication and rejects malformed cursors', async () => {
       await t.http.get('/api/v1/notifications').expect(401);
       const w = await world();

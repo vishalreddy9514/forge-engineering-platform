@@ -400,23 +400,19 @@ async function seed(prisma: Prisma.TransactionClient): Promise<void> {
     issueCount++;
   }
 
-  await prisma.notification.createMany({
-    data: [
-      {
-        userId: users.sam,
-        type: 'ISSUE_ASSIGNED',
-        payload: {
-          issueKey: 'PAY-5',
-          title: 'Payment reconciliation job times out at month end',
-          actor: 'Mei Tanaka',
-        },
+  // Same payload shape the notifications worker writes (NotificationPayload in @forge/types).
+  await prisma.notification.create({
+    data: {
+      userId: users.sam,
+      type: 'ISSUE_ASSIGNED',
+      payload: {
+        projectKey: 'PAY',
+        issueKey: 'PAY-5',
+        issueTitle: 'Payment reconciliation job times out at month end',
+        actorName: 'Mei Tanaka',
       },
-      {
-        userId: users.alex,
-        type: 'SPRINT_STARTED',
-        payload: { sprint: 'PAY Sprint 2', project: 'PAY' },
-      },
-    ],
+      createdAt: daysAgo(5),
+    },
   });
 
   console.log(

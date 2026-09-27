@@ -4,27 +4,30 @@ import {
   Notification,
   type UnreadCount,
 } from '@forge/types';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import type { Notification as NotificationRow } from '../generated/prisma/client';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function toNotification(row: NotificationRow): Notification {
-  // The payload is written by the worker in this shape; parsing guards the contract anyway.
-  return Notification.parse({
+/** The worker writes payloads in this shape; anything else (an older format) returns null. */
+function toNotification(row: NotificationRow): Notification | null {
+  const parsed = Notification.safeParse({
     id: row.id,
     type: row.type,
     payload: row.payload,
     readAt: row.readAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
   });
+  return parsed.success ? parsed.data : null;
 }
 
 /** The caller's own notifications (FR-12.2). Other users' notifications are never visible. */
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   /** Newest first. IDs are UUIDv7 (time-ordered), so the ID alone is a stable keyset cursor. */
@@ -44,7 +47,13 @@ export class NotificationsService {
     const page = rows.slice(0, query.limit);
     const last = page.at(-1);
     return {
-      data: page.map(toNotification),
+      data: page.flatMap((row) => {
+        const notification = toNotification(row);
+        // One unreadable row must not break the whole list; it is logged for follow-up.
+        if (!notification)
+          this.logger.warn({ notificationId: row.id }, 'Skipping malformed notification');
+        return notification ? [notification] : [];
+      }),
       nextCursor:
         rows.length > query.limit && last ? Buffer.from(last.id).toString('base64url') : null,
     };
