@@ -25,7 +25,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:7.4-alpine
+    image: redis:8.10-alpine
     # AOF persistence so queued jobs survive a container restart, as they would in ElastiCache.
     command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
     ports:
