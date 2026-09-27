@@ -246,6 +246,13 @@ export class IssuesService {
       });
     }
     if (query.label) filters.push({ labels: { some: { labelId: query.label } } });
+    if (query.sprint === 'none') {
+      filters.push({ sprintIssues: { none: { removedAt: null } } });
+    } else if (query.sprint === 'active') {
+      filters.push({ sprintIssues: { some: { removedAt: null, sprint: { status: 'ACTIVE' } } } });
+    } else if (query.sprint) {
+      filters.push({ sprintIssues: { some: { removedAt: null, sprintId: query.sprint } } });
+    }
     if (query.q) filters.push({ id: { in: await this.search(projectId, query.q) } });
 
     const cursor = query.cursor ? this.cursorFilter(query.sort, query.cursor) : undefined;

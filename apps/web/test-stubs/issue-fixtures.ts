@@ -24,6 +24,7 @@ export function issueSummary(overrides: Partial<IssueSummary> = {}): IssueSummar
     priority: 'HIGH',
     assignee: null,
     labels: [],
+    sprint: null,
     storyPoints: null,
     dueDate: null,
     commentCount: 0,

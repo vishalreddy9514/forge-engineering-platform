@@ -414,6 +414,19 @@ async function seed(prisma: Prisma.TransactionClient): Promise<void> {
       createdAt: daysAgo(5),
     },
   });
+  await prisma.notification.create({
+    data: {
+      userId: users.alex,
+      type: 'SPRINT_STARTED',
+      payload: {
+        projectKey: 'PAY',
+        sprintId: sprints.current.id,
+        sprintName: 'PAY Sprint 2',
+        actorName: 'Priya Shah',
+      },
+      createdAt: daysAgo(6, 9),
+    },
+  });
 
   console.log(
     `Seeded ${Object.keys(users).length} users, 2 projects, 3 sprints and ${issueCount} issues.\n` +

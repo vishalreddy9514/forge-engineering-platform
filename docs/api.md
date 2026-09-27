@@ -240,17 +240,62 @@ so they appear a moment after the change. You only ever see your own.
 | POST   | `/notifications/:id/read`               | → **204** (idempotent; someone else's notification → **404**) |
 | POST   | `/notifications/read-all`               | → **204**                                                     |
 
-`Notification` is `{ id, type, payload: { projectKey, issueKey, issueTitle, actorName }, readAt,
-createdAt }`. Current triggers:
+`Notification` is `{ id, type, payload, readAt, createdAt }`. Issue notifications carry
+`{ projectKey, issueKey, issueTitle, actorName }`; sprint notifications carry
+`{ projectKey, sprintId, sprintName, actorName }`. Current triggers:
 
 | Event                     | Who is notified                                                   | Email |
 | ------------------------- | ----------------------------------------------------------------- | ----- |
 | Issue assigned to someone | The new assignee, unless they assigned themselves                 | Yes   |
 | Comment added             | The reporter, the assignee and earlier commenters, not the author | No    |
+| Sprint started/completed  | Every project member except the person who did it                 | No    |
 
 Recipients must still be active members of the project when the worker runs. @mentions are not
-implemented yet; sprint, pull-request and AI events arrive with those features (Phases 7, 8 and
-9–11).
+implemented yet; pull-request and AI events arrive with those features (Phases 8 and 9–11).
+
+## Sprints
+
+A project has any number of planned sprints, at most one active sprint (a partial unique index
+guarantees it even when two people press Start at once), and its completed sprints. Planning,
+starting and completing need `sprint:manage` (project managers); everyone in the project can read.
+
+| Method | Path                                      | Permission      | Body → Response                                                                                                         |
+| ------ | ----------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/projects/:projectId/sprints`            | `project:read`  | → `Sprint[]`: active first, then planned by start date, then completed, newest first                                    |
+| POST   | `/projects/:projectId/sprints`            | `sprint:manage` | `{ name, goal?, startDate, endDate }` → **201** `Sprint`. At most 56 days; names unique per project (**409** on `name`) |
+| GET    | `/sprints/:sprintId`                      | `project:read`  | → `Sprint`                                                                                                              |
+| PATCH  | `/sprints/:sprintId`                      | `sprint:manage` | any create field (`goal` may be `null`) → `Sprint`. Completed sprints are fixed (**409**)                               |
+| DELETE | `/sprints/:sprintId`                      | `sprint:manage` | → **204**; planned sprints only (**409** otherwise). Its issues return to the backlog                                   |
+| POST   | `/sprints/:sprintId/start`                | `sprint:manage` | → `Sprint`. **409** if another sprint is active, or this one already started                                            |
+| POST   | `/sprints/:sprintId/complete`             | `sprint:manage` | `{ moveOpenIssuesTo: "backlog" \| plannedSprintId }` → `{ sprint, completed, movedToBacklog, movedToSprint }`           |
+| POST   | `/sprints/:sprintId/issues`               | `sprint:manage` | `{ issueIds }` (1–100) → `Sprint`. An issue in another open sprint moves here                                           |
+| DELETE | `/sprints/:sprintId/issues/:issueId`      | `sprint:manage` | → **204**; the issue returns to the backlog                                                                             |
+| GET    | `/sprints/:sprintId/burndown`             | `project:read`  | → `Burndown`                                                                                                            |
+| GET    | `/projects/:projectId/velocity?sprints=6` | `project:read`  | → `Velocity` for the last 1–20 completed sprints                                                                        |
+
+`Sprint` has `id, projectId, name, goal, status, startDate, endDate, startedAt, completedAt,
+issueCount, points: { total, done }`. For a completed sprint the counts describe what it ended with.
+
+**Completing a sprint** closes every membership with an outcome: Done issues are `COMPLETED`,
+cancelled or deleted ones `REMOVED`, and the rest `CARRIED_OVER`, into the backlog or the chosen
+planned sprint of the same project. Every move is written to the issue's history
+(`SPRINT_CHANGED`), and starting and completing notify the project's members (`SPRINT_STARTED`,
+`SPRINT_COMPLETED`) through the outbox.
+
+**Burndown** (`{ committed, days: [{ date, remaining, ideal, scopeChange }] }`) is rebuilt from
+issue history on every request rather than from nightly snapshots, so it is exact for any sprint,
+past or present. For each day (UTC) it takes the state at the end of that day, or at completion:
+an issue counts while it belongs to the sprint and is neither Done nor Cancelled, with the story
+points it had at that moment. `committed` is the remaining work when the sprint started,
+`ideal` falls in a straight line from it to zero, `scopeChange` is points added (+) or removed
+(−) that day, and days that have not happened yet have `remaining: null`.
+
+**Velocity** (`{ sprints: [{ id, name, completedAt, committed, completed }], average }`), oldest
+first: `committed` is the points in the sprint when it started, `completed` the points of issues
+done at completion.
+
+The issue list takes `sprint=<id>|active|none` (`none` is the backlog), and every issue carries
+its current `sprint: { id, name } | null`.
 
 ## Health
 

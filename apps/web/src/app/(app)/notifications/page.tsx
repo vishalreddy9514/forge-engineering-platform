@@ -1,6 +1,6 @@
 'use client';
 
-import { describeNotification, type Notification } from '@forge/types';
+import { describeNotification, type Notification, notificationHref } from '@forge/types';
 import { Alert } from '@forge/ui/components/alert';
 import { Button } from '@forge/ui/components/button';
 import { Skeleton } from '@forge/ui/components/skeleton';
@@ -24,7 +24,7 @@ function NotificationItem({ notification }: { notification: Notification }) {
 
   const open = () => {
     if (unread) markRead.mutate(notification.id);
-    router.push(`/projects/${payload.projectKey}/issues/${payload.issueKey}`);
+    router.push(notificationHref(notification));
   };
 
   return (
@@ -49,7 +49,9 @@ function NotificationItem({ notification }: { notification: Notification }) {
             {describeNotification(notification)}
             {unread && <span className="sr-only"> (unread)</span>}
           </span>
-          <span className="truncate text-sm text-muted-foreground">{payload.issueTitle}</span>
+          <span className="truncate text-sm text-muted-foreground">
+            {'issueTitle' in payload ? payload.issueTitle : `Sprint in ${payload.projectKey}`}
+          </span>
           <time dateTime={notification.createdAt} className="text-xs text-muted-foreground">
             {new Date(notification.createdAt).toLocaleString()}
           </time>

@@ -305,6 +305,58 @@ describe('outbox relay and notifications (real Postgres + Redis)', () => {
     });
   });
 
+  describe('sprint notifications', () => {
+    it('tells everyone on the project when a sprint starts or completes, except the actor', async () => {
+      const w = await world();
+      const today = new Date().toISOString().slice(0, 10);
+      const sprint = (
+        await t.http
+          .post(`/api/v1/projects/${w.project.id}/sprints`)
+          .set(w.pm.auth)
+          .send({ name: 'Sprint A', startDate: today, endDate: today })
+          .expect(201)
+      ).body as { id: string };
+      await t.http.post(`/api/v1/sprints/${sprint.id}/start`).set(w.pm.auth).expect(200);
+      await t.http
+        .post(`/api/v1/sprints/${sprint.id}/complete`)
+        .set(w.pm.auth)
+        .send({})
+        .expect(200);
+
+      while ((await relay.drain()) > 0);
+      const jobs = (await queue.getJobs(['waiting'])).filter(
+        (j) => (j.data as { sprintId?: string }).sprintId === sprint.id,
+      );
+      expect(jobs.map((j) => j.name).sort()).toEqual(['sprint.completed', 'sprint.started']);
+      for (const job of jobs) {
+        const type = job.name === 'sprint.started' ? 'SPRINT_STARTED' : 'SPRINT_COMPLETED';
+        await fanout.sprintChanged(type, job.data as OutboxJob<'sprint.started'>);
+        await fanout.sprintChanged(type, job.data as OutboxJob<'sprint.started'>); // redelivery
+      }
+
+      const types = async (user: SignedInUser) =>
+        (await notificationsOf(user)).map((n) => n.type).sort();
+      expect(await types(w.dev)).toEqual(['SPRINT_COMPLETED', 'SPRINT_STARTED']);
+      expect(await types(w.dev2)).toEqual(['SPRINT_COMPLETED', 'SPRINT_STARTED']);
+      expect(await types(w.pm)).toEqual([]);
+      expect(await types(w.outsider)).toEqual([]);
+
+      const list = await t.http.get('/api/v1/notifications').set(w.dev.auth).expect(200);
+      const completed = (list.body.data as { type: string }[]).find(
+        (n) => n.type === 'SPRINT_COMPLETED',
+      );
+      expect(completed).toMatchObject({
+        type: 'SPRINT_COMPLETED',
+        payload: {
+          projectKey: w.project.key,
+          sprintId: sprint.id,
+          sprintName: 'Sprint A',
+          actorName: 'Pat Manager',
+        },
+      });
+    });
+  });
+
   describe('API', () => {
     it('lists your notifications newest first, counts unread and marks them read', async () => {
       const w = await world();
