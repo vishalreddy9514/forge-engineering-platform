@@ -1,32 +1,9 @@
-import type {
-  Label,
-  ProjectDetail,
-  ProjectMember,
-  ProjectSummary,
-  UserSummary,
-} from '@forge/types';
+import type { Label, ProjectDetail, ProjectMember, ProjectSummary } from '@forge/types';
 import { ProjectRole } from '@forge/types';
 
 import type { EffectiveRole } from '../access-control/permissions';
 import type { Prisma } from '../generated/prisma/client';
-
-export const USER_SUMMARY_SELECT = {
-  id: true,
-  displayName: true,
-  email: true,
-  avatarUrl: true,
-} as const satisfies Prisma.UserSelect;
-
-type UserRow = Prisma.UserGetPayload<{ select: typeof USER_SUMMARY_SELECT }>;
-
-export function toUserSummary(user: UserRow): UserSummary {
-  return {
-    id: user.id,
-    displayName: user.displayName,
-    email: user.email,
-    avatarUrl: user.avatarUrl,
-  };
-}
+import { toUserSummary, USER_SUMMARY_SELECT } from '../users/user-summary';
 
 const OPEN_ISSUES: Prisma.IssueWhereInput = {
   deletedAt: null,

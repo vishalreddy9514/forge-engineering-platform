@@ -10,6 +10,7 @@ import { configModule, loggerModule } from './config/root-modules';
 import { HealthModule } from './health/health.module';
 import { ProjectsModule } from './projects/projects.module';
 import { DatabaseModule } from './infrastructure/database/database.module';
+import { IssuesModule } from './issues/issues.module';
 import { QueueModule } from './infrastructure/queue/queue.module';
 import { RedisModule } from './infrastructure/redis/redis.module';
 import { RateLimitGuard } from './rate-limit/rate-limit.guard';
@@ -30,6 +31,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     AdminModule,
     ProjectsModule,
+    IssuesModule,
     HealthModule,
   ],
   providers: [

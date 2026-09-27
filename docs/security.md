@@ -32,6 +32,13 @@
 - **A project always has a manager.** Demotions and removals lock the project row, so two
   managers demoting each other concurrently cannot leave it with none (tested with a mutation:
   without the lock, the race test fails).
+- **Comments** can be edited or deleted only by their author or by a role with
+  `comment:moderate`; deleted comment text is never returned again.
+- **Lost updates are impossible.** Issue edits carry the version the user saw and are applied
+  with a conditional update, so a stale edit gets `409` instead of overwriting someone else's
+  change (tested with a mutation: without the version check, the race test fails).
+- **User-written Markdown** (descriptions, comments) is rendered without raw HTML, and links open
+  with `rel="noopener noreferrer nofollow"`.
 - **Irreversible actions are gated twice.** Deleting a project requires a platform admin, a
   project that is already archived, and the project key repeated as `?confirm=`.
 - **Mass assignment.** Every request body is parsed by a Zod schema, and unknown keys (such as

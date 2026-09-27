@@ -15,6 +15,8 @@ import { useProject } from '@/lib/queries/projects';
 
 const TABS = [
   { href: '', label: 'Overview' },
+  { href: '/issues', label: 'Issues' },
+  { href: '/board', label: 'Board' },
   { href: '/members', label: 'Members' },
   { href: '/labels', label: 'Labels' },
   { href: '/settings', label: 'Settings' },
