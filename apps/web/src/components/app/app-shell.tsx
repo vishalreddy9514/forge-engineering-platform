@@ -2,7 +2,7 @@
 
 import { Button } from '@forge/ui/components/button';
 import { cn } from '@forge/ui/lib/utils';
-import { FolderKanban, LogOut } from 'lucide-react';
+import { FolderKanban, GitPullRequest, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -44,6 +44,19 @@ export function AppShell({ children }: { children: ReactNode }) {
               <FolderKanban className="size-4" aria-hidden="true" />
               Projects
             </Link>
+            {state.user.isAdmin && (
+              <Link
+                href="/github"
+                aria-current={pathname.startsWith('/github') ? 'page' : undefined}
+                className={cn(
+                  'flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground',
+                  pathname.startsWith('/github') && 'font-medium text-foreground',
+                )}
+              >
+                <GitPullRequest className="size-4" aria-hidden="true" />
+                GitHub
+              </Link>
+            )}
           </nav>
           <div className="flex items-center gap-3 text-sm">
             <NotificationBell active={pathname.startsWith('/notifications')} />

@@ -120,6 +120,53 @@ export class NotificationFanout {
     );
   }
 
+  /**
+   * A PR mentioning an issue was opened: the issue's assignee hears about it, or its reporter
+   * when nobody is assigned. One notification per issue, each keyed by the issue as well as the
+   * event, so a PR mentioning two of your issues tells you about both.
+   */
+  async pullRequestOpened(event: OutboxJob<'pull_request.opened'>): Promise<number> {
+    const pr = await this.prisma.githubPullRequest.findUnique({
+      where: { id: event.pullRequestId },
+      select: {
+        number: true,
+        title: true,
+        authorLogin: true,
+        repository: { select: { fullName: true } },
+        issueLinks: { select: { issueId: true } },
+      },
+    });
+    if (!pr) return 0;
+    // Only issues still linked: the PR may have been edited to drop a mention since.
+    const linked = new Set(pr.issueLinks.map((l) => l.issueId));
+
+    let created = 0;
+    for (const issueId of event.issueIds.filter((id) => linked.has(id))) {
+      const issue = await this.loadIssue(issueId);
+      if (!issue) continue;
+      const [recipient] = await this.eligible(issue.projectId, [
+        issue.assigneeId ?? issue.reporterId,
+      ]);
+      if (!recipient) continue;
+      const key = `${issue.project.key}-${String(issue.number)}`;
+      created += await this.create(
+        'PULL_REQUEST_OPENED',
+        [recipient],
+        {
+          projectKey: issue.project.key,
+          issueKey: key,
+          issueTitle: issue.title,
+          repository: pr.repository.fullName,
+          pullRequestNumber: pr.number,
+          pullRequestTitle: pr.title,
+          authorLogin: pr.authorLogin,
+        },
+        `${event.outboxId}:${issueId}`,
+      );
+    }
+    return created;
+  }
+
   private loadIssue(issueId: string) {
     return this.prisma.issue.findFirst({
       where: { id: issueId, deletedAt: null },
@@ -168,23 +215,26 @@ export class NotificationFanout {
     };
   }
 
-  /** Inserts one row per recipient; rows that already exist for this event are skipped. */
+  /**
+   * Inserts one row per recipient; rows that already exist for this event are skipped. `eventKey`
+   * is the outbox ID, plus a qualifier when one event notifies a person more than once.
+   */
   private async create(
     type: NotificationType,
     recipients: Recipient[],
     payload: NotificationPayload,
-    outboxId: string,
+    eventKey: string,
   ): Promise<number> {
     const { count } = await this.prisma.notification.createMany({
       data: recipients.map((r) => ({
         userId: r.id,
         type,
         payload,
-        dedupeKey: `outbox:${outboxId}`,
+        dedupeKey: `outbox:${eventKey}`,
       })),
       skipDuplicates: true,
     });
-    this.logger.log({ type, outboxId, recipients: recipients.length, created: count }, 'Notified');
+    this.logger.log({ type, eventKey, recipients: recipients.length, created: count }, 'Notified');
     return count;
   }
 }

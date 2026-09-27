@@ -25,6 +25,8 @@ export class NotificationsProcessor extends WorkerHost {
           'SPRINT_COMPLETED',
           job.data as OutboxJob<'sprint.completed'>,
         );
+      case 'pull_request.opened':
+        return this.fanout.pullRequestOpened(job.data as OutboxJob<'pull_request.opened'>);
       default:
         throw new Error(`Unknown notification job: ${job.name}`);
     }

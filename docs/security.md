@@ -56,6 +56,19 @@
 | Cross-origin uploads     | Bucket CORS allows only the web origin for PUT and GET                                                                                    | verified against SeaweedFS (ADR-0011)           |
 | Abandoned uploads        | Hourly worker job deletes uploads not completed within an hour, from storage and the database                                             | `attachments.int-spec.ts`                       |
 
+## GitHub integration
+
+| Control                  | Implementation                                                                                                                                                       | Verified by                                                                        |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Webhook authenticity     | HMAC-SHA256 over the **raw** request bytes (a route-scoped raw body parser, 5 MB), constant-time compare; no user token accepted there                               | `webhook-signature.spec.ts` (GitHub's test vector), `github.int-spec.ts`, mutation |
+| Replay and redelivery    | The delivery ID is the primary key of `github_webhook_deliveries` and the job ID, so a delivery is processed once                                                    | `github.int-spec.ts`                                                               |
+| Untrusted payloads       | Every GitHub response and webhook is parsed with Zod; a malformed payload is recorded and not retried                                                                | `github.int-spec.ts`                                                               |
+| Least privilege          | Read-only repository permissions; installation tokens (1 h) cached in Redis until 5 min before expiry, dropped on 401 or uninstall; the private key stays in env/SSM | `github.client.spec.ts`                                                            |
+| Claiming installations   | Admin only, and the ID is confirmed with GitHub as the App: an ID from another App's installation is a 404 and never stored                                          | `github.int-spec.ts`                                                               |
+| No cross-project leakage | A key resolves only in projects that linked the repository; responses list only the caller's project's keys; unlinking removes that project's links                  | `github.int-spec.ts`, mutation                                                     |
+| Token confinement        | Pagination `Link` headers are only followed on the configured API origin, so a tampered header cannot send the token elsewhere                                       | `github.client.spec.ts`                                                            |
+| External links           | PR and commit links open with `target=_blank rel="noopener noreferrer"`                                                                                              | `github.test.tsx`                                                                  |
+
 ## Data protection in logs
 
 - The request logger records an allow-list (`id`, `method`, `url`, `userAgent`), never raw
@@ -78,9 +91,10 @@ in each issue's own history instead.) Each entry has the actor, IP, user agent a
 
 ## Deliberate trade-offs
 
-| Decision                                                                | Why                                                                                                                     |
-| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Registration returns 409 for an existing email                          | Registration inherently reveals account existence unless email verification is added (future). Rate-limited to 5/min/IP |
-| Rate limiting, lockout and revocation checks fail open if Redis is down | A cache outage should degrade abuse protection, not take authentication offline. Refresh still checks the database      |
-| One-second revocation window                                            | `iat` has one-second resolution (ADR-0010)                                                                              |
-| The session-hint cookie (`forge_session`) is readable by JavaScript     | It holds no credential (the value is `1`); it only lets the web proxy redirect before rendering                         |
+| Decision                                                                | Why                                                                                                                                  |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Registration returns 409 for an existing email                          | Registration inherently reveals account existence unless email verification is added (future). Rate-limited to 5/min/IP              |
+| Rate limiting, lockout and revocation checks fail open if Redis is down | A cache outage should degrade abuse protection, not take authentication offline. Refresh still checks the database                   |
+| One-second revocation window                                            | `iat` has one-second resolution (ADR-0010)                                                                                           |
+| The session-hint cookie (`forge_session`) is readable by JavaScript     | It holds no credential (the value is `1`); it only lets the web proxy redirect before rendering                                      |
+| Every GitHub installation belongs to the deployment                     | v1 is single-organisation: any installation of this App is the organisation's, and project managers may link any of its repositories |

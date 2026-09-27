@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 
 import { configModule, loggerModule } from './config/root-modules';
+import { GithubWorkerModule } from './github/github.module';
 import { DatabaseModule } from './infrastructure/database/database.module';
 import { QueueModule } from './infrastructure/queue/queue.module';
+import { RedisModule } from './infrastructure/redis/redis.module';
 import { StorageModule } from './infrastructure/storage/storage.module';
 import { MailWorkerModule } from './mail/mail.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
@@ -15,12 +17,14 @@ import { OutboxRelayModule } from './outbox/outbox.module';
     configModule(),
     loggerModule('worker'),
     DatabaseModule,
+    RedisModule,
     StorageModule,
     QueueModule.forRoot('worker'),
     MailWorkerModule,
     OutboxRelayModule,
     NotificationsWorkerModule,
     MaintenanceModule,
+    GithubWorkerModule,
   ],
 })
 export class WorkerModule {}

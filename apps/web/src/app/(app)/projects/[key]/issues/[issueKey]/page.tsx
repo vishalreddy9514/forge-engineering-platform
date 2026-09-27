@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { DevelopmentPanel } from '@/components/github/development-panel';
 import { AttachmentsPanel } from '@/components/issues/attachments-panel';
 import { CommentThread } from '@/components/issues/comment-thread';
 import { StatusBadge, TypeIcon } from '@/components/issues/issue-badges';
@@ -251,6 +252,8 @@ function IssueView({ issue }: { issue: IssueDetail }) {
           </section>
 
           <AttachmentsPanel issue={issue} canUpload={canAttach} canDeleteAny={canDelete} />
+
+          <DevelopmentPanel issueId={issue.id} issueKey={issue.key} />
 
           <div>
             <div role="tablist" aria-label="Activity" className="mb-4 flex gap-1 border-b">

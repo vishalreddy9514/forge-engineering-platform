@@ -22,7 +22,22 @@ export const SprintNotificationPayload = z.object({
 });
 export type SprintNotificationPayload = z.infer<typeof SprintNotificationPayload>;
 
-export const NotificationPayload = z.union([IssueNotificationPayload, SprintNotificationPayload]);
+/** A pull request that mentions an issue was opened (FR-6.4). */
+export const PullRequestNotificationPayload = IssueNotificationPayload.omit({
+  actorName: true,
+}).extend({
+  repository: z.string(),
+  pullRequestNumber: z.number().int(),
+  pullRequestTitle: z.string(),
+  authorLogin: z.string().nullable(),
+});
+export type PullRequestNotificationPayload = z.infer<typeof PullRequestNotificationPayload>;
+
+export const NotificationPayload = z.union([
+  IssueNotificationPayload,
+  SprintNotificationPayload,
+  PullRequestNotificationPayload,
+]);
 export type NotificationPayload = z.infer<typeof NotificationPayload>;
 
 const ISSUE_TYPES = ['ISSUE_ASSIGNED', 'COMMENT_ADDED', 'MENTIONED'] as const;
@@ -34,6 +49,11 @@ const base = { id: z.uuid(), readAt: z.string().nullable(), createdAt: z.string(
 export const Notification = z.discriminatedUnion('type', [
   z.object({ ...base, type: z.enum(ISSUE_TYPES), payload: IssueNotificationPayload }),
   z.object({ ...base, type: z.enum(SPRINT_TYPES), payload: SprintNotificationPayload }),
+  z.object({
+    ...base,
+    type: z.literal('PULL_REQUEST_OPENED'),
+    payload: PullRequestNotificationPayload,
+  }),
 ]);
 export type Notification = z.infer<typeof Notification>;
 
@@ -61,6 +81,10 @@ export function describeNotification(notification: Notification): string {
       return `${notification.payload.actorName} started ${notification.payload.sprintName}`;
     case 'SPRINT_COMPLETED':
       return `${notification.payload.actorName} completed ${notification.payload.sprintName}`;
+    case 'PULL_REQUEST_OPENED': {
+      const { authorLogin, repository, pullRequestNumber, issueKey } = notification.payload;
+      return `${authorLogin ?? 'Someone'} opened ${repository}#${String(pullRequestNumber)} for ${issueKey}`;
+    }
   }
 }
 
