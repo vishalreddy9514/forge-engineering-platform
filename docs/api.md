@@ -149,6 +149,61 @@ one answers **409**, even when two managers demote each other at the same moment
 | PATCH  | `/labels/:labelId`            | `project:update` | any of the create fields → `Label`                                                                                       |
 | DELETE | `/labels/:labelId`            | `project:update` | → **204**, and the label is removed from its issues                                                                      |
 
+## Issues
+
+Issues are numbered per project and addressed as `KEY-number` in the web app (`/projects/PAY/issues/PAY-42`).
+Deleting is a soft delete: the issue disappears from lists, the board and lookups, and its history is kept.
+
+| Method | Path                            | Permission     | Body → Response                                                                                                              |
+| ------ | ------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/projects/:projectId/issues?…` | `project:read` | → `{ data: IssueSummary[], nextCursor }`, filters below                                                                      |
+| POST   | `/projects/:projectId/issues`   | `issue:create` | `{ title, description?, type?, priority?, status?, assigneeId?, labelIds?, storyPoints?, dueDate? }` → **201** `IssueDetail` |
+| GET    | `/issues/by-key/:issueKey`      | `project:read` | → `IssueDetail` (key is case-insensitive)                                                                                    |
+| GET    | `/issues/:issueId`              | `project:read` | → `IssueDetail`                                                                                                              |
+| PATCH  | `/issues/:issueId`              | `issue:update` | `{ version, …any create field }` → `IssueDetail`. Stale `version` → **409**; a disallowed status move → **400** on `status`  |
+| DELETE | `/issues/:issueId`              | `issue:delete` | → **204** (soft delete)                                                                                                      |
+| GET    | `/issues/:issueId/events`       | `project:read` | → `IssueEvent[]`, oldest first: every field change, label, comment and lifecycle event with the actor                        |
+
+- **Create.** New issues start in `BACKLOG` or `TODO`. Omitting `assigneeId` uses the project's
+  default assignee (if still a member); `null` leaves it unassigned. The assignee must be a
+  project member and labels must belong to the project (both **400** field errors).
+- **Workflow.** Backlog → To do / In progress / Cancelled; To do → Backlog / In progress /
+  Cancelled; In progress → To do / In review / Done / Cancelled; In review → In progress / Done /
+  Cancelled; Done → To do / In progress (reopen); Cancelled → Backlog / To do. Entering Done or
+  Cancelled sets `resolvedAt`; leaving clears it.
+- **Optimistic locking.** Every issue has a `version`. A PATCH must send the version it last saw;
+  if someone else saved first the answer is **409** and nothing is written. Of two simultaneous
+  edits exactly one wins. A PATCH that changes nothing does not bump the version.
+- **Labels** in a PATCH are the complete new set.
+
+List filters (all optional, combined with AND):
+
+| Parameter                    | Example                            | Meaning                                                                   |
+| ---------------------------- | ---------------------------------- | ------------------------------------------------------------------------- |
+| `status`, `priority`, `type` | `status=TODO,IN_PROGRESS`          | Any of the comma-separated values                                         |
+| `assignee`                   | `me`, `none` or a user ID          | Assigned to you, unassigned, or to that person                            |
+| `label`                      | label ID                           | Has that label                                                            |
+| `q`                          | `refund timeout`                   | Full-text search on title and description (stemmed), plus title substring |
+| `sort`                       | `updated` · `created` · `priority` | Newest activity (default), newest issue, or most urgent first             |
+| `limit`, `cursor`            | `limit=50`                         | Keyset pagination, stable under concurrent writes                         |
+
+`IssueSummary` has `id, key, number, title, type, status, priority, assignee, labels, storyPoints,
+dueDate, commentCount, version, createdAt, updatedAt`. `IssueDetail` adds `projectId, projectKey,
+description, reporter, resolvedAt`.
+
+### Comments
+
+| Method | Path                        | Permission                        | Body → Response                           |
+| ------ | --------------------------- | --------------------------------- | ----------------------------------------- |
+| GET    | `/issues/:issueId/comments` | `project:read`                    | → `Comment[]`, oldest first               |
+| POST   | `/issues/:issueId/comments` | `comment:create`                  | `{ body }` (Markdown) → **201** `Comment` |
+| PATCH  | `/comments/:commentId`      | the author, or `comment:moderate` | `{ body }` → `Comment` (sets `editedAt`)  |
+| DELETE | `/comments/:commentId`      | the author, or `comment:moderate` | → **204**                                 |
+
+Deleted comments stay in the thread as `{ deleted: true, body: null }` so replies keep their
+context; the text itself is not returned. Comments do not change the issue's `version`, so
+discussing an issue never conflicts with editing it.
+
 ## Health
 
 | Method | Path            | Auth   | Response                                                                                                    |

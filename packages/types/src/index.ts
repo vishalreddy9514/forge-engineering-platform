@@ -1,6 +1,7 @@
 export * from './auth';
 export * from './enums';
 export * from './health';
+export * from './issues';
 export * from './pagination';
 export * from './permissions';
 export * from './problem';

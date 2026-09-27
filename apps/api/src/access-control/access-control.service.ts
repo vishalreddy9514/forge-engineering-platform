@@ -1,4 +1,4 @@
-import { ProjectRole } from '@forge/types';
+import { parseIssueKey, ProjectRole } from '@forge/types';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 
@@ -6,7 +6,8 @@ import { PrismaService } from '../infrastructure/database/prisma.service';
 import { REDIS_CLIENT } from '../infrastructure/redis/redis.module';
 
 /** Where a guarded route's project comes from. */
-export type ProjectScope = 'project' | 'projectKey' | 'issue' | 'sprint' | 'label';
+export type ProjectScope =
+  'project' | 'projectKey' | 'issue' | 'issueKey' | 'comment' | 'sprint' | 'label';
 
 export interface ResolvedProject {
   id: string;
@@ -54,7 +55,9 @@ export class AccessControlService {
   /** Project that owns the resource, or null if the resource does not exist (→ 404). */
   async resolveProject(scope: ProjectScope, id: string): Promise<ResolvedProject | null> {
     // Malformed IDs cannot exist; answering 404 early also keeps them away from the database.
-    if (scope === 'projectKey' ? !PROJECT_KEY.test(id) : !UUID.test(id)) return null;
+    const keyScoped = scope === 'projectKey' || scope === 'issueKey';
+    if (!keyScoped && !UUID.test(id)) return null;
+    if (scope === 'projectKey' && !PROJECT_KEY.test(id)) return null;
 
     const select = { id: true, archivedAt: true } as const;
     let project: { id: string; archivedAt: Date | null } | null | undefined;
@@ -75,6 +78,25 @@ export class AccessControlService {
             select: { project: { select } },
           })
         )?.project;
+        break;
+      case 'issueKey': {
+        const key = parseIssueKey(id);
+        if (!key) return null;
+        project = (
+          await this.prisma.issue.findFirst({
+            where: { number: key.number, deletedAt: null, project: { key: key.projectKey } },
+            select: { project: { select } },
+          })
+        )?.project;
+        break;
+      }
+      case 'comment':
+        project = (
+          await this.prisma.issueComment.findFirst({
+            where: { id, deletedAt: null, issue: { deletedAt: null } },
+            select: { issue: { select: { project: { select } } } },
+          })
+        )?.issue.project;
         break;
       case 'sprint':
         project = (

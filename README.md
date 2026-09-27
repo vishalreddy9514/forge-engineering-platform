@@ -8,10 +8,13 @@ history with cited sources.
 AI is a feature of the product, not the product. Every core workflow works with the AI service
 switched off.
 
-> **Status: Phase 5 of 20 (project management).** Teams can create projects, manage members and
-> roles, labels and settings, and archive or delete projects, all enforced by the project-level
-> permission model. This builds on authentication (Phase 4), the full database schema (Phase 3)
-> and the monorepo, CI and local infrastructure (Phase 2). Issues arrive in Phase 6.
+> **Status: Phase 6 of 20 (issues, part 1).** Teams track work as issues (`PAY-42`) with a
+> status workflow, priorities, assignees, labels, story points and due dates; search and filter
+> them; move them on a Kanban board; discuss them in Markdown comments; and see a full change
+> history. Concurrent edits are caught with optimistic locking instead of silently overwriting.
+> This builds on projects and members (Phase 5), authentication and RBAC (Phase 4), the database
+> schema (Phase 3) and the monorepo, CI and local infrastructure (Phase 2). Attachments and
+> notifications follow in the second half of Phase 6.
 
 ## Stack
 
@@ -29,7 +32,7 @@ switched off.
 ```
 apps/
   web/          Next.js app (App Router, Tailwind, TanStack Query)
-  api/          NestJS REST API, Prisma schema + migrations + seed (a BullMQ worker from Phase 6)
+  api/          NestJS REST API, Prisma schema + migrations + seed, plus a BullMQ worker
   ai-service/   FastAPI service for embeddings, RAG and LLM features (Python, uv)
 packages/
   types/        Zod schemas + TypeScript types shared by web and api
