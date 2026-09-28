@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { SummaryPanel } from '@/components/ai/summary-panel';
 import { DevelopmentPanel } from '@/components/github/development-panel';
 import { AttachmentsPanel } from '@/components/issues/attachments-panel';
 import { CommentThread } from '@/components/issues/comment-thread';
@@ -65,6 +66,7 @@ function IssueView({ issue }: { issue: IssueDetail }) {
   const canComment = useCan('comment:create');
   const canModerate = useCan('comment:moderate');
   const canAttach = useCan('attachment:create');
+  const canUseAi = useCan('ai:write');
   const update = useUpdateIssue(issue);
   const remove = useDeleteIssue(issue);
   const { data: members = [] } = useMembers(project.id);
@@ -250,6 +252,8 @@ function IssueView({ issue }: { issue: IssueDetail }) {
               <p className="text-sm text-muted-foreground">No description.</p>
             )}
           </section>
+
+          <SummaryPanel issueId={issue.id} canRequest={canUseAi} />
 
           <AttachmentsPanel issue={issue} canUpload={canAttach} canDeleteAny={canDelete} />
 

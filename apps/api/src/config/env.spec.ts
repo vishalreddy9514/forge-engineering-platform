@@ -84,4 +84,12 @@ describe('validateEnv', () => {
       /GITHUB_WEBHOOK_SECRET/,
     );
   });
+
+  it('treats the AI service as optional but needs its token when it is configured', () => {
+    expect(validateEnv(valid)).toMatchObject({ AI_DAILY_TOKEN_BUDGET: 200_000 });
+    expect(validateEnv(valid).AI_SERVICE_URL).toBeUndefined();
+    expect(() => validateEnv({ ...valid, AI_SERVICE_URL: 'http://localhost:8000' })).toThrow(
+      /AI_SERVICE_TOKEN/,
+    );
+  });
 });

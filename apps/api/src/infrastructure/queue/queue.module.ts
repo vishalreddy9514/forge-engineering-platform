@@ -10,6 +10,7 @@ export const QUEUES = {
   NOTIFICATIONS: 'notifications',
   MAINTENANCE: 'maintenance',
   GITHUB: 'github',
+  AI: 'ai',
 } as const;
 
 /**

@@ -1,0 +1,21 @@
+{
+  "summary": {
+    "tldr": "PAY-1: Double charges. Status: IN_PROGRESS. 1 comment(s) in the discussion.",
+    "keyDecisions": [
+      "Sam Okafor: We decided to store event IDs."
+    ],
+    "openQuestions": [
+      "Sam Okafor: Should we backfill old events?"
+    ],
+    "nextSteps": []
+  },
+  "model": "fake",
+  "promptVersion": "thread_summary@1",
+  "repaired": false,
+  "omittedComments": 0,
+  "usage": {
+    "inputTokens": 260,
+    "outputTokens": 59,
+    "costUsd": "0.000000"
+  }
+}

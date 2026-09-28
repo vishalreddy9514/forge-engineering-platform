@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,6 +27,29 @@ class Settings(BaseSettings):
     # Shared secret the API and worker send as a bearer token. Minimum length keeps
     # accidental placeholder values like "changeme" out of any environment.
     service_token: SecretStr = Field(min_length=32, validation_alias="AI_SERVICE_TOKEN")
+
+    # ---- Model provider (architecture §7.1) ----
+    # "fake" is deterministic and needs no key: local development and every test use it, so no
+    # test ever calls OpenAI. Deployed environments set "openai" and a key from SSM.
+    provider: Literal["openai", "fake"] = Field(default="fake", validation_alias="AI_PROVIDER")
+    openai_api_key: SecretStr | None = Field(default=None, validation_alias="OPENAI_API_KEY")
+    # Model names are configuration, not code.
+    openai_chat_model: str = Field(default="gpt-4.1-mini", validation_alias="OPENAI_CHAT_MODEL")
+    # Tests point this at a mock transport; unset means api.openai.com.
+    openai_base_url: str | None = Field(default=None, validation_alias="OPENAI_BASE_URL")
+    request_timeout_seconds: float = Field(
+        default=60, gt=0, le=300, validation_alias="AI_REQUEST_TIMEOUT_SECONDS"
+    )
+    # Upper bound on the prompt one request may send (OWASP LLM "unbounded consumption").
+    max_input_tokens: int = Field(
+        default=12_000, ge=1_000, le=200_000, validation_alias="AI_MAX_INPUT_TOKENS"
+    )
+
+    @model_validator(mode="after")
+    def _openai_needs_a_key(self) -> "Settings":
+        if self.provider == "openai" and self.openai_api_key is None:
+            raise ValueError("OPENAI_API_KEY is required when AI_PROVIDER=openai")
+        return self
 
 
 @lru_cache

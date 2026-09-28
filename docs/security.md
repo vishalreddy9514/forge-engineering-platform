@@ -69,6 +69,17 @@
 | Token confinement        | Pagination `Link` headers are only followed on the configured API origin, so a tampered header cannot send the token elsewhere                                       | `github.client.spec.ts`                                                            |
 | External links           | PR and commit links open with `target=_blank rel="noopener noreferrer"`                                                                                              | `github.test.tsx`                                                                  |
 
+## AI features (OWASP LLM Top 10)
+
+| Risk                                  | Control                                                                                                                                                                                                             | Verified by                                                        |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Prompt injection (direct or indirect) | User, issue and comment text only enters prompts inside `<untrusted_input>` blocks, and any tag inside it is neutralised so it cannot close the block. The system prompt says the block is data, never instructions | `test_prompts.py` (injection cannot escape its block)              |
+| Insecure output handling              | Model output is validated against a strict JSON Schema and Pydantic, repaired at most once, then Zod-validated by the API and the web app. It is only shown or used to fill a form, never executed                  | `test_structured.py`, `ai.wire.spec.ts`                            |
+| Excessive agency                      | The model has no tools and cannot write. Drafts fill a form the person must submit; labels outside the project's list are dropped                                                                                   | `create-issue-dialog.test.tsx`, `ai.int-spec.ts`                   |
+| Unbounded consumption                 | 20 requests a minute per person; a daily token budget per person; a prompt input cap (`AI_MAX_INPUT_TOKENS`) that drops the oldest comments first; output token caps                                                | `ai.int-spec.ts` (budget, mutation-checked), `test_feature_api.py` |
+| Sensitive information disclosure      | Summaries only read an issue the caller may see (project RBAC on the route). Provider error text is logged, not shown: users get a fixed message                                                                    | `ai.int-spec.ts` (mutation-checked)                                |
+| Service-to-service trust              | The AI service accepts only the shared service token (constant-time compare) and is never exposed publicly                                                                                                          | `test_security.py`, `test_feature_api.py`                          |
+
 ## Data protection in logs
 
 - The request logger records an allow-list (`id`, `method`, `url`, `userAgent`), never raw

@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 
 import { AccessControlModule } from './access-control/access-control.module';
 import { AdminModule } from './admin/admin.module';
+import { AiModule } from './ai/ai.module';
 import { AttachmentsModule } from './attachments/attachments.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
@@ -41,6 +42,7 @@ import { UsersModule } from './users/users.module';
     AttachmentsModule,
     SprintsModule,
     GithubModule,
+    AiModule,
     NotificationsModule,
     HealthModule,
   ],

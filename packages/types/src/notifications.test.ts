@@ -51,6 +51,13 @@ describe('notifications', () => {
     });
     expect(describeNotification(opened)).toBe('mei opened acme/payments#42 for PAY-3');
     expect(notificationHref(opened)).toBe('/projects/PAY/issues/PAY-3');
+
+    const aiPayload = { projectKey: 'PAY', issueKey: 'PAY-3', issueTitle: 'Refunds', jobId: 'j1' };
+    const ready = Notification.parse({ ...base, type: 'AI_JOB_COMPLETED', payload: aiPayload });
+    expect(describeNotification(ready)).toBe('The AI summary of PAY-3 is ready');
+    expect(notificationHref(ready)).toBe('/projects/PAY/issues/PAY-3');
+    const failed = Notification.parse({ ...base, type: 'AI_JOB_FAILED', payload: aiPayload });
+    expect(describeNotification(failed)).toBe('The AI summary of PAY-3 could not be made');
   });
 
   it('requires the payload shape that matches the type', () => {

@@ -4,6 +4,7 @@ from app.api import health, v1
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
 from app.core.request_context import RequestContextMiddleware
+from app.llm.factory import build_provider
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -24,6 +25,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url=None,
         openapi_url=None if is_production else "/openapi.json",
     )
+    app.state.settings = settings
+    app.state.provider = build_provider(settings)
     app.add_middleware(RequestContextMiddleware)
     app.include_router(health.router)
     app.include_router(v1.router)
