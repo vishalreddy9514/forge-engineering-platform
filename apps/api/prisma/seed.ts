@@ -9,7 +9,6 @@
  * allocator, history events for every status change), so dashboards and burndown charts built
  * in later phases have something meaningful to show.
  */
-import { findIssueKeys } from '@forge/types';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { createHash } from 'node:crypto';
 
@@ -629,6 +628,12 @@ async function seedGithub(
   return prs.length;
 }
 
+/**
+ * Same rule as findIssueKeys in @forge/types, repeated here because the seed runs straight
+ * after `pnpm install`, before any workspace package is built (CI's compose job, README setup).
+ */
+const ISSUE_KEY = /(?<![A-Za-z0-9_])[A-Z][A-Z0-9]{1,9}-[1-9][0-9]{0,8}(?![A-Za-z0-9_])/g;
+
 async function linkMentions(
   prisma: Prisma.TransactionClient,
   projectId: string,
@@ -636,7 +641,7 @@ async function linkMentions(
   target:
     { linkType: 'PULL_REQUEST'; pullRequestId: string } | { linkType: 'COMMIT'; commitId: string },
 ): Promise<void> {
-  for (const key of findIssueKeys(text)) {
+  for (const key of new Set(text.match(ISSUE_KEY) ?? [])) {
     const issue = await prisma.issue.findFirst({
       where: { projectId, number: Number(key.split('-')[1]), project: { key: key.split('-')[0] } },
       select: { id: true },
