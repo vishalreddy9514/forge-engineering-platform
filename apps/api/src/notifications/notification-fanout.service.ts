@@ -1,4 +1,4 @@
-import type { NotificationPayload } from '@forge/types';
+import type { IssueNotificationPayload, NotificationPayload } from '@forge/types';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -86,6 +86,40 @@ export class NotificationFanout {
     return this.create('COMMENT_ADDED', recipients, payload, event.outboxId);
   }
 
+  /** Everyone on the project hears when a sprint starts or ends, except whoever did it. */
+  async sprintChanged(
+    type: 'SPRINT_STARTED' | 'SPRINT_COMPLETED',
+    event: OutboxJob<'sprint.started'>,
+  ): Promise<number> {
+    const sprint = await this.prisma.sprint.findUnique({
+      where: { id: event.sprintId },
+      select: {
+        name: true,
+        status: true,
+        projectId: true,
+        project: { select: { key: true, members: { select: { userId: true } } } },
+      },
+    });
+    // Stale: deleted, or no longer in the state this event announces.
+    const expected = type === 'SPRINT_STARTED' ? ['ACTIVE', 'COMPLETED'] : ['COMPLETED'];
+    if (!sprint || !expected.includes(sprint.status)) return 0;
+
+    const others = sprint.project.members.map((m) => m.userId).filter((id) => id !== event.actorId);
+    const recipients = await this.eligible(sprint.projectId, others);
+    if (recipients.length === 0) return 0;
+    return this.create(
+      type,
+      recipients,
+      {
+        projectKey: sprint.project.key,
+        sprintId: event.sprintId,
+        sprintName: sprint.name,
+        actorName: await this.actorName(event.actorId),
+      },
+      event.outboxId,
+    );
+  }
+
   private loadIssue(issueId: string) {
     return this.prisma.issue.findFirst({
       where: { id: issueId, deletedAt: null },
@@ -125,7 +159,7 @@ export class NotificationFanout {
   private payload(
     issue: { number: number; title: string; project: { key: string } },
     actorName: string,
-  ): NotificationPayload {
+  ): IssueNotificationPayload {
     return {
       projectKey: issue.project.key,
       issueKey: `${issue.project.key}-${String(issue.number)}`,

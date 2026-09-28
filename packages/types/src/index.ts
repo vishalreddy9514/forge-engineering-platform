@@ -8,3 +8,4 @@ export * from './pagination';
 export * from './permissions';
 export * from './problem';
 export * from './projects';
+export * from './sprints';

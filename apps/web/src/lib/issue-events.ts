@@ -54,6 +54,13 @@ export function describeEvent(
       return `attached ${nameOf(event.newValue) ?? 'a file'}`;
     case 'ATTACHMENT_REMOVED':
       return `removed the attachment ${nameOf(event.oldValue) ?? ''}`.trimEnd();
+    case 'SPRINT_CHANGED': {
+      const from = nameOf(event.oldValue);
+      const to = nameOf(event.newValue);
+      if (from && to) return `moved the issue from ${from} to ${to}`;
+      if (to) return `added the issue to ${to}`;
+      return `moved the issue from ${from ?? 'a sprint'} to the backlog`;
+    }
     case 'LABEL_ADDED':
       return `added the label ${nameOf(event.newValue) ?? '(deleted label)'}`;
     case 'LABEL_REMOVED':

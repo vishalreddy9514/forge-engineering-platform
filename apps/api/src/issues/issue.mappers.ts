@@ -8,6 +8,12 @@ export const ISSUE_SUMMARY_INCLUDE = {
   assignee: { select: USER_SUMMARY_SELECT },
   labels: { select: { label: { select: { id: true, name: true, color: true } } } },
   _count: { select: { comments: { where: { deletedAt: null } } } },
+  // The current sprint membership (at most one, by a partial unique index).
+  sprintIssues: {
+    where: { removedAt: null },
+    select: { sprint: { select: { id: true, name: true } } },
+    take: 1,
+  },
 } as const satisfies Prisma.IssueInclude;
 
 export const ISSUE_DETAIL_INCLUDE = {
@@ -32,6 +38,7 @@ export function toIssueSummary(issue: SummaryRow): IssueSummary {
     priority: issue.priority,
     assignee: issue.assignee ? toUserSummary(issue.assignee) : null,
     labels: issue.labels.map((l) => l.label).sort((a, b) => a.name.localeCompare(b.name)),
+    sprint: issue.sprintIssues[0]?.sprint ?? null,
     storyPoints: issue.storyPoints,
     dueDate: toDateOnly(issue.dueDate),
     commentCount: issue._count.comments,

@@ -18,6 +18,7 @@ import { RedisModule } from './infrastructure/redis/redis.module';
 import { StorageModule } from './infrastructure/storage/storage.module';
 import { RateLimitGuard } from './rate-limit/rate-limit.guard';
 import { RateLimitModule } from './rate-limit/rate-limit.module';
+import { SprintsModule } from './sprints/sprints.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -37,6 +38,7 @@ import { UsersModule } from './users/users.module';
     ProjectsModule,
     IssuesModule,
     AttachmentsModule,
+    SprintsModule,
     NotificationsModule,
     HealthModule,
   ],

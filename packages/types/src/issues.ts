@@ -121,6 +121,8 @@ export const ListIssuesQuery = CursorPaginationQuery.extend({
   /** A user id, "me", or "none" (unassigned). */
   assignee: z.union([z.uuid(), z.enum(['me', 'none'])]).optional(),
   label: z.uuid().optional(),
+  /** A sprint id, "active" (the project's active sprint), or "none" (the backlog). */
+  sprint: z.union([z.uuid(), z.enum(['active', 'none'])]).optional(),
   q: z.string().trim().min(1).max(200).optional(),
   sort: IssueSort.default('updated'),
 });
@@ -148,6 +150,8 @@ export const IssueSummary = z.object({
   priority: IssuePriority,
   assignee: UserSummary.nullable(),
   labels: z.array(LabelChip),
+  /** The sprint the issue is in now, if any. */
+  sprint: z.object({ id: z.uuid(), name: z.string() }).nullable(),
   storyPoints: z.number().int().nullable(),
   dueDate: z.string().nullable(),
   commentCount: z.number().int(),

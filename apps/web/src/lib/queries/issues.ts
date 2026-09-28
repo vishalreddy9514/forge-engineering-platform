@@ -18,6 +18,8 @@ export interface IssueFilters {
   type?: string[];
   assignee?: string;
   label?: string;
+  /** A sprint id, "active", or "none" (the backlog). */
+  sprint?: string;
   q?: string;
   sort?: 'updated' | 'created' | 'priority';
   limit?: number;
