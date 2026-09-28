@@ -24,6 +24,9 @@
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.705 0.015 286.067);
+  /* Chart series, categorical slots 1-2 (validated for CVD separation and 3:1 contrast). */
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
 }
 
 .dark {
@@ -45,6 +48,8 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.552 0.016 285.938);
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
 }
 
 @theme inline {
@@ -66,6 +71,8 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-success: var(--success);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
   --color-success-foreground: var(--success-foreground);
   --color-border: var(--border);
   --color-input: var(--input);

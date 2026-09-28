@@ -221,6 +221,10 @@ export function IssueSidebar({ issue, members, labels, canEdit, onChange }: Issu
 
       <dl className="grid gap-1 border-t pt-3 text-xs text-muted-foreground">
         <div className="flex justify-between gap-2">
+          <dt>Sprint</dt>
+          <dd>{issue.sprint?.name ?? 'Backlog'}</dd>
+        </div>
+        <div className="flex justify-between gap-2">
           <dt>Reporter</dt>
           <dd>{issue.reporter.displayName}</dd>
         </div>

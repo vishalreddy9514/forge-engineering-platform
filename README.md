@@ -8,15 +8,14 @@ history with cited sources.
 AI is a feature of the product, not the product. Every core workflow works with the AI service
 switched off.
 
-> **Status: Phase 6 of 20 (issues).** Teams track work as issues (`PAY-42`) with a status
-> workflow, priorities, assignees, labels, story points and due dates; search and filter them;
-> move them on a Kanban board; discuss them in Markdown comments; attach files, uploaded straight
-> to object storage with pre-signed URLs; and get notified in the app (and by email) when they are
-> assigned an issue or someone comments on one they are involved in. Notifications flow through a
-> transactional outbox, so a change and its notification are never out of step. Concurrent edits
-> are caught with optimistic locking. This builds on projects and members (Phase 5),
-> authentication and RBAC (Phase 4), the database schema (Phase 3) and the monorepo, CI and local
-> infrastructure (Phase 2).
+> **Status: Phase 7 of 20 (sprints).** Teams plan sprints from the backlog, start and complete
+> them (unfinished work carries over to the backlog or the next sprint), and follow progress on a
+> burndown chart rebuilt from issue history and a velocity chart across recent sprints; the board
+> focuses on the active sprint. Underneath: issues with a status workflow, Markdown comments,
+> attachments uploaded straight to object storage, in-app and email notifications delivered
+> through a transactional outbox, and optimistic locking for concurrent edits (Phase 6); projects
+> and members (Phase 5); authentication and RBAC (Phase 4); the database schema (Phase 3); and the
+> monorepo, CI and local infrastructure (Phase 2).
 
 ## Stack
 

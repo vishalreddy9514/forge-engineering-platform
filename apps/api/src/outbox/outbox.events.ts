@@ -8,6 +8,8 @@ import { QUEUES } from '../infrastructure/queue/queue.module';
 export interface DomainEvents {
   'issue.assigned': { issueId: string; assigneeId: string; actorId: string };
   'comment.added': { issueId: string; commentId: string; actorId: string };
+  'sprint.started': { sprintId: string; actorId: string };
+  'sprint.completed': { sprintId: string; actorId: string };
 }
 export type DomainEventType = keyof DomainEvents;
 
@@ -15,6 +17,8 @@ export type DomainEventType = keyof DomainEvents;
 export const EVENT_ROUTES: Record<DomainEventType, readonly string[]> = {
   'issue.assigned': [QUEUES.NOTIFICATIONS],
   'comment.added': [QUEUES.NOTIFICATIONS],
+  'sprint.started': [QUEUES.NOTIFICATIONS],
+  'sprint.completed': [QUEUES.NOTIFICATIONS],
 };
 
 /** What a processor receives: the event payload plus the outbox row it came from. */

@@ -50,8 +50,22 @@ describe('describeEvent', () => {
     );
   });
 
+  it('describes sprint moves', () => {
+    const s1 = { id: '1', name: 'PAY Sprint 1' };
+    const s2 = { id: '2', name: 'PAY Sprint 2' };
+    expect(describeEvent(event('SPRINT_CHANGED', 'sprint', null, s1))).toBe(
+      'added the issue to PAY Sprint 1',
+    );
+    expect(describeEvent(event('SPRINT_CHANGED', 'sprint', s1, s2))).toBe(
+      'moved the issue from PAY Sprint 1 to PAY Sprint 2',
+    );
+    expect(describeEvent(event('SPRINT_CHANGED', 'sprint', s2, null))).toBe(
+      'moved the issue from PAY Sprint 2 to the backlog',
+    );
+  });
+
   it('falls back to readable text for event types it does not know', () => {
     expect(describeEvent(event('CREATED', null, null, {}))).toBe('created the issue');
-    expect(describeEvent(event('SPRINT_CHANGED', null, null, null))).toBe('sprint changed');
+    expect(describeEvent(event('LINKED', null, null, null))).toBe('linked');
   });
 });

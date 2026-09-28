@@ -226,8 +226,9 @@ sequenceDiagram
 This gives at-least-once delivery, and deterministic job IDs make that safe to repeat. See
 [ADR-0006](adr/0006-transactional-outbox.md).
 
-**As built (Phase 6b).** Issue and comment services call `writeOutbox(tx, …)` inside their
-transaction. An `AFTER INSERT … FOR EACH STATEMENT` trigger issues `pg_notify('outbox_events')`,
+**As built (Phase 6b, extended in 7).** Issue, comment and sprint services call
+`writeOutbox(tx, …)` inside their transaction (`issue.assigned`, `comment.added`,
+`sprint.started`, `sprint.completed`). An `AFTER INSERT … FOR EACH STATEMENT` trigger issues `pg_notify('outbox_events')`,
 which Postgres delivers only on commit; the relay (`OutboxRelay`, worker) LISTENs on a dedicated
 connection and falls back to a 500 ms poll if that connection drops. Each batch is claimed with
 `FOR UPDATE SKIP LOCKED`, added to BullMQ with job ID `outbox-{id}`, and marked published in the

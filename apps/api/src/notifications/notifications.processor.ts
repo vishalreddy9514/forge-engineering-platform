@@ -18,6 +18,13 @@ export class NotificationsProcessor extends WorkerHost {
         return this.fanout.issueAssigned(job.data as OutboxJob<'issue.assigned'>);
       case 'comment.added':
         return this.fanout.commentAdded(job.data as OutboxJob<'comment.added'>);
+      case 'sprint.started':
+        return this.fanout.sprintChanged('SPRINT_STARTED', job.data as OutboxJob<'sprint.started'>);
+      case 'sprint.completed':
+        return this.fanout.sprintChanged(
+          'SPRINT_COMPLETED',
+          job.data as OutboxJob<'sprint.completed'>,
+        );
       default:
         throw new Error(`Unknown notification job: ${job.name}`);
     }
