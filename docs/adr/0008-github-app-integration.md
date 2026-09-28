@@ -34,23 +34,4 @@ promptly, and may optionally post review comments.
 
 - ➕ Least privilege, org-installable, higher rate limits, and real-time updates.
 - ➖ More setup (App registration, private key, webhook secret), documented step by step in
-  [`docs/github-app-setup.md`](../github-app-setup.md).
-
-## Implementation notes (Phase 8)
-
-- **A small REST client instead of Octokit.** Octokit's current packages are ESM-only, while the
-  API and its Jest setup are CommonJS (ADR-0009). Forge needs a handful of GET endpoints, so
-  `GithubClient` covers exactly that: App JWT (RS256, signed with `node:crypto`), installation
-  tokens cached in Redis, `Link` pagination, and the rate-limit handling Octokit's throttling
-  plugin would have given. Rate limits become a `GithubRateLimitError` with the reset time, and
-  the worker re-delays the job without spending a retry. Background work also stops at a
-  configurable reserve, before GitHub would refuse.
-- **Webhooks cost no API calls.** Handlers use only the payload; out-of-order deliveries are
-  harmless because PR and issue writes apply only when GitHub's `updated_at` is newer.
-- **Repositories are addressed as `/repos/{owner}/{repo}`.** These are the documented routes.
-  Renames are picked up from every webhook and from each sync's metadata refresh, keyed on
-  GitHub's numeric repository ID.
-- **Only linked repositories are synced**, which keeps rate-limit use proportional to what
-  projects actually use.
-- Tests replay responses recorded from GitHub (`apps/api/test/fixtures/github/record.sh`)
-  through a fake API that checks the App JWT and installation tokens as GitHub does.
+  `docs/github-app-setup.md` (Phase 8).
