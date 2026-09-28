@@ -121,6 +121,23 @@ enum PullRequestState {
   @@map("pull_request_state")
 }
 
+enum GithubIssueState {
+  OPEN
+  CLOSED
+
+  @@map("github_issue_state")
+}
+
+enum GithubSyncStatus {
+  IDLE
+  QUEUED
+  RUNNING
+  FAILED
+  RATE_LIMITED
+
+  @@map("github_sync_status")
+}
+
 enum IssueLinkType {
   PULL_REQUEST
   COMMIT
@@ -607,23 +624,27 @@ model GithubInstallation {
 }
 
 model GithubRepository {
-  id             String    @id @default(uuid(7)) @db.Uuid
-  installationId String    @map("installation_id") @db.Uuid
+  id             String           @id @default(uuid(7)) @db.Uuid
+  installationId String           @map("installation_id") @db.Uuid
   /// GitHub's numeric repository ID: stable across renames, unlike owner/name.
-  githubId       BigInt    @unique @map("github_id")
-  fullName       String    @map("full_name") @db.VarChar(200)
-  defaultBranch  String    @map("default_branch") @db.VarChar(255)
-  isPrivate      Boolean   @map("is_private")
-  htmlUrl        String    @map("html_url")
-  lastSyncedAt   DateTime? @map("last_synced_at") @db.Timestamptz
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  githubId       BigInt           @unique @map("github_id")
+  fullName       String           @map("full_name") @db.VarChar(200)
+  defaultBranch  String           @map("default_branch") @db.VarChar(255)
+  isPrivate      Boolean          @map("is_private")
+  htmlUrl        String           @map("html_url")
+  /// Start of the last successful sync: the next incremental sync asks GitHub for changes since then.
+  lastSyncedAt   DateTime?        @map("last_synced_at") @db.Timestamptz
+  syncStatus     GithubSyncStatus @default(IDLE) @map("sync_status")
+  lastSyncError  String?          @map("last_sync_error") @db.VarChar(500)
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
   installation GithubInstallation  @relation(fields: [installationId], references: [id], onDelete: Cascade)
   projects     ProjectRepository[]
   pullRequests GithubPullRequest[]
   commits      GithubCommit[]
   contributors GithubContributor[]
+  issues       GithubIssue[]
 
   @@index([installationId])
   @@map("github_repositories")
@@ -707,6 +728,48 @@ model GithubContributor {
 
   @@id([repositoryId, login])
   @@map("github_contributors")
+}
+
+/// A GitHub issue in a synced repository (FR-6.3). Read-only: Forge never writes to GitHub.
+model GithubIssue {
+  id              String           @id @default(uuid(7)) @db.Uuid
+  repositoryId    String           @map("repository_id") @db.Uuid
+  githubId        BigInt           @unique @map("github_id")
+  number          Int
+  title           String
+  state           GithubIssueState
+  authorLogin     String?          @map("author_login") @db.VarChar(100)
+  labels          String[]         @default([])
+  commentsCount   Int              @default(0) @map("comments_count")
+  htmlUrl         String           @map("html_url")
+  openedAt        DateTime         @map("opened_at") @db.Timestamptz
+  closedAt        DateTime?        @map("closed_at") @db.Timestamptz
+  /// Same out-of-order guard as pull requests.
+  githubUpdatedAt DateTime         @map("github_updated_at") @db.Timestamptz
+  syncedAt        DateTime         @default(now()) @map("synced_at") @db.Timestamptz
+
+  repository GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, number])
+  @@index([repositoryId, state, openedAt(sort: Desc)])
+  @@map("github_issues")
+}
+
+/// Webhook deliveries (ADR-0008). The delivery ID deduplicates GitHub's redeliveries, and the
+/// stored payload lets a failed job be retried without GitHub sending it again.
+model GithubWebhookDelivery {
+  /// X-GitHub-Delivery: a GUID per delivery, reused when GitHub redelivers.
+  id             String    @id @db.VarChar(64)
+  event          String    @db.VarChar(64)
+  action         String?   @db.VarChar(64)
+  installationId BigInt?   @map("installation_id")
+  payload        Json
+  receivedAt     DateTime  @default(now()) @map("received_at") @db.Timestamptz
+  processedAt    DateTime? @map("processed_at") @db.Timestamptz
+  error          String?   @db.VarChar(500)
+
+  @@index([receivedAt])
+  @@map("github_webhook_deliveries")
 }
 
 /// Issue ↔ PR/commit links detected from "PAY-123" mentions (FR-6.4). Exactly one target is

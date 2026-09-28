@@ -8,7 +8,7 @@ import type { DomainEvents, DomainEventType } from './outbox.events';
 export async function writeOutbox<T extends DomainEventType>(
   tx: Prisma.TransactionClient,
   type: T,
-  aggregate: { type: 'issue' | 'sprint'; id: string },
+  aggregate: { type: 'issue' | 'sprint' | 'pull_request'; id: string },
   payload: DomainEvents[T],
 ): Promise<void> {
   await tx.outboxEvent.create({

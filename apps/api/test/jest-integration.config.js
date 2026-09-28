@@ -13,4 +13,7 @@ module.exports = {
   globalTeardown: '<rootDir>/integration/global-teardown.ts',
   setupFiles: ['<rootDir>/integration/setup-env.ts'],
   testTimeout: 30_000,
+  // A Nest module that fails to compile leaves connections open that no test can close; the
+  // failure is reported either way, and CI must not hang waiting for them.
+  forceExit: true,
 };

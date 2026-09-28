@@ -3,11 +3,13 @@ import { ConfigService } from '@nestjs/config';
 import { type NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import express from 'express';
 import helmet from 'helmet';
 
 import { ProblemDetailsFilter } from './common/http/problem-details.filter';
 import { REQUEST_ID_HEADER } from './common/http/request-id';
 import { type Env } from './config/env';
+import { GITHUB_WEBHOOK_PATH } from './github/github-webhook.controller';
 
 export const API_PREFIX = 'api/v1';
 
@@ -22,6 +24,10 @@ export function configureApp(app: NestExpressApplication): INestApplication {
   app.disable('x-powered-by');
   app.use(helmet());
   app.use(cookieParser());
+  // Webhook signatures cover the exact bytes GitHub sent, so this route gets the raw body
+  // (the JSON parser then skips it). GitHub caps payloads at 25 MB; larger ones are rare and
+  // hourly reconciliation fetches whatever a rejected delivery carried.
+  app.use(`/${API_PREFIX}/${GITHUB_WEBHOOK_PATH}`, express.raw({ type: () => true, limit: '5mb' }));
   app.enableCors({
     origin: config.get('CORS_ORIGINS', { infer: true }),
     credentials: true,

@@ -1,0 +1,570 @@
+[
+  {
+    "sha": "2d8f39ad0f296c0247f7edffc2cf77973039b8b8",
+    "node_id": "C_kwDOUsrhKdoAKDJkOGYzOWFkMGYyOTZjMDI0N2Y3ZWRmZmMyY2Y3Nzk3MzAzOWI4Yjg",
+    "commit": {
+      "author": {
+        "name": "vishalreddy9514",
+        "email": "128448128+vishalreddy9514@users.noreply.github.com",
+        "date": "2026-09-27T21:09:06Z"
+      },
+      "committer": {
+        "name": "GitHub",
+        "email": "noreply@github.com",
+        "date": "2026-09-27T21:09:06Z"
+      },
+      "message": "Phase 6b: attachments, transactional outbox and notifications (#7)\n\n* Phase 6b: attachments, transactional outbox and notifications\n\n- Attachments upload straight from the browser to S3-compatible storage with pre-signed PUTs\n  (size, type and disposition signed); the API verifies the stored object before exposing it,\n  issues 60-second download links, and a worker job removes abandoned uploads\n- Type allow-list (no HTML/SVG/script types), 10 MB and 50-per-issue limits, sanitised names,\n  random storage keys, Content-Disposition: attachment\n- Transactional outbox: issue assignment and comments write events in the same transaction;\n  the worker relay publishes them with FOR UPDATE SKIP LOCKED, LISTEN/NOTIFY wake-ups and a\n  500 ms poll fallback, using deterministic job IDs\n- Notifications: idempotent fan-out (per-recipient dedupe key) to assignees, reporters and\n  commenters; assignment email; list, unread count, mark read and read-all endpoints\n- Web: attachments panel with progress, notification bell (30 s polling) and notifications page\n- SeaweedFS replaces MinIO locally and in Testcontainers (ADR-0011): MinIO images are no\n  longer published\n- Tests: unit, HTTP integration against Postgres + Redis + SeaweedFS, mutation-checked relay\n  locking, dedupe and upload verification; web component tests; browser run\n\n\n* Fix notification list failing on seeded rows; match seed payload to worker\n\nThe development seed wrote notifications in an older payload shape, so GET /notifications\nfailed for seeded users (Sam, Alex). The seed now writes the same payload the worker does,\nand the list skips (and logs) any row it cannot parse instead of failing the request.\n\n\n---------\n\n",
+      "tree": {
+        "sha": "77242157ebd9b700f99359df50e5e0eb070ddd96",
+        "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/git/trees/77242157ebd9b700f99359df50e5e0eb070ddd96"
+      },
+      "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/git/commits/2d8f39ad0f296c0247f7edffc2cf77973039b8b8",
+      "comment_count": 0,
+      "verification": {
+        "verified": true,
+        "reason": "valid",
+        "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJquYXyCRC1aQ7uu5UhlAAACAgQAItyClYwgRMFnKt+j9gIpLL/\n94OlYzHh+iz+OSK+nyl9/ey/p3uWuSEsKBRCvlXbfGr/C9Qmju41/w02mX+RnntF\naTE2zXL1Zt6diVJJVhxtVwksOinFksOdaCeSzznIG2c2mGTfWfdszBsF7ObCZxix\nkdmcQ66PCQfSrxKFNUx+xf9/2893m4wCKdcWIUSoLTxIukls/+4WgRyfoLWBmAiB\nnnPfgWUvJw54jdL1AZ5L0LQUmWKabEsHHRMuiy0oqb4smB328noxrLQi8pdSX6EB\nLPPy2SySoQW8N+lwglYP7r/5Tkh52INPjvD8IUbnuHXUdDj45LuH7fvqCWLdTl2d\neP4GKj7+n9HzSoPNUD5WfsI9corv/5flNBlYUt0HA5MWdkFMDmIFrboXzvuyLobR\nXA9+T5t/r2T0q1Gl/dlD1ma9+tglwkgD8ti0XEBMbko76dXvkzWdlW5eHg6DAotv\nKdcuCOfdwx1InnBJoqZ6JriIfB14hN7blZgaiPIDpCOfe4cmHO2C19YaMt0eAU5f\nCrMKRJx6tCmsJTD53uftdbksvDlpDEny554ApWUJ1xZT+YFqQxm1132neGYIFg5v\nGo0g45hxbahGrMfh+4UqnN2HXp+ZcrCmo9P15ZyvBL4oYm08+MEhokmMKSPaSU/O\nvMgY1cId6I8Of63cBobM\n=syG2\n-----END PGP SIGNATURE-----\n",
+        "payload": "tree 77242157ebd9b700f99359df50e5e0eb070ddd96\nparent 78fc6cd7c25617c0ae9df6a982005d14e362b585\nauthor vishalreddy9514 <128448128+vishalreddy9514@users.noreply.github.com> 1790543346 +0100\ncommitter GitHub <noreply@github.com> 1790543346 +0100\n\nPhase 6b: attachments, transactional outbox and notifications (#7)\n\n* Phase 6b: attachments, transactional outbox and notifications\n\n- Attachments upload straight from the browser to S3-compatible storage with pre-signed PUTs\n  (size, type and disposition signed); the API verifies the stored object before exposing it,\n  issues 60-second download links, and a worker job removes abandoned uploads\n- Type allow-list (no HTML/SVG/script types), 10 MB and 50-per-issue limits, sanitised names,\n  random storage keys, Content-Disposition: attachment\n- Transactional outbox: issue assignment and comments write events in the same transaction;\n  the worker relay publishes them with FOR UPDATE SKIP LOCKED, LISTEN/NOTIFY wake-ups and a\n  500 ms poll fallback, using deterministic job IDs\n- Notifications: idempotent fan-out (per-recipient dedupe key) to assignees, reporters and\n  commenters; assignment email; list, unread count, mark read and read-all endpoints\n- Web: attachments panel with progress, notification bell (30 s polling) and notifications page\n- SeaweedFS replaces MinIO locally and in Testcontainers (ADR-0011): MinIO images are no\n  longer published\n- Tests: unit, HTTP integration against Postgres + Redis + SeaweedFS, mutation-checked relay\n  locking, dedupe and upload verification; web component tests; browser run\n\n\n* Fix notification list failing on seeded rows; match seed payload to worker\n\nThe development seed wrote notifications in an older payload shape, so GET /notifications\nfailed for seeded users (Sam, Alex). The seed now writes the same payload the worker does,\nand the list skips (and logs) any row it cannot parse instead of failing the request.\n\n\n---------\n\n",
+        "verified_at": "2026-09-27T21:09:07Z"
+      }
+    },
+    "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/2d8f39ad0f296c0247f7edffc2cf77973039b8b8",
+    "html_url": "https://github.com/vishalreddy9514/forge-engineering-platform/commit/2d8f39ad0f296c0247f7edffc2cf77973039b8b8",
+    "comments_url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/2d8f39ad0f296c0247f7edffc2cf77973039b8b8/comments",
+    "author": {
+      "login": "vishalreddy9514",
+      "id": 128448128,
+      "node_id": "U_kgDOB6f2gA",
+      "avatar_url": "https://avatars.githubusercontent.com/u/128448128?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/vishalreddy9514",
+      "html_url": "https://github.com/vishalreddy9514",
+      "followers_url": "https://api.github.com/users/vishalreddy9514/followers",
+      "following_url": "https://api.github.com/users/vishalreddy9514/following{/other_user}",
+      "gists_url": "https://api.github.com/users/vishalreddy9514/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/vishalreddy9514/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/vishalreddy9514/subscriptions",
+      "organizations_url": "https://api.github.com/users/vishalreddy9514/orgs",
+      "repos_url": "https://api.github.com/users/vishalreddy9514/repos",
+      "events_url": "https://api.github.com/users/vishalreddy9514/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/vishalreddy9514/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "committer": {
+      "login": "web-flow",
+      "id": 19864447,
+      "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+      "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/web-flow",
+      "html_url": "https://github.com/web-flow",
+      "followers_url": "https://api.github.com/users/web-flow/followers",
+      "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+      "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+      "organizations_url": "https://api.github.com/users/web-flow/orgs",
+      "repos_url": "https://api.github.com/users/web-flow/repos",
+      "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/web-flow/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "parents": [
+      {
+        "sha": "78fc6cd7c25617c0ae9df6a982005d14e362b585",
+        "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/78fc6cd7c25617c0ae9df6a982005d14e362b585",
+        "html_url": "https://github.com/vishalreddy9514/forge-engineering-platform/commit/78fc6cd7c25617c0ae9df6a982005d14e362b585"
+      }
+    ]
+  },
+  {
+    "sha": "78fc6cd7c25617c0ae9df6a982005d14e362b585",
+    "node_id": "C_kwDOUsrhKdoAKDc4ZmM2Y2Q3YzI1NjE3YzBhZTlkZjZhOTgyMDA1ZDE0ZTM2MmI1ODU",
+    "commit": {
+      "author": {
+        "name": "vishalreddy9514",
+        "email": "128448128+vishalreddy9514@users.noreply.github.com",
+        "date": "2026-09-27T18:33:25Z"
+      },
+      "committer": {
+        "name": "GitHub",
+        "email": "noreply@github.com",
+        "date": "2026-09-27T18:33:25Z"
+      },
+      "message": "Phase 6a: issues, workflow, board, comments and history (#6)\n\n- Issue contracts in @forge/types: status workflow, request/response schemas, key parsing\n- API: create/list/search/get/update/delete issues with per-project numbering, optimistic\n  locking (409 on stale version), workflow validation, resolvedAt tracking, change history,\n  and comments (author or moderator may edit/delete; deleted text is not returned)\n- Keyset-paginated list with status/priority/type/assignee/label filters and full-text search\n- Web: issues list, create dialog, Kanban board (drag and drop plus keyboard menu), and issue\n  page with inline editing, sidebar fields, Markdown comments and history\n- Tests: unit, HTTP integration against real Postgres + Redis, web component tests\n- Docs: API reference, security notes, README status\n\n\n\n",
+      "tree": {
+        "sha": "2b171b299703465fc4def4ef03116ed573d35255",
+        "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/git/trees/2b171b299703465fc4def4ef03116ed573d35255"
+      },
+      "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/git/commits/78fc6cd7c25617c0ae9df6a982005d14e362b585",
+      "comment_count": 0,
+      "verification": {
+        "verified": true,
+        "reason": "valid",
+        "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJquWF1CRC1aQ7uu5UhlAAAR/oQAAWHqmzadNVLCHn8ZF/NOhyt\n9QqR0XhkLt6T304YaBmwn2uIfYnlwMtV1kwTv01GsuU5H05BvXWFcXF0lRwvOy7q\nVwMdu5anPD9uHzyyFB7n5crf3WdQN0hbEF6cIGR/lsWfDs03QrsGKjVyhH0zO8ho\nSyjY2LPSI9nvOmr1jCG7sDs6iKnPnhPzhq+KLwOIrpzCFJ/IWoEmRYKyjYdMA2ae\np31PdEc9gFyPGzX7wp4m+F8APFr8aEEzo12TT7ClTA9zQ+tJalVugpYCtVHymLoX\nRzYHSTEC5KL8BOePlSbYj9AXGDic3nAoc3jczqrfBlJcws02cfqCYWwcPtcIsZ3T\nVEMdgVXcsebIvkxZwu99Nb8yIfnxYXdSwXNEnop9YmC6FlNxIiqo8y2RizwQkeKg\nWgTk0Pm2ouCOvYHBekKIxMjnOVKsjz0gB42yO556zuBeWnxXSDpMBNuBuMqlefNp\noW6dE+Auu47hUB+AyJ2EyMAVH8LodYRfzYioohK79sTuu43hwxo7mOBVV6lECBgH\n376sNcGvxS+cd7ZJi7C+Wx7YPeASkkMSx9T9pCTZB78MTpPn9A9b3G62LSmkta47\nf/OyVYZl5r1/wqNB1BuBhhMKKvSiufY/H+1x4M8SKiLUVAVGcIZ4apk33NC3KvRu\ne0U6s8ixdDvP2srzDU/l\n=NGxo\n-----END PGP SIGNATURE-----\n",
+        "payload": "tree 2b171b299703465fc4def4ef03116ed573d35255\nparent f8b7d4c6bd125c33d9c7656af01dd5d6c5aa14b8\nauthor vishalreddy9514 <128448128+vishalreddy9514@users.noreply.github.com> 1790534005 +0100\ncommitter GitHub <noreply@github.com> 1790534005 +0100\n\nPhase 6a: issues, workflow, board, comments and history (#6)\n\n- Issue contracts in @forge/types: status workflow, request/response schemas, key parsing\n- API: create/list/search/get/update/delete issues with per-project numbering, optimistic\n  locking (409 on stale version), workflow validation, resolvedAt tracking, change history,\n  and comments (author or moderator may edit/delete; deleted text is not returned)\n- Keyset-paginated list with status/priority/type/assignee/label filters and full-text search\n- Web: issues list, create dialog, Kanban board (drag and drop plus keyboard menu), and issue\n  page with inline editing, sidebar fields, Markdown comments and history\n- Tests: unit, HTTP integration against real Postgres + Redis, web component tests\n- Docs: API reference, security notes, README status\n\n\n\n",
+        "verified_at": "2026-09-27T18:33:26Z"
+      }
+    },
+    "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/78fc6cd7c25617c0ae9df6a982005d14e362b585",
+    "html_url": "https://github.com/vishalreddy9514/forge-engineering-platform/commit/78fc6cd7c25617c0ae9df6a982005d14e362b585",
+    "comments_url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/78fc6cd7c25617c0ae9df6a982005d14e362b585/comments",
+    "author": {
+      "login": "vishalreddy9514",
+      "id": 128448128,
+      "node_id": "U_kgDOB6f2gA",
+      "avatar_url": "https://avatars.githubusercontent.com/u/128448128?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/vishalreddy9514",
+      "html_url": "https://github.com/vishalreddy9514",
+      "followers_url": "https://api.github.com/users/vishalreddy9514/followers",
+      "following_url": "https://api.github.com/users/vishalreddy9514/following{/other_user}",
+      "gists_url": "https://api.github.com/users/vishalreddy9514/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/vishalreddy9514/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/vishalreddy9514/subscriptions",
+      "organizations_url": "https://api.github.com/users/vishalreddy9514/orgs",
+      "repos_url": "https://api.github.com/users/vishalreddy9514/repos",
+      "events_url": "https://api.github.com/users/vishalreddy9514/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/vishalreddy9514/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "committer": {
+      "login": "web-flow",
+      "id": 19864447,
+      "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+      "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/web-flow",
+      "html_url": "https://github.com/web-flow",
+      "followers_url": "https://api.github.com/users/web-flow/followers",
+      "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+      "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+      "organizations_url": "https://api.github.com/users/web-flow/orgs",
+      "repos_url": "https://api.github.com/users/web-flow/repos",
+      "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/web-flow/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "parents": [
+      {
+        "sha": "f8b7d4c6bd125c33d9c7656af01dd5d6c5aa14b8",
+        "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/f8b7d4c6bd125c33d9c7656af01dd5d6c5aa14b8",
+        "html_url": "https://github.com/vishalreddy9514/forge-engineering-platform/commit/f8b7d4c6bd125c33d9c7656af01dd5d6c5aa14b8"
+      }
+    ]
+  },
+  {
+    "sha": "f8b7d4c6bd125c33d9c7656af01dd5d6c5aa14b8",
+    "node_id": "C_kwDOUsrhKdoAKGY4YjdkNGM2YmQxMjVjMzNkOWM3NjU2YWYwMWRkNWQ2YzVhYTE0Yjg",
+    "commit": {
+      "author": {
+        "name": "vishalreddy9514",
+        "email": "128448128+vishalreddy9514@users.noreply.github.com",
+        "date": "2026-09-26T21:25:30Z"
+      },
+      "committer": {
+        "name": "GitHub",
+        "email": "noreply@github.com",
+        "date": "2026-09-26T21:25:30Z"
+      },
+      "message": "Phase 5: project management (projects, members, labels, settings) (#5)\n\nAPI\n- Projects: create (creator becomes project manager), list (members;\n  admins see all; name-ordered keyset pagination, search, archived\n  filter), get by id or key, update, archive/restore, admin-only\n  permanent delete gated on archived state and a repeated key\n- Members: add by email with a role, change role, remove, leave;\n  role changes apply on the next request (ACL cache invalidated); the\n  last project manager can't be demoted or removed, with a row lock so\n  concurrent demotions can't both succeed (mutation-tested)\n- Labels: CRUD, names unique per project case-insensitively\n- Guard: archived projects are read-only for every write except\n  restore; new label and project-key scopes\n- Permission matrix moved to @forge/types, shared by API and web\n- Audit: project lifecycle and membership events; project.updated\n  records only fields that actually changed\n\nWeb\n- Projects list with search and active/archived toggle, create form\n  with key suggestion, project workspace (overview, members, labels,\n  settings incl. archive/restore and admin delete), role-aware\n  controls, confirmation dialogs; home page lists your projects\n\nTests: types 90, api 58 unit + 13 HTTP + 107 integration, web 34;\nbrowser run of 14 project-management steps as manager and non-member.\n\n\n\n",
+      "tree": {
+        "sha": "b39a86ba337ed0c08cf96a77be77f99d26c47ff6",
+        "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/git/trees/b39a86ba337ed0c08cf96a77be77f99d26c47ff6"
+      },
+      "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/git/commits/f8b7d4c6bd125c33d9c7656af01dd5d6c5aa14b8",
+      "comment_count": 0,
+      "verification": {
+        "verified": true,
+        "reason": "valid",
+        "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJquDhKCRC1aQ7uu5UhlAAAjikQAJNmSXcR1338hyNDMvOWZEJC\neNbXC6f2YQCDdIPR55AQ8/VTu6R8OHV6IYurvylAXywa39LPWmgnLY2bIqby/Vti\n9Rjvxc6OcBO3KSW2NiKTHIXe4SOVREIseWcO1OwnNgdeKA5jQzC/joYKJ35wT3PA\nf6meLKmy/gBc7zVuSV1jmP4UGHzD/5nH1R7eG4bK8O7j0dQ2BskCsHqqEgGLrjpv\nH+cpJpnoiNQRjPQmX0UzfZzRV68lSnGU9NHEH/FzWzoxsd06K6ePfmiuEV/HsEWQ\nm+yExs+9a0IbhyidCLWytIkCv7E55+RbOsuuqKn9fIE9P6yucoXGoKnkA2JoO+jh\n9Xk1K+SKOxaUTIWAyKWhK8SFjL2qP3F5BEa7wgYufkbHA7jEDrEDHsUahSQODeJJ\nVTWYEQl8zpmN2cbWAcIfVFkWXDBFgJPIhKPgH0z1tl+eVsx4tFYbGn6do2e+4wO9\nylG49bL+9DQZhZqymU+GF4rBKuOE2rT2CQTdAtlHJRay9VFrkla6bfX226ywlH0U\nMf7YLOfHHyFq3pH3e5SZbD4X58pOP4B5R5MqEQmhnvJfzWbgk9CijgJ/qiwBfzI3\nFmyb69eLg1BRtfkFhGFgPCbOrLqAxDKU/WoDgOGL9hygDQqdhp/m/FTBqmaq9lDj\nA9/OwUngHyQmtYXTdtrE\n=c/ox\n-----END PGP SIGNATURE-----\n",
+        "payload": "tree b39a86ba337ed0c08cf96a77be77f99d26c47ff6\nparent 95161c461b101ae6173363d239fca8a27a52cad2\nauthor vishalreddy9514 <128448128+vishalreddy9514@users.noreply.github.com> 1790457930 +0100\ncommitter GitHub <noreply@github.com> 1790457930 +0100\n\nPhase 5: project management (projects, members, labels, settings) (#5)\n\nAPI\n- Projects: create (creator becomes project manager), list (members;\n  admins see all; name-ordered keyset pagination, search, archived\n  filter), get by id or key, update, archive/restore, admin-only\n  permanent delete gated on archived state and a repeated key\n- Members: add by email with a role, change role, remove, leave;\n  role changes apply on the next request (ACL cache invalidated); the\n  last project manager can't be demoted or removed, with a row lock so\n  concurrent demotions can't both succeed (mutation-tested)\n- Labels: CRUD, names unique per project case-insensitively\n- Guard: archived projects are read-only for every write except\n  restore; new label and project-key scopes\n- Permission matrix moved to @forge/types, shared by API and web\n- Audit: project lifecycle and membership events; project.updated\n  records only fields that actually changed\n\nWeb\n- Projects list with search and active/archived toggle, create form\n  with key suggestion, project workspace (overview, members, labels,\n  settings incl. archive/restore and admin delete), role-aware\n  controls, confirmation dialogs; home page lists your projects\n\nTests: types 90, api 58 unit + 13 HTTP + 107 integration, web 34;\nbrowser run of 14 project-management steps as manager and non-member.\n\n\n\n",
+        "verified_at": "2026-09-26T21:25:31Z"
+      }
+    },
+    "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/f8b7d4c6bd125c33d9c7656af01dd5d6c5aa14b8",
+    "html_url": "https://github.com/vishalreddy9514/forge-engineering-platform/commit/f8b7d4c6bd125c33d9c7656af01dd5d6c5aa14b8",
+    "comments_url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/f8b7d4c6bd125c33d9c7656af01dd5d6c5aa14b8/comments",
+    "author": {
+      "login": "vishalreddy9514",
+      "id": 128448128,
+      "node_id": "U_kgDOB6f2gA",
+      "avatar_url": "https://avatars.githubusercontent.com/u/128448128?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/vishalreddy9514",
+      "html_url": "https://github.com/vishalreddy9514",
+      "followers_url": "https://api.github.com/users/vishalreddy9514/followers",
+      "following_url": "https://api.github.com/users/vishalreddy9514/following{/other_user}",
+      "gists_url": "https://api.github.com/users/vishalreddy9514/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/vishalreddy9514/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/vishalreddy9514/subscriptions",
+      "organizations_url": "https://api.github.com/users/vishalreddy9514/orgs",
+      "repos_url": "https://api.github.com/users/vishalreddy9514/repos",
+      "events_url": "https://api.github.com/users/vishalreddy9514/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/vishalreddy9514/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "committer": {
+      "login": "web-flow",
+      "id": 19864447,
+      "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+      "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/web-flow",
+      "html_url": "https://github.com/web-flow",
+      "followers_url": "https://api.github.com/users/web-flow/followers",
+      "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+      "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+      "organizations_url": "https://api.github.com/users/web-flow/orgs",
+      "repos_url": "https://api.github.com/users/web-flow/repos",
+      "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/web-flow/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "parents": [
+      {
+        "sha": "95161c461b101ae6173363d239fca8a27a52cad2",
+        "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/95161c461b101ae6173363d239fca8a27a52cad2",
+        "html_url": "https://github.com/vishalreddy9514/forge-engineering-platform/commit/95161c461b101ae6173363d239fca8a27a52cad2"
+      }
+    ]
+  },
+  {
+    "sha": "95161c461b101ae6173363d239fca8a27a52cad2",
+    "node_id": "C_kwDOUsrhKdoAKDk1MTYxYzQ2MWIxMDFhZTYxNzMzNjNkMjM5ZmNhOGEyN2E1MmNhZDI",
+    "commit": {
+      "author": {
+        "name": "vishalreddy9514",
+        "email": "128448128+vishalreddy9514@users.noreply.github.com",
+        "date": "2026-09-26T12:33:43Z"
+      },
+      "committer": {
+        "name": "GitHub",
+        "email": "noreply@github.com",
+        "date": "2026-09-26T12:33:43Z"
+      },
+      "message": "Phase 4: authentication, sessions and role-based access control (#4)\n\nAPI\n- Register, login, refresh, logout, logout-all, password reset by\n  email, profile and password change (FR-1), admin user management\n  (FR-2.1), project permission matrix and guard (ADR-0002)\n- ES256 access tokens via @nestjs/jwt with pinned algorithm/issuer/\n  audience; opaque refresh tokens stored hashed, rotated on every use,\n  family revoked on replay, 409 for benign two-tab races\n- Redis revocation cutoff so deactivation, demotion, password change and\n  logout-everywhere take effect on the next request (ADR-0010)\n- Account and IP lockout, Redis fixed-window rate limits with IETF\n  RateLimit headers, breached-password check (HIBP k-anonymity), equal\n  timing for unknown emails, CSRF Origin check on cookie endpoints\n- Global auth guard (secure by default), Zod validation with field\n  errors, append-only audit entries for every security event\n- BullMQ email queue plus a separate worker process (nodemailer, Mailpit\n  locally); reset links removed from Redis after delivery\n\nWeb\n- Login, register, forgot/reset password, signed-in shell; access token\n  in memory only, single-flight refresh on 401, proxy.ts redirects\n\nFound by testing and fixed\n- Referer from the reset page carried the reset token into API logs:\n  request logs now use an allow-list; reset page sends no-referrer and\n  strips the token from the URL\n\nDocs: api.md, security.md, ADR-0010. Tests: api 114 unit + 13 HTTP +\n88 integration (Postgres + Redis via Testcontainers), web 20; browser\nrun of every flow including the emailed reset link.\n\n\n\n",
+      "tree": {
+        "sha": "45cd258952cd53c2716d765a46b8309e4fd83003",
+        "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/git/trees/45cd258952cd53c2716d765a46b8309e4fd83003"
+      },
+      "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/git/commits/95161c461b101ae6173363d239fca8a27a52cad2",
+      "comment_count": 0,
+      "verification": {
+        "verified": true,
+        "reason": "valid",
+        "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqt7unCRC1aQ7uu5UhlAAAwHcQAE33SHv7lDBAqFlOOBwvytuq\nuHVu1nLCjEVoeYOt+fgsQcVgxO9pwxT7SpIQCTftwTX3woyERF++1eMtdQwlcIZg\nowBlKFP4XM+3qyeUz4eWqcQ48nklYCbRrw9sAnWL5m+SmWNX+rJPwlerkEQ0CbX0\n8Q2HFmX2qfc4RWVnP6ig2rUuJRNHWZxinHFjDKIUV02t9pR5T7ge6yO6rn2pMF1T\nWjTapIXcwv2bNhuMHAvNJC/cZv+CKfEyEdZ/m40mxBqNfgFxDXUd2wFPvO2/oSnA\n543VTzxVZ4CZzTIzyuQC6WkuW7Tmjz84U9unTqDr5GFUVPOhLHD5MUZvewQavVaC\nxPsHZV3kv8N9afhqzkBtGiPZPEFWue0jela63ef3HWIAfeQKJEJhp69a5CA/4dT1\nXlcJIsvoH3Vj5EJ5aoqaTha4f7EbdZ5uZf79s4Oy5nQLkliIfGdG/1dyup6tsz8q\nK1i0KsHJt039WU4yQCuMT8AdNmzgl0mWq1fWcg6ORxoBtnfCUnlF9/7fvTI6nIV6\nXl8k/Mjj/1BXfCgZ5F/dYzeoOKIyi205ulCYLQ3rx2YI83NgFrzwjDUSKnH0IGYd\nN3YOsJIvmzQNVEuyPcix7Jvs61yLt4MVszVHaNzsT7VFuRKbXEppTx3fHjd7jrmB\nz56SSGGpIsb3Ls8WO0c/\n=t0rV\n-----END PGP SIGNATURE-----\n",
+        "payload": "tree 45cd258952cd53c2716d765a46b8309e4fd83003\nparent badbefda55dbaefecb72163d2d15bc7f25f6e04f\nauthor vishalreddy9514 <128448128+vishalreddy9514@users.noreply.github.com> 1790426023 +0100\ncommitter GitHub <noreply@github.com> 1790426023 +0100\n\nPhase 4: authentication, sessions and role-based access control (#4)\n\nAPI\n- Register, login, refresh, logout, logout-all, password reset by\n  email, profile and password change (FR-1), admin user management\n  (FR-2.1), project permission matrix and guard (ADR-0002)\n- ES256 access tokens via @nestjs/jwt with pinned algorithm/issuer/\n  audience; opaque refresh tokens stored hashed, rotated on every use,\n  family revoked on replay, 409 for benign two-tab races\n- Redis revocation cutoff so deactivation, demotion, password change and\n  logout-everywhere take effect on the next request (ADR-0010)\n- Account and IP lockout, Redis fixed-window rate limits with IETF\n  RateLimit headers, breached-password check (HIBP k-anonymity), equal\n  timing for unknown emails, CSRF Origin check on cookie endpoints\n- Global auth guard (secure by default), Zod validation with field\n  errors, append-only audit entries for every security event\n- BullMQ email queue plus a separate worker process (nodemailer, Mailpit\n  locally); reset links removed from Redis after delivery\n\nWeb\n- Login, register, forgot/reset password, signed-in shell; access token\n  in memory only, single-flight refresh on 401, proxy.ts redirects\n\nFound by testing and fixed\n- Referer from the reset page carried the reset token into API logs:\n  request logs now use an allow-list; reset page sends no-referrer and\n  strips the token from the URL\n\nDocs: api.md, security.md, ADR-0010. Tests: api 114 unit + 13 HTTP +\n88 integration (Postgres + Redis via Testcontainers), web 20; browser\nrun of every flow including the emailed reset link.\n\n\n\n",
+        "verified_at": "2026-09-26T12:33:43Z"
+      }
+    },
+    "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/95161c461b101ae6173363d239fca8a27a52cad2",
+    "html_url": "https://github.com/vishalreddy9514/forge-engineering-platform/commit/95161c461b101ae6173363d239fca8a27a52cad2",
+    "comments_url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/95161c461b101ae6173363d239fca8a27a52cad2/comments",
+    "author": {
+      "login": "vishalreddy9514",
+      "id": 128448128,
+      "node_id": "U_kgDOB6f2gA",
+      "avatar_url": "https://avatars.githubusercontent.com/u/128448128?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/vishalreddy9514",
+      "html_url": "https://github.com/vishalreddy9514",
+      "followers_url": "https://api.github.com/users/vishalreddy9514/followers",
+      "following_url": "https://api.github.com/users/vishalreddy9514/following{/other_user}",
+      "gists_url": "https://api.github.com/users/vishalreddy9514/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/vishalreddy9514/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/vishalreddy9514/subscriptions",
+      "organizations_url": "https://api.github.com/users/vishalreddy9514/orgs",
+      "repos_url": "https://api.github.com/users/vishalreddy9514/repos",
+      "events_url": "https://api.github.com/users/vishalreddy9514/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/vishalreddy9514/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "committer": {
+      "login": "web-flow",
+      "id": 19864447,
+      "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+      "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/web-flow",
+      "html_url": "https://github.com/web-flow",
+      "followers_url": "https://api.github.com/users/web-flow/followers",
+      "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+      "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+      "organizations_url": "https://api.github.com/users/web-flow/orgs",
+      "repos_url": "https://api.github.com/users/web-flow/repos",
+      "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/web-flow/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "parents": [
+      {
+        "sha": "badbefda55dbaefecb72163d2d15bc7f25f6e04f",
+        "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/badbefda55dbaefecb72163d2d15bc7f25f6e04f",
+        "html_url": "https://github.com/vishalreddy9514/forge-engineering-platform/commit/badbefda55dbaefecb72163d2d15bc7f25f6e04f"
+      }
+    ]
+  },
+  {
+    "sha": "badbefda55dbaefecb72163d2d15bc7f25f6e04f",
+    "node_id": "C_kwDOUsrhKdoAKGJhZGJlZmRhNTVkYmFlZmVjYjcyMTYzZDJkMTViYzdmMjVmNmUwNGY",
+    "commit": {
+      "author": {
+        "name": "vishalreddy9514",
+        "email": "128448128+vishalreddy9514@users.noreply.github.com",
+        "date": "2026-09-26T11:32:59Z"
+      },
+      "committer": {
+        "name": "GitHub",
+        "email": "noreply@github.com",
+        "date": "2026-09-26T11:32:59Z"
+      },
+      "message": "Phase 3: database schema, migrations and seed data (#3)\n\n* Phase 3: database schema, migrations and seed data\n\nPostgreSQL schema for the whole platform in Prisma 7 (34 tables),\none reviewed initial migration, a transactional seed, and integration\ntests against a real Postgres + pgvector.\n\n- Schema: identity, projects, issues (+ history, labels, comments,\n  attachments, links), sprints with membership history, notifications,\n  append-only audit log, outbox, GitHub, RAG documents/chunks, AI tables\n- Integrity enforced in the database: composite FKs that make\n  cross-project labels/sprints/chunks impossible, partial unique indexes\n  (one ACTIVE sprint per project, one current sprint per issue), CHECKs\n  for status/timestamp consistency and formats, audit-log triggers\n  that reject UPDATE/DELETE/TRUNCATE\n- Search: generated tsvector columns + GIN, trigram title index, HNSW\n  cosine index on vector(1536); schema mirrors these so migrate diff\n  reports no drift (checked in tests and CI)\n- Gap-free per-project issue numbers via a row-locking allocator\n- forge_ai NOLOGIN role limited to RAG tables; compose creates its\n  login from env, no password in migrations\n- API: PrismaService (pg driver adapter), database readiness check;\n  readiness no longer returns raw driver errors (they named internal\n  hosts), full errors are logged instead\n- Seed: 6 users, 2 projects, 3 sprints, 17 issues with comments and\n  status history; single transaction; refuses to run in production\n- CI: compose job migrates, checks drift, seeds twice, checks AI role\n- docs/database.md: ER diagrams and the reasoning for each rule\n\nTests: api 26 unit + 9 HTTP + 58 integration (Testcontainers).\n\n\n* Generate the Prisma client on install\n\nThe compose CI job failed at `prisma db seed` with \"Cannot find module\n'../src/generated/prisma/client'\": the client is gitignored and was\nonly generated by Turbo's db:generate task, which the job's direct\nprisma commands bypass. The README's setup steps (install, db:deploy,\ndb:seed) had the same gap on a fresh clone.\n\nA postinstall `prisma generate` in apps/api (Prisma's recommended\nsetup) makes every `pnpm install` leave a usable client. The Turbo task\nstays, so schema edits still regenerate before lint/typecheck/test.\n\nVerified by replaying the compose job from a fresh clone: install,\nmigrate deploy, no-drift diff, seed, no-op second seed, AI role checks.\n\n\n---------\n\n",
+      "tree": {
+        "sha": "61e93381dd616968213d729b5b23c55a8ad6ec4c",
+        "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/git/trees/61e93381dd616968213d729b5b23c55a8ad6ec4c"
+      },
+      "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/git/commits/badbefda55dbaefecb72163d2d15bc7f25f6e04f",
+      "comment_count": 0,
+      "verification": {
+        "verified": true,
+        "reason": "valid",
+        "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqt61rCRC1aQ7uu5UhlAAACPAQACJOv+i9NM5Ju1SDb9vDQXru\nTit8LPZeMOpYobq5tQ/axusrS+shVFbNv7t1LTinRtYX7FIhpGRTYHWRB6CRzDb9\nu/LjchAcjsiwkSirkU31gj1YJMRkKV7XttuZfL6YcmmB6B4tO2SXIgk5xgcRWtIH\nHBPytI7+WWZlh0309OQRrdnK3I7zFJOxVI3D7f+sBFnYQc1cxKT8XVpTyN7Oknpu\nI4jPb+CRnCrt7s3szYPzQ3N2dcm8bPX4t9H73f69GzXOUoh3P/GwFyErW6EIxf4j\nU+P+mbiTcuQXXEyhVxo54Pe5JwKehclcdNd64i/epl+H6OdvYeW9xHdN3cLOUOtS\ndO5Qiw1pYO2fmiFBNXce9XUn6Bnvw/aQc1ehZ85VP5/+R2Z4bGUBQ9LLP96j0IEA\naDlw0dpycX1jW4mHDD5NcPDOfioQQzZ2CAKe8OAZ6uUqPdFeZaNHgio8yP3W1Y9r\nt+9gazGD7CigEg0Y2CxCpcL0ZNEDVDeZFNJ3VtEoJLtn9sOAKymnb8CbYV3oM3FT\nsgAMf6C6KSxoLk8DsFeXo0xGlbW44QlTqrFNz8N+MXEUT01u5KmGAwiRAyYE6Fhm\nqKWb+mQC0eJJhav3XUvyiAz10UNVda6fPU5bWp8Iqj6bwNRiDyM7E9V3fLnXhYk7\nhxoZq+Blcu0vhRcWTtWi\n=f1D8\n-----END PGP SIGNATURE-----\n",
+        "payload": "tree 61e93381dd616968213d729b5b23c55a8ad6ec4c\nparent 40ddc2be6adb7585262146ed774d89ccea39a75d\nauthor vishalreddy9514 <128448128+vishalreddy9514@users.noreply.github.com> 1790422379 +0100\ncommitter GitHub <noreply@github.com> 1790422379 +0100\n\nPhase 3: database schema, migrations and seed data (#3)\n\n* Phase 3: database schema, migrations and seed data\n\nPostgreSQL schema for the whole platform in Prisma 7 (34 tables),\none reviewed initial migration, a transactional seed, and integration\ntests against a real Postgres + pgvector.\n\n- Schema: identity, projects, issues (+ history, labels, comments,\n  attachments, links), sprints with membership history, notifications,\n  append-only audit log, outbox, GitHub, RAG documents/chunks, AI tables\n- Integrity enforced in the database: composite FKs that make\n  cross-project labels/sprints/chunks impossible, partial unique indexes\n  (one ACTIVE sprint per project, one current sprint per issue), CHECKs\n  for status/timestamp consistency and formats, audit-log triggers\n  that reject UPDATE/DELETE/TRUNCATE\n- Search: generated tsvector columns + GIN, trigram title index, HNSW\n  cosine index on vector(1536); schema mirrors these so migrate diff\n  reports no drift (checked in tests and CI)\n- Gap-free per-project issue numbers via a row-locking allocator\n- forge_ai NOLOGIN role limited to RAG tables; compose creates its\n  login from env, no password in migrations\n- API: PrismaService (pg driver adapter), database readiness check;\n  readiness no longer returns raw driver errors (they named internal\n  hosts), full errors are logged instead\n- Seed: 6 users, 2 projects, 3 sprints, 17 issues with comments and\n  status history; single transaction; refuses to run in production\n- CI: compose job migrates, checks drift, seeds twice, checks AI role\n- docs/database.md: ER diagrams and the reasoning for each rule\n\nTests: api 26 unit + 9 HTTP + 58 integration (Testcontainers).\n\n\n* Generate the Prisma client on install\n\nThe compose CI job failed at `prisma db seed` with \"Cannot find module\n'../src/generated/prisma/client'\": the client is gitignored and was\nonly generated by Turbo's db:generate task, which the job's direct\nprisma commands bypass. The README's setup steps (install, db:deploy,\ndb:seed) had the same gap on a fresh clone.\n\nA postinstall `prisma generate` in apps/api (Prisma's recommended\nsetup) makes every `pnpm install` leave a usable client. The Turbo task\nstays, so schema edits still regenerate before lint/typecheck/test.\n\nVerified by replaying the compose job from a fresh clone: install,\nmigrate deploy, no-drift diff, seed, no-op second seed, AI role checks.\n\n\n---------\n\n",
+        "verified_at": "2026-09-26T11:33:00Z"
+      }
+    },
+    "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/badbefda55dbaefecb72163d2d15bc7f25f6e04f",
+    "html_url": "https://github.com/vishalreddy9514/forge-engineering-platform/commit/badbefda55dbaefecb72163d2d15bc7f25f6e04f",
+    "comments_url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/badbefda55dbaefecb72163d2d15bc7f25f6e04f/comments",
+    "author": {
+      "login": "vishalreddy9514",
+      "id": 128448128,
+      "node_id": "U_kgDOB6f2gA",
+      "avatar_url": "https://avatars.githubusercontent.com/u/128448128?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/vishalreddy9514",
+      "html_url": "https://github.com/vishalreddy9514",
+      "followers_url": "https://api.github.com/users/vishalreddy9514/followers",
+      "following_url": "https://api.github.com/users/vishalreddy9514/following{/other_user}",
+      "gists_url": "https://api.github.com/users/vishalreddy9514/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/vishalreddy9514/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/vishalreddy9514/subscriptions",
+      "organizations_url": "https://api.github.com/users/vishalreddy9514/orgs",
+      "repos_url": "https://api.github.com/users/vishalreddy9514/repos",
+      "events_url": "https://api.github.com/users/vishalreddy9514/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/vishalreddy9514/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "committer": {
+      "login": "web-flow",
+      "id": 19864447,
+      "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+      "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/web-flow",
+      "html_url": "https://github.com/web-flow",
+      "followers_url": "https://api.github.com/users/web-flow/followers",
+      "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+      "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+      "organizations_url": "https://api.github.com/users/web-flow/orgs",
+      "repos_url": "https://api.github.com/users/web-flow/repos",
+      "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/web-flow/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "parents": [
+      {
+        "sha": "40ddc2be6adb7585262146ed774d89ccea39a75d",
+        "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/40ddc2be6adb7585262146ed774d89ccea39a75d",
+        "html_url": "https://github.com/vishalreddy9514/forge-engineering-platform/commit/40ddc2be6adb7585262146ed774d89ccea39a75d"
+      }
+    ]
+  },
+  {
+    "sha": "40ddc2be6adb7585262146ed774d89ccea39a75d",
+    "node_id": "C_kwDOUsrhKdoAKDQwZGRjMmJlNmFkYjc1ODUyNjIxNDZlZDc3NGQ4OWNjZWEzOWE3NWQ",
+    "commit": {
+      "author": {
+        "name": "vishalreddy9514",
+        "email": "128448128+vishalreddy9514@users.noreply.github.com",
+        "date": "2026-09-26T10:58:55Z"
+      },
+      "committer": {
+        "name": "GitHub",
+        "email": "noreply@github.com",
+        "date": "2026-09-26T10:58:55Z"
+      },
+      "message": "Phase 2: repository structure and configuration (#1)\n\nMonorepo (pnpm workspaces + Turborepo) with three runnable services and\nshared packages, local infrastructure and CI.\n\n- apps/api: NestJS 11 skeleton with zod-validated env, pino JSON logs\n  with request-ID propagation and credential redaction, RFC 9457\n  problem+json errors, helmet, CORS allow-list, Swagger, Redis client,\n  and /health/live + /health/ready with per-check timeouts\n- apps/web: Next.js 16 + Tailwind 4 + TanStack Query; same-origin /api\n  rewrite; status card showing live API readiness\n- apps/ai-service: FastAPI app factory, pydantic-settings, structlog,\n  request-ID middleware, constant-time service-token auth; uv, ruff,\n  strict mypy, pytest with warnings as errors\n- packages/types (shared zod schemas), packages/ui (shadcn/ui),\n  packages/config (tsconfig, ESLint flat config, Prettier)\n- docker-compose: Postgres 16 + pgvector, Redis 7 (AOF), Mailpit, all\n  with healthchecks; init script adds extensions and a test database\n- CI: TypeScript, Python and Compose jobs; Dependabot; PR template\n- ADR-0009: NestJS 11 / TypeScript 5.9 / ESLint 9 and why\n\nTests: api 21 unit + 8 HTTP (Supertest), web 3, types 7, ai-service 16.\nVerified end to end against the real containers, including readiness\ngoing to 503 and recovering when Redis is stopped and restarted.\n\n\n\n",
+      "tree": {
+        "sha": "a9d94c57c4954ddf08055f0de1b9be1bfb8f2aa4",
+        "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/git/trees/a9d94c57c4954ddf08055f0de1b9be1bfb8f2aa4"
+      },
+      "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/git/commits/40ddc2be6adb7585262146ed774d89ccea39a75d",
+      "comment_count": 0,
+      "verification": {
+        "verified": true,
+        "reason": "valid",
+        "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqt6VvCRC1aQ7uu5UhlAAAWvsQAGQXhpf+ex8J2V3kpzjMSB1R\nXkbDX2ignGglMERG5fe5BDGwn+7Uxd4kXg5/Rby3ieLhmJ31tRz72Rox6cARYcNo\n9ORgm5keowX9XqOjyZOMeff8sBOj2NDAWyTHhgFpKi9uKG2LERGqU9T/BPWVHrTG\nrPVZTRD5jSBtSOVBWGI7v2djAbca+B6W2se+HkQFibzRxX1cduUDDVbhYWAvlOD/\nyeN2EC8UrAfS4ohn+iIoZnexoPLwlgUinIFxfyTnCFUsYmIU4HijIZRDSXnmkX7g\nw8WilPelakIQvUf5FOEOQ7b9nd7y3Cf94W0R7sjifHxz76WDXTtbXr8hxHEpE0js\nIu4mdyQJUUo+2wb2NYqGZo+qprC+mDoUDSlwliu4m++nnXZ0tKWgkaE2USPmye00\ndrplv7eWLTZu82i1YfmPVnF2n84ooFWa3WTRZEg5Te+RmPlcW7LbMICAksDbsBSI\nGp2PVrAiBUfv7yxPmiMpwJKYrb+VuhPPshDrvS1Bp3iD8Lceg52IVjgIzSncTuwY\neQj97qjZoSWGqRGCseDqjtlrZs2r/gPCwMMHzZXzrzbezoUVkwRlVIGyMZN1ldMH\nAU3i9JaxwKaPLfn0Fls8kaFH6Rneqtda/5zCixizC7z3MK4o7/0XyZKQek34n+vj\nO0SVHM5csBfGC8mLjlUy\n=zaFu\n-----END PGP SIGNATURE-----\n",
+        "payload": "tree a9d94c57c4954ddf08055f0de1b9be1bfb8f2aa4\nparent 1709fa777c9338469eb90a55fea550364596a91f\nauthor vishalreddy9514 <128448128+vishalreddy9514@users.noreply.github.com> 1790420335 +0100\ncommitter GitHub <noreply@github.com> 1790420335 +0100\n\nPhase 2: repository structure and configuration (#1)\n\nMonorepo (pnpm workspaces + Turborepo) with three runnable services and\nshared packages, local infrastructure and CI.\n\n- apps/api: NestJS 11 skeleton with zod-validated env, pino JSON logs\n  with request-ID propagation and credential redaction, RFC 9457\n  problem+json errors, helmet, CORS allow-list, Swagger, Redis client,\n  and /health/live + /health/ready with per-check timeouts\n- apps/web: Next.js 16 + Tailwind 4 + TanStack Query; same-origin /api\n  rewrite; status card showing live API readiness\n- apps/ai-service: FastAPI app factory, pydantic-settings, structlog,\n  request-ID middleware, constant-time service-token auth; uv, ruff,\n  strict mypy, pytest with warnings as errors\n- packages/types (shared zod schemas), packages/ui (shadcn/ui),\n  packages/config (tsconfig, ESLint flat config, Prettier)\n- docker-compose: Postgres 16 + pgvector, Redis 7 (AOF), Mailpit, all\n  with healthchecks; init script adds extensions and a test database\n- CI: TypeScript, Python and Compose jobs; Dependabot; PR template\n- ADR-0009: NestJS 11 / TypeScript 5.9 / ESLint 9 and why\n\nTests: api 21 unit + 8 HTTP (Supertest), web 3, types 7, ai-service 16.\nVerified end to end against the real containers, including readiness\ngoing to 503 and recovering when Redis is stopped and restarted.\n\n\n\n",
+        "verified_at": "2026-09-26T10:58:56Z"
+      }
+    },
+    "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/40ddc2be6adb7585262146ed774d89ccea39a75d",
+    "html_url": "https://github.com/vishalreddy9514/forge-engineering-platform/commit/40ddc2be6adb7585262146ed774d89ccea39a75d",
+    "comments_url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/40ddc2be6adb7585262146ed774d89ccea39a75d/comments",
+    "author": {
+      "login": "vishalreddy9514",
+      "id": 128448128,
+      "node_id": "U_kgDOB6f2gA",
+      "avatar_url": "https://avatars.githubusercontent.com/u/128448128?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/vishalreddy9514",
+      "html_url": "https://github.com/vishalreddy9514",
+      "followers_url": "https://api.github.com/users/vishalreddy9514/followers",
+      "following_url": "https://api.github.com/users/vishalreddy9514/following{/other_user}",
+      "gists_url": "https://api.github.com/users/vishalreddy9514/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/vishalreddy9514/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/vishalreddy9514/subscriptions",
+      "organizations_url": "https://api.github.com/users/vishalreddy9514/orgs",
+      "repos_url": "https://api.github.com/users/vishalreddy9514/repos",
+      "events_url": "https://api.github.com/users/vishalreddy9514/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/vishalreddy9514/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "committer": {
+      "login": "web-flow",
+      "id": 19864447,
+      "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+      "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/web-flow",
+      "html_url": "https://github.com/web-flow",
+      "followers_url": "https://api.github.com/users/web-flow/followers",
+      "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+      "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+      "organizations_url": "https://api.github.com/users/web-flow/orgs",
+      "repos_url": "https://api.github.com/users/web-flow/repos",
+      "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/web-flow/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "parents": [
+      {
+        "sha": "1709fa777c9338469eb90a55fea550364596a91f",
+        "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/1709fa777c9338469eb90a55fea550364596a91f",
+        "html_url": "https://github.com/vishalreddy9514/forge-engineering-platform/commit/1709fa777c9338469eb90a55fea550364596a91f"
+      }
+    ]
+  },
+  {
+    "sha": "1709fa777c9338469eb90a55fea550364596a91f",
+    "node_id": "C_kwDOUsrhKdoAKDE3MDlmYTc3N2M5MzM4NDY5ZWI5MGE1NWZlYTU1MDM2NDU5NmE5MWY",
+    "commit": {
+      "author": {
+        "name": "Claude",
+        "email": "noreply@anthropic.com",
+        "date": "2026-09-26T10:33:34Z"
+      },
+      "committer": {
+        "name": "Claude",
+        "email": "noreply@anthropic.com",
+        "date": "2026-09-26T10:33:34Z"
+      },
+      "message": "Phase 1: requirements and architecture\n\nAdd the planning baseline the later phases build against:\n\n- docs/requirements.md: problem statement, per-project roles and\n  permission matrix, functional requirements FR-1..FR-13 (MoSCoW),\n  measurable non-functional requirements, scope, 20-phase plan\n- docs/architecture.md: modular monolith + worker + AI service,\n  transactional outbox, sync vs async split, auth flow, OWASP and\n  OWASP LLM threat mapping, permission-aware hybrid RAG, AWS\n  deployment and cost choices, observability, API conventions;\n  8 Mermaid diagrams, all rendered with mermaid-cli to check them\n- docs/adr/0001..0008: the key decisions and rejected alternatives\n\n",
+      "tree": {
+        "sha": "5fd3ab60283157b19b5379ad26b845d2fc09e6e5",
+        "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/git/trees/5fd3ab60283157b19b5379ad26b845d2fc09e6e5"
+      },
+      "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/git/commits/1709fa777c9338469eb90a55fea550364596a91f",
+      "comment_count": 0,
+      "verification": {
+        "verified": true,
+        "reason": "valid",
+        "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQO4CgA6t\n4/et+CLVZXvHImSASmpHh8K2DXiXoktsTtItSVcTHBmNBcyikeZ3DBWssYvSWZPUowK9zUjdBGrT\nqgs=\n-----END SSH SIGNATURE-----",
+        "payload": "tree 5fd3ab60283157b19b5379ad26b845d2fc09e6e5\nauthor Claude <noreply@anthropic.com> 1790418814 +0000\ncommitter Claude <noreply@anthropic.com> 1790418814 +0000\n\nPhase 1: requirements and architecture\n\nAdd the planning baseline the later phases build against:\n\n- docs/requirements.md: problem statement, per-project roles and\n  permission matrix, functional requirements FR-1..FR-13 (MoSCoW),\n  measurable non-functional requirements, scope, 20-phase plan\n- docs/architecture.md: modular monolith + worker + AI service,\n  transactional outbox, sync vs async split, auth flow, OWASP and\n  OWASP LLM threat mapping, permission-aware hybrid RAG, AWS\n  deployment and cost choices, observability, API conventions;\n  8 Mermaid diagrams, all rendered with mermaid-cli to check them\n- docs/adr/0001..0008: the key decisions and rejected alternatives\n\n",
+        "verified_at": "2026-09-26T10:33:37Z"
+      }
+    },
+    "url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/1709fa777c9338469eb90a55fea550364596a91f",
+    "html_url": "https://github.com/vishalreddy9514/forge-engineering-platform/commit/1709fa777c9338469eb90a55fea550364596a91f",
+    "comments_url": "https://api.github.com/repos/vishalreddy9514/forge-engineering-platform/commits/1709fa777c9338469eb90a55fea550364596a91f/comments",
+    "author": {
+      "login": "claude",
+      "id": 81847,
+      "node_id": "MDQ6VXNlcjgxODQ3",
+      "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/claude",
+      "html_url": "https://github.com/claude",
+      "followers_url": "https://api.github.com/users/claude/followers",
+      "following_url": "https://api.github.com/users/claude/following{/other_user}",
+      "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+      "organizations_url": "https://api.github.com/users/claude/orgs",
+      "repos_url": "https://api.github.com/users/claude/repos",
+      "events_url": "https://api.github.com/users/claude/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/claude/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "committer": {
+      "login": "claude",
+      "id": 81847,
+      "node_id": "MDQ6VXNlcjgxODQ3",
+      "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/claude",
+      "html_url": "https://github.com/claude",
+      "followers_url": "https://api.github.com/users/claude/followers",
+      "following_url": "https://api.github.com/users/claude/following{/other_user}",
+      "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+      "organizations_url": "https://api.github.com/users/claude/orgs",
+      "repos_url": "https://api.github.com/users/claude/repos",
+      "events_url": "https://api.github.com/users/claude/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/claude/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "parents": []
+  }
+]

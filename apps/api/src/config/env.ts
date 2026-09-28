@@ -67,6 +67,28 @@ export const EnvSchema = z
     S3_FORCE_PATH_STYLE: booleanString.default(false),
     /** Create the bucket and its browser-upload CORS rule at startup (local dev and tests). */
     S3_ENSURE_BUCKET: booleanString.default(false),
+
+    // ---- GitHub App (FR-6, ADR-0008) ----
+    // All four identify the App; set all of them or none (the integration is then disabled).
+    GITHUB_APP_ID: z.coerce.number().int().positive().optional(),
+    /** The App's URL name (github.com/apps/<slug>), used to build the install link. */
+    GITHUB_APP_SLUG: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9-]*$/, 'Use the App slug from its GitHub URL')
+      .optional(),
+    /** RS256 private key (PEM, "\n"-escaped allowed). From SSM in AWS; never stored in the DB. */
+    GITHUB_APP_PRIVATE_KEY: z.string().optional(),
+    GITHUB_WEBHOOK_SECRET: z.string().min(20, 'Use at least 20 random characters').optional(),
+    /** GitHub's REST API. Overridden for GitHub Enterprise Server and in tests (fixture server). */
+    GITHUB_API_URL: z.url().default('https://api.github.com'),
+    GITHUB_WEB_URL: z.url().default('https://github.com'),
+    /**
+     * Requests per installation and rate-limit window that background sync leaves unused, so a
+     * sync never exhausts the quota that user-facing calls need (FR-6.5).
+     */
+    GITHUB_RATE_LIMIT_RESERVE: z.coerce.number().int().min(0).max(5000).default(200),
+    /** Most list pages (100 items each) one sync fetches per resource; older history is skipped. */
+    GITHUB_SYNC_MAX_PAGES: z.coerce.number().int().min(1).max(100).default(10),
   })
   .superRefine((env, ctx) => {
     if (Boolean(env.S3_ACCESS_KEY_ID) !== Boolean(env.S3_SECRET_ACCESS_KEY)) {
@@ -74,6 +96,20 @@ export const EnvSchema = z
         code: 'custom',
         path: ['S3_ACCESS_KEY_ID'],
         message: 'Set both S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY, or neither',
+      });
+    }
+    const github = [
+      env.GITHUB_APP_ID,
+      env.GITHUB_APP_SLUG,
+      env.GITHUB_APP_PRIVATE_KEY,
+      env.GITHUB_WEBHOOK_SECRET,
+    ];
+    if (github.some(Boolean) && !github.every(Boolean)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['GITHUB_APP_ID'],
+        message:
+          'Set GITHUB_APP_ID, GITHUB_APP_SLUG, GITHUB_APP_PRIVATE_KEY and GITHUB_WEBHOOK_SECRET together, or none of them',
       });
     }
     if (env.NODE_ENV === 'production' && (!env.JWT_PRIVATE_KEY || !env.JWT_PUBLIC_KEY)) {

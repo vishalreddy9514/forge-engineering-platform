@@ -10,6 +10,7 @@
  * in later phases have something meaningful to show.
  */
 import { PrismaPg } from '@prisma/adapter-pg';
+import { createHash } from 'node:crypto';
 
 import { hashPassword } from '../src/common/security/password-hasher';
 import {
@@ -428,13 +429,225 @@ async function seed(prisma: Prisma.TransactionClient): Promise<void> {
     },
   });
 
+  const pullRequests = await seedGithub(prisma, users, payments);
+
   console.log(
-    `Seeded ${Object.keys(users).length} users, 2 projects, 3 sprints and ${issueCount} issues.\n` +
+    `Seeded ${Object.keys(users).length} users, 2 projects, 3 sprints, ${issueCount} issues and ` +
+      `${pullRequests} demo pull requests.\n` +
       `Log in as any of: ${Object.values(USERS)
         .map((u) => u.email)
         .join(', ')}\n` +
       `Password: ${password === 'forge-demo-password' ? 'forge-demo-password (dev default)' : '(from SEED_USER_PASSWORD)'}`,
   );
+}
+
+/**
+ * Demo GitHub data, so the Code tab and issue Development panels have content without a GitHub
+ * App (the integration is optional; see docs/github-app-setup.md). The installation ID is not a
+ * real one: with an App configured, syncing this repository fails harmlessly and is shown as such.
+ * Links are written the way the sync writes them: from issue keys in titles, branches, messages.
+ */
+async function seedGithub(
+  prisma: Prisma.TransactionClient,
+  users: Record<UserKey, string>,
+  payments: { id: string },
+): Promise<number> {
+  const installation = await prisma.githubInstallation.create({
+    data: {
+      installationId: 1,
+      accountLogin: 'forge-demo',
+      accountType: 'ORGANIZATION',
+      installedById: users.priya,
+      createdAt: daysAgo(30),
+    },
+  });
+  const repo = await prisma.githubRepository.create({
+    data: {
+      installationId: installation.id,
+      githubId: 1,
+      fullName: 'forge-demo/payments-service',
+      defaultBranch: 'main',
+      isPrivate: true,
+      htmlUrl: 'https://github.com/forge-demo/payments-service',
+      lastSyncedAt: daysAgo(0, 8),
+      projects: { create: { projectId: payments.id, linkedAt: daysAgo(30) } },
+    },
+  });
+  const url = (path: string) => `${repo.htmlUrl}/${path}`;
+  const sha = (seed: string) => createHash('sha1').update(seed).digest('hex');
+
+  const prs = [
+    {
+      n: 41,
+      title: 'PAY-1: dedupe Stripe webhook deliveries',
+      branch: 'fix/PAY-1-webhook-dedupe',
+      author: 'sam-okafor',
+      state: 'MERGED',
+      opened: 18,
+      closed: 16,
+    },
+    {
+      n: 44,
+      title: 'Idempotency keys for POST /payments',
+      branch: 'feature/PAY-2-idempotency',
+      author: 'mei-tanaka',
+      state: 'MERGED',
+      opened: 15,
+      closed: 12,
+    },
+    {
+      n: 47,
+      title: 'Store amounts as integer minor units (PAY-4)',
+      branch: 'refactor/minor-units',
+      author: 'alex-rivera',
+      state: 'OPEN',
+      opened: 4,
+      closed: null,
+    },
+    {
+      n: 48,
+      title: 'Batch the reconciliation query',
+      branch: 'fix/PAY-5-recon-timeout',
+      author: 'sam-okafor',
+      state: 'OPEN',
+      opened: 2,
+      closed: null,
+      draft: true,
+    },
+    {
+      n: 45,
+      title: 'Try a bigger worker for reconciliation',
+      branch: 'spike/recon-worker',
+      author: 'mei-tanaka',
+      state: 'CLOSED',
+      opened: 10,
+      closed: 9,
+      body: 'Superseded by the batching approach in PAY-5.',
+    },
+  ] as const;
+  for (const pr of prs) {
+    const opened = daysAgo(pr.opened);
+    const closed = pr.closed === null ? null : daysAgo(pr.closed, 15);
+    const created = await prisma.githubPullRequest.create({
+      data: {
+        repositoryId: repo.id,
+        githubId: 1000 + pr.n,
+        number: pr.n,
+        title: pr.title,
+        body: 'body' in pr ? pr.body : null,
+        state: pr.state,
+        isDraft: 'draft' in pr,
+        authorLogin: pr.author,
+        headRef: pr.branch,
+        headSha: sha(pr.branch),
+        baseRef: 'main',
+        htmlUrl: url(`pull/${String(pr.n)}`),
+        openedAt: opened,
+        mergedAt: pr.state === 'MERGED' ? closed : null,
+        closedAt: closed,
+        githubUpdatedAt: closed ?? opened,
+      },
+    });
+    await linkMentions(
+      prisma,
+      payments.id,
+      `${pr.title}\n${'body' in pr ? pr.body : ''}\n${pr.branch}`,
+      {
+        linkType: 'PULL_REQUEST',
+        pullRequestId: created.id,
+      },
+    );
+  }
+
+  const commits = [
+    {
+      message: 'PAY-1: record delivery IDs before processing webhooks',
+      author: 'sam-okafor',
+      name: 'Sam Okafor',
+      days: 17,
+    },
+    {
+      message: 'Add Idempotency-Key middleware\n\nRefs PAY-2',
+      author: 'mei-tanaka',
+      name: 'Mei Tanaka',
+      days: 13,
+    },
+    {
+      message: 'Bump stripe SDK to 17.x',
+      author: 'dependabot[bot]',
+      name: 'dependabot[bot]',
+      days: 8,
+    },
+    {
+      message: 'PAY-4: migrate amount columns to bigint minor units',
+      author: 'alex-rivera',
+      name: 'Alex Rivera',
+      days: 3,
+    },
+  ];
+  for (const c of commits) {
+    const created = await prisma.githubCommit.create({
+      data: {
+        repositoryId: repo.id,
+        sha: sha(c.message),
+        message: c.message,
+        authorLogin: c.author,
+        authorName: c.name,
+        committedAt: daysAgo(c.days, 14),
+        htmlUrl: url(`commit/${sha(c.message)}`),
+      },
+    });
+    await linkMentions(prisma, payments.id, c.message, {
+      linkType: 'COMMIT',
+      commitId: created.id,
+    });
+  }
+
+  await prisma.githubIssue.create({
+    data: {
+      repositoryId: repo.id,
+      githubId: 5001,
+      number: 46,
+      title: 'Flaky test: webhook signature verification under clock skew',
+      state: 'OPEN',
+      authorLogin: 'mei-tanaka',
+      labels: ['flaky-test', 'ci'],
+      commentsCount: 3,
+      htmlUrl: url('issues/46'),
+      openedAt: daysAgo(7),
+      githubUpdatedAt: daysAgo(5),
+    },
+  });
+  await prisma.githubContributor.createMany({
+    data: [
+      { repositoryId: repo.id, login: 'sam-okafor', contributions: 142 },
+      { repositoryId: repo.id, login: 'mei-tanaka', contributions: 118 },
+      { repositoryId: repo.id, login: 'alex-rivera', contributions: 64 },
+    ],
+  });
+  return prs.length;
+}
+
+/**
+ * Same rule as findIssueKeys in @forge/types, repeated here because the seed runs straight
+ * after `pnpm install`, before any workspace package is built (CI's compose job, README setup).
+ */
+const ISSUE_KEY = /(?<![A-Za-z0-9_])[A-Z][A-Z0-9]{1,9}-[1-9][0-9]{0,8}(?![A-Za-z0-9_])/g;
+
+async function linkMentions(
+  prisma: Prisma.TransactionClient,
+  projectId: string,
+  text: string,
+  target:
+    { linkType: 'PULL_REQUEST'; pullRequestId: string } | { linkType: 'COMMIT'; commitId: string },
+): Promise<void> {
+  for (const key of new Set(text.match(ISSUE_KEY) ?? [])) {
+    const issue = await prisma.issue.findFirst({
+      where: { projectId, number: Number(key.split('-')[1]), project: { key: key.split('-')[0] } },
+      select: { id: true },
+    });
+    if (issue) await prisma.issueLink.create({ data: { issueId: issue.id, ...target } });
+  }
 }
 
 async function createProject(

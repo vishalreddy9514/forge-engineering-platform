@@ -10,6 +10,8 @@ export interface DomainEvents {
   'comment.added': { issueId: string; commentId: string; actorId: string };
   'sprint.started': { sprintId: string; actorId: string };
   'sprint.completed': { sprintId: string; actorId: string };
+  /** A newly synced open PR mentions these issues (FR-6.4). No Forge user is the actor. */
+  'pull_request.opened': { pullRequestId: string; issueIds: string[] };
 }
 export type DomainEventType = keyof DomainEvents;
 
@@ -19,6 +21,7 @@ export const EVENT_ROUTES: Record<DomainEventType, readonly string[]> = {
   'comment.added': [QUEUES.NOTIFICATIONS],
   'sprint.started': [QUEUES.NOTIFICATIONS],
   'sprint.completed': [QUEUES.NOTIFICATIONS],
+  'pull_request.opened': [QUEUES.NOTIFICATIONS],
 };
 
 /** What a processor receives: the event payload plus the outbox row it came from. */

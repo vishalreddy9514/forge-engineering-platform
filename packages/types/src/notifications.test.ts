@@ -35,6 +35,22 @@ describe('notifications', () => {
     const started = Notification.parse({ ...base, type: 'SPRINT_STARTED', payload: sprintPayload });
     expect(describeNotification(started)).toBe('Priya started PAY Sprint 2');
     expect(notificationHref(started)).toBe('/projects/PAY/sprints');
+
+    const opened = Notification.parse({
+      ...base,
+      type: 'PULL_REQUEST_OPENED',
+      payload: {
+        projectKey: 'PAY',
+        issueKey: 'PAY-3',
+        issueTitle: 'Refunds',
+        repository: 'acme/payments',
+        pullRequestNumber: 42,
+        pullRequestTitle: 'Retry refunds',
+        authorLogin: 'mei',
+      },
+    });
+    expect(describeNotification(opened)).toBe('mei opened acme/payments#42 for PAY-3');
+    expect(notificationHref(opened)).toBe('/projects/PAY/issues/PAY-3');
   });
 
   it('requires the payload shape that matches the type', () => {

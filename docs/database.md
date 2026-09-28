@@ -12,15 +12,15 @@ PostgreSQL 16 with three extensions: `citext` (case-insensitive emails and names
 (fuzzy title matching) and `vector` (pgvector 0.8, embeddings for RAG). There are 34 tables in seven
 areas:
 
-| Area              | Tables                                                                                                                                 |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Identity & access | `users`, `roles`, `refresh_tokens`, `password_reset_tokens`, `teams`, `team_members`                                                   |
-| Projects          | `projects`, `project_members`, `labels`                                                                                                |
-| Issues            | `issues`, `issue_labels`, `issue_comments`, `issue_events`, `attachments`, `issue_links`                                               |
-| Sprints           | `sprints`, `sprint_issues`                                                                                                             |
-| Platform          | `notifications`, `audit_logs`, `outbox_events`                                                                                         |
-| GitHub            | `github_installations`, `github_repositories`, `project_repositories`, `github_pull_requests`, `github_commits`, `github_contributors` |
-| RAG & AI          | `documents`, `document_chunks`, `ai_conversations`, `ai_messages`, `ai_jobs`, `ai_summaries`, `ai_reviews`, `ai_usage`                 |
+| Area              | Tables                                                                                                                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Identity & access | `users`, `roles`, `refresh_tokens`, `password_reset_tokens`, `teams`, `team_members`                                                                                                 |
+| Projects          | `projects`, `project_members`, `labels`                                                                                                                                              |
+| Issues            | `issues`, `issue_labels`, `issue_comments`, `issue_events`, `attachments`, `issue_links`                                                                                             |
+| Sprints           | `sprints`, `sprint_issues`                                                                                                                                                           |
+| Platform          | `notifications`, `audit_logs`, `outbox_events`                                                                                                                                       |
+| GitHub            | `github_installations`, `github_repositories`, `project_repositories`, `github_pull_requests`, `github_commits`, `github_contributors`, `github_issues`, `github_webhook_deliveries` |
+| RAG & AI          | `documents`, `document_chunks`, `ai_conversations`, `ai_messages`, `ai_jobs`, `ai_summaries`, `ai_reviews`, `ai_usage`                                                               |
 
 ## Entity relationships
 
@@ -92,6 +92,7 @@ erDiagram
     github_repositories ||--o{ github_pull_requests : has
     github_repositories ||--o{ github_commits : has
     github_repositories ||--o{ github_contributors : has
+    github_repositories ||--o{ github_issues : has
     issues ||--o{ issue_links : "mentioned by"
     github_pull_requests ||--o{ issue_links : mentions
     github_commits ||--o{ issue_links : mentions
@@ -236,13 +237,14 @@ Every index corresponds to a known query. The ones worth calling out:
 
 ### Concurrency patterns the schema supports
 
-| Pattern                                                               | Where                                                                                                                                                      |
-| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Row lock via `UPDATE … RETURNING`                                     | Issue number allocation                                                                                                                                    |
-| Optimistic locking (`version` column, `WHERE id = ? AND version = ?`) | Issue updates, so concurrent edits return `409` instead of silently overwriting (FR-4.8)                                                                   |
-| `FOR UPDATE SKIP LOCKED`                                              | Outbox relay: several workers claim disjoint batches without blocking (tested)                                                                             |
-| Unique constraints as idempotency keys                                | `documents (source_type, source_id)`, `ai_reviews (pull_request_id, head_sha)`, `ai_summaries (issue_id, thread_hash)`, `github_pull_requests (github_id)` |
-| Last-write-wins by source timestamp                                   | `github_pull_requests.github_updated_at`: webhook upserts apply only if newer, so out-of-order deliveries are safe                                         |
+| Pattern                                                               | Where                                                                                                                                                        |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Row lock via `UPDATE … RETURNING`                                     | Issue number allocation                                                                                                                                      |
+| Optimistic locking (`version` column, `WHERE id = ? AND version = ?`) | Issue updates, so concurrent edits return `409` instead of silently overwriting (FR-4.8)                                                                     |
+| `FOR UPDATE SKIP LOCKED`                                              | Outbox relay: several workers claim disjoint batches without blocking (tested)                                                                               |
+| Unique constraints as idempotency keys                                | `documents (source_type, source_id)`, `ai_reviews (pull_request_id, head_sha)`, `ai_summaries (issue_id, thread_hash)`, `github_pull_requests (github_id)`   |
+| Last-write-wins by source timestamp                                   | `github_pull_requests` and `github_issues.github_updated_at`: writes apply only if newer, so out-of-order deliveries are safe (tested, and mutation-checked) |
+| Delivery ID as primary key                                            | `github_webhook_deliveries.id` is GitHub's `X-GitHub-Delivery`: a redelivered webhook inserts nothing (`ON CONFLICT DO NOTHING`) and queues nothing new      |
 
 ## Working with the schema
 

@@ -66,4 +66,22 @@ describe('validateEnv', () => {
       /S3_ACCESS_KEY_ID/,
     );
   });
+
+  it('enables the GitHub App only when it is fully configured', () => {
+    const app = {
+      GITHUB_APP_ID: '123456',
+      GITHUB_APP_SLUG: 'forge-dev',
+      GITHUB_APP_PRIVATE_KEY: '-----BEGIN PRIVATE KEY-----\\n...',
+      GITHUB_WEBHOOK_SECRET: 'a-webhook-secret-of-some-length',
+    };
+    expect(validateEnv({ ...valid, ...app })).toMatchObject({
+      GITHUB_APP_ID: 123456,
+      GITHUB_API_URL: 'https://api.github.com',
+    });
+    expect(validateEnv(valid).GITHUB_APP_ID).toBeUndefined();
+    expect(() => validateEnv({ ...valid, GITHUB_APP_ID: '123456' })).toThrow(/GITHUB_APP_ID/);
+    expect(() => validateEnv({ ...valid, ...app, GITHUB_WEBHOOK_SECRET: 'short' })).toThrow(
+      /GITHUB_WEBHOOK_SECRET/,
+    );
+  });
 });
