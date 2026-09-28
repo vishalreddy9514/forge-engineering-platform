@@ -297,6 +297,40 @@ done at completion.
 The issue list takes `sprint=<id>|active|none` (`none` is the backlog), and every issue carries
 its current `sprint: { id, name } | null`.
 
+## GitHub
+
+The integration is optional (see [GitHub App setup](github-app-setup.md)). While it is not
+configured, calls that need GitHub answer **503**, and everything that reads synced data still
+works. Only connecting an installation calls GitHub during a request; everything else reads
+Forge's own copy, which the worker keeps current.
+
+| Method | Path                                                    | Permission     | Body → Response                                                                                          |
+| ------ | ------------------------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------- |
+| GET    | `/github/status`                                        | signed in      | → `{ configured, installUrl }`                                                                           |
+| GET    | `/github/installations`                                 | admin          | → `GithubInstallation[]` with their repositories                                                         |
+| POST   | `/github/installations`                                 | admin          | `{ installationId }` → `GithubInstallation`. Confirmed with GitHub first (**404** if not this App's)     |
+| GET    | `/projects/:projectId/github/available-repositories`    | `github:link`  | → repositories from active installations not yet linked to the project                                   |
+| GET    | `/projects/:projectId/repositories`                     | `project:read` | → `LinkedRepository[]`: sync status, last sync, open PR / commit / open issue counts, top 5 contributors |
+| POST   | `/projects/:projectId/repositories`                     | `github:link`  | `{ repositoryId }` → **201** `LinkedRepository`, sync queued. **409** if already linked                  |
+| DELETE | `/projects/:projectId/repositories/:repositoryId`       | `github:link`  | → **204**. This project's issue links to the repository go too                                           |
+| POST   | `/projects/:projectId/repositories/:repositoryId/sync`  | `github:sync`  | → **202** `{ repositoryId, syncStatus: "QUEUED" }`. 10 per minute per user                               |
+| GET    | `/projects/:projectId/pull-requests?state&repositoryId` | `project:read` | → cursor page of `PullRequest`, newest opened first                                                      |
+| GET    | `/projects/:projectId/commits?repositoryId`             | `project:read` | → cursor page of `Commit`, newest first                                                                  |
+| GET    | `/projects/:projectId/github-issues?state&repositoryId` | `project:read` | → cursor page of `GithubIssue` (read-only mirror)                                                        |
+| GET    | `/issues/:issueId/development`                          | `project:read` | → `{ pullRequests, commits }` that mention the issue (up to 50 each)                                     |
+| POST   | `/webhooks/github`                                      | signature      | GitHub deliveries → **202** `{ received, duplicate }`. **401** without a valid `X-Hub-Signature-256`     |
+
+`PullRequest.state` is `OPEN`, `CLOSED` or `MERGED`, and `issueKeys` lists the keys of this
+project's issues it links to (other projects' keys are never shown). `syncStatus` is `IDLE`,
+`QUEUED`, `RUNNING`, `FAILED` (with `lastSyncError`) or `RATE_LIMITED`, which resumes on its own.
+
+**Links** (FR-6.4) come from issue keys (`PAY-123`: the project key, a hyphen, the number, not
+part of a longer word) in a PR's title, description or head branch, or in a commit message. A
+key only links to projects the repository is linked to. A PR's links always match its current
+text, so editing a mention away removes the link. An open PR newly linked through its `opened`
+webhook notifies the issue's assignee, or its reporter when nobody is assigned
+(`PULL_REQUEST_OPENED`).
+
 ## Health
 
 | Method | Path            | Auth   | Response                                                                                                    |

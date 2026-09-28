@@ -176,14 +176,14 @@ issues/
 
 ### 5.1 Queues
 
-| Queue           | Producer                          | Job examples                                           | Concurrency     | Retry                           |
-| --------------- | --------------------------------- | ------------------------------------------------------ | --------------- | ------------------------------- |
-| `notifications` | outbox relay                      | `issue.assigned`, `comment.added`, `sprint.started`    | 10              | 5 × exp. backoff                |
-| `github-sync`   | api (connect, webhook), scheduler | `repo.initial-sync`, `pr.upsert`, `reconcile`          | 2 (rate limits) | 8 × exp., respects reset header |
-| `indexing`      | outbox relay                      | `source.index`, `source.delete`                        | 4               | 5 × exp.                        |
-| `ai`            | api                               | `issue.summarise`, `pr.review`                         | 2               | 3 × exp.                        |
-| `email`         | notifications processor           | `send`                                                 | 5               | 5 × exp.                        |
-| `maintenance`   | job schedulers (worker)           | `attachments.cleanup` (hourly), `outbox.prune` (daily) | 1               | none (next run retries)         |
+| Queue           | Producer                             | Job examples                                                                    | Concurrency | Retry                                                                                   |
+| --------------- | ------------------------------------ | ------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------- |
+| `notifications` | outbox relay                         | `issue.assigned`, `comment.added`, `sprint.started`, `pull_request.opened`      | 10          | 5 × exp. backoff                                                                        |
+| `github`        | api (link, sync, webhook), scheduler | `installation.sync`, `repository.sync`, `webhook.process`, `reconcile` (hourly) | 4           | 5 × exp.; rate limits re-delay to the reset without using a retry; 403/404 fail at once |
+| `indexing`      | outbox relay                         | `source.index`, `source.delete`                                                 | 4           | 5 × exp.                                                                                |
+| `ai`            | api                                  | `issue.summarise`, `pr.review`                                                  | 2           | 3 × exp.                                                                                |
+| `email`         | notifications processor              | `send`                                                                          | 5           | 5 × exp.                                                                                |
+| `maintenance`   | job schedulers (worker)              | `attachments.cleanup` (hourly), `outbox.prune` (daily)                          | 1           | none (next run retries)                                                                 |
 
 - Failed jobs go to a per-queue **dead-letter** state, kept for 7 days and shown on an admin page.
 - **Idempotency:** every job ID is deterministic (for example `index:issue:{id}:{contentHash}`),
@@ -225,6 +225,37 @@ sequenceDiagram
 
 This gives at-least-once delivery, and deterministic job IDs make that safe to repeat. See
 [ADR-0006](adr/0006-transactional-outbox.md).
+
+### 5.3 GitHub sync (Phase 8)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant GH as GitHub
+    participant A as api
+    participant DB as PostgreSQL
+    participant Q as Redis (BullMQ)
+    participant W as worker
+
+    GH->>A: POST /webhooks/github (X-Hub-Signature-256, X-GitHub-Delivery)
+    A->>A: HMAC over raw body, constant-time compare (else 401)
+    A->>DB: INSERT github_webhook_deliveries ON CONFLICT DO NOTHING
+    A->>Q: add webhook.process (jobId = delivery-{id})
+    A-->>GH: 202 (well inside GitHub's 10 s)
+    Q->>W: webhook.process
+    W->>DB: upsert PR WHERE github_updated_at <= new (out-of-order safe)
+    W->>DB: re-derive issue_links from PAY-123 mentions (+ outbox pull_request.opened)
+    Note over W,GH: Linking a repo, "Sync now" and the hourly reconcile queue repository.sync
+    W->>GH: GET /repos/{r}/pulls, /commits?since, /issues?since, /contributors (installation token)
+    GH-->>W: X-RateLimit-Remaining / Reset
+    alt remaining at or below the reserve, or 403/429 rate limit
+        W->>Q: moveToDelayed(reset + jitter), status RATE_LIMITED
+    end
+```
+
+Handlers use only the payload, so webhooks spend no rate limit. Only repositories linked to a
+project are synced. The first sync is full (bounded by `GITHUB_SYNC_MAX_PAGES`), and later ones
+fetch changes since the previous run, with a five-minute overlap.
 
 **As built (Phase 6b, extended in 7).** Issue, comment and sprint services call
 `writeOutbox(tx, …)` inside their transaction (`issue.assigned`, `comment.added`,

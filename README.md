@@ -8,14 +8,15 @@ history with cited sources.
 AI is a feature of the product, not the product. Every core workflow works with the AI service
 switched off.
 
-> **Status: Phase 7 of 20 (sprints).** Teams plan sprints from the backlog, start and complete
-> them (unfinished work carries over to the backlog or the next sprint), and follow progress on a
-> burndown chart rebuilt from issue history and a velocity chart across recent sprints; the board
-> focuses on the active sprint. Underneath: issues with a status workflow, Markdown comments,
-> attachments uploaded straight to object storage, in-app and email notifications delivered
-> through a transactional outbox, and optimistic locking for concurrent edits (Phase 6); projects
-> and members (Phase 5); authentication and RBAC (Phase 4); the database schema (Phase 3); and the
-> monorepo, CI and local infrastructure (Phase 2).
+> **Status: Phase 8 of 20 (GitHub integration).** A GitHub App connects organisations to
+> Forge; project managers link repositories, and a background worker mirrors their pull
+> requests, commits, contributors and issues, then stays current through signature-verified
+> webhooks and hourly reconciliation, within GitHub's rate limits. PRs and commits that mention
+> an issue key (`PAY-123`) appear on that issue, and its assignee hears when such a PR opens.
+> Before that: sprints with burndown and velocity (Phase 7); issues, comments, attachments and
+> outbox-driven notifications (Phase 6); projects and members (Phase 5); authentication and RBAC
+> (Phase 4); the database schema (Phase 3); and the monorepo, CI and local infrastructure
+> (Phase 2).
 
 ## Stack
 
@@ -103,6 +104,7 @@ including the Python service, in dependency order and caches the results.
   observability, API conventions
 - [API reference](docs/api.md): conventions, errors, and the auth, user and admin endpoints
 - [Security](docs/security.md): implemented controls, how each is tested, and deliberate trade-offs
+- [GitHub App setup](docs/github-app-setup.md): registering the App, configuration, local webhooks
 - [Database design](docs/database.md): ER diagrams, integrity rules, indexes, search, and
   why each constraint exists
 - [Architecture decision records](docs/adr): the significant choices and the alternatives rejected

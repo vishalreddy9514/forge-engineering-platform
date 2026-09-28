@@ -1,6 +1,7 @@
 export * from './attachments';
 export * from './auth';
 export * from './enums';
+export * from './github';
 export * from './health';
 export * from './issues';
 export * from './notifications';

@@ -1,3 +1,5 @@
+import { generateKeyPairSync } from 'node:crypto';
+
 // Runs in each Jest worker before any test file is loaded, so AppModule's env validation sees
 // the Testcontainers endpoints.
 const workerId = Number(process.env.JEST_WORKER_ID ?? '1');
@@ -20,4 +22,27 @@ Object.assign(process.env, {
   S3_SECRET_ACCESS_KEY: 'forge_dev_storage_secret',
   S3_FORCE_PATH_STYLE: 'true',
   S3_ENSURE_BUCKET: 'true',
+  ...githubApp(),
 });
+
+/**
+ * A GitHub App identity for this worker. The API talks to a fake GitHub (github/fake-github.ts)
+ * on a per-worker port, which verifies the App JWT with the public half of this key.
+ */
+function githubApp(): Record<string, string> {
+  const { privateKey, publicKey } = generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+  });
+  return {
+    GITHUB_APP_ID: '4242',
+    GITHUB_APP_SLUG: 'forge-test',
+    GITHUB_APP_PRIVATE_KEY: privateKey,
+    GITHUB_WEBHOOK_SECRET: 'integration-webhook-secret-0123456789',
+    GITHUB_API_URL: `http://127.0.0.1:${String(47_000 + workerId)}`,
+    GITHUB_RATE_LIMIT_RESERVE: '10',
+    GITHUB_SYNC_MAX_PAGES: '5',
+    INTEGRATION_GITHUB_PUBLIC_KEY: publicKey,
+  };
+}
