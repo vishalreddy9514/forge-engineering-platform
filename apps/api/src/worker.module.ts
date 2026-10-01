@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { AiWorkerModule } from './ai/ai.module';
 import { configModule, loggerModule } from './config/root-modules';
 import { GithubWorkerModule } from './github/github.module';
 import { DatabaseModule } from './infrastructure/database/database.module';
@@ -25,6 +26,7 @@ import { OutboxRelayModule } from './outbox/outbox.module';
     NotificationsWorkerModule,
     MaintenanceModule,
     GithubWorkerModule,
+    AiWorkerModule,
   ],
 })
 export class WorkerModule {}

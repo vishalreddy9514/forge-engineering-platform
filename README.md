@@ -8,15 +8,17 @@ history with cited sources.
 AI is a feature of the product, not the product. Every core workflow works with the AI service
 switched off.
 
-> **Status: Phase 8 of 20 (GitHub integration).** A GitHub App connects organisations to
-> Forge; project managers link repositories, and a background worker mirrors their pull
-> requests, commits, contributors and issues, then stays current through signature-verified
-> webhooks and hourly reconciliation, within GitHub's rate limits. PRs and commits that mention
-> an issue key (`PAY-123`) appear on that issue, and its assignee hears when such a PR opens.
-> Before that: sprints with burndown and velocity (Phase 7); issues, comments, attachments and
-> outbox-driven notifications (Phase 6); projects and members (Phase 5); authentication and RBAC
-> (Phase 4); the database schema (Phase 3); and the monorepo, CI and local infrastructure
-> (Phase 2).
+> **Status: Phase 9 of 20 (AI assistant).** Describe a problem in your own words and Forge
+> drafts a structured issue (title, description, Given/When/Then acceptance criteria, type,
+> priority with its rationale, and labels from the project), streamed into the form for you to
+> review before saving. Long threads get an AI summary (TL;DR, decisions, open questions, next
+> steps), made in the background, cached per version of the thread and marked stale when it
+> changes. A Python AI service sits behind a provider interface (OpenAI, or a deterministic fake
+> for development and CI). It validates every model output against a schema, fences untrusted
+> text in prompts, and costs every call against a per-person daily budget. Forge keeps working
+> when the AI service is down. Before that: the GitHub App integration (Phase 8), sprints
+> (Phase 7), issues and notifications (Phase 6), projects (Phase 5), authentication and RBAC
+> (Phase 4), the schema (Phase 3) and the monorepo (Phase 2).
 
 ## Stack
 

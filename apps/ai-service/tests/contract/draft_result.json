@@ -1,0 +1,26 @@
+{
+  "draft": {
+    "title": "Customers are charged twice when the Stripe webhook retries",
+    "description": "## What happens\n\n> Customers are charged twice when the Stripe webhook retries.\n\n## Expected\n\nNot stated in the report; confirm with the reporter.\n\n## Impact\n\nUnknown until reproduced.",
+    "acceptanceCriteria": [
+      "Given the situation described, when it happens again, then customers are charged twice when the Stripe webhook retries no longer occurs",
+      "Given the fix is deployed, when the regression test runs, then it passes"
+    ],
+    "type": "BUG",
+    "priority": "CRITICAL",
+    "priorityRationale": "Customers or data are affected right now.",
+    "labels": [
+      "bug"
+    ],
+    "technicalArea": "general"
+  },
+  "droppedLabels": [],
+  "model": "fake",
+  "promptVersion": "issue_draft@1",
+  "repaired": false,
+  "usage": {
+    "inputTokens": 407,
+    "outputTokens": 170,
+    "costUsd": "0.000000"
+  }
+}

@@ -1,0 +1,16 @@
+<untrusted_input>
+Issue {{ issue.key }}: {{ issue.title | fence }}
+Status: {{ issue.status }} · Priority: {{ issue.priority }} · Type: {{ issue.type }}
+
+Description:
+{{ (issue.description or "(none)") | fence }}
+
+Comments, oldest first{% if omitted %} ({{ omitted }} earlier comments omitted for length){% endif %}:
+{% for comment in comments %}
+[{{ loop.index + omitted }}] {{ comment.author | fence }}, {{ comment.created_at }}:
+{{ comment.body | fence }}
+
+{% else %}
+(no comments)
+{% endfor %}
+</untrusted_input>

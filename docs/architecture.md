@@ -408,6 +408,16 @@ The provider sits behind an interface (`LLMProvider`, `EmbeddingProvider`), so t
 deterministic fake and no test ever calls OpenAI. Model names are configuration
 (`OPENAI_CHAT_MODEL`, `OPENAI_EMBEDDING_MODEL`), not code.
 
+**As built (Phase 9).** Drafts and summaries are live. `llm/` has the provider interface, the
+OpenAI implementation (strict structured outputs, streamed, usage included) and the deterministic
+fake ([ADR-0013](adr/0013-ai-provider-fake-and-contract-files.md)). Prompts are Jinja2 templates
+with a version ID stored alongside every output. Structured output is validated with Pydantic and
+repaired at most once. The API relays the draft stream to the browser with `fetch` (EventSource
+cannot POST), and it records every call in `ai_usage`. Summaries are worker jobs cached by a
+content hash of the thread. When the AI service is down, the API answers 503 before queueing
+anything, and the web app hides the AI actions. Related issues and chat arrive with the RAG
+pipeline in Phase 10.
+
 ### 7.2 RAG pipeline
 
 ```mermaid

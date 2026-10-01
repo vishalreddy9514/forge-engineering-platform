@@ -89,6 +89,14 @@ export const EnvSchema = z
     GITHUB_RATE_LIMIT_RESERVE: z.coerce.number().int().min(0).max(5000).default(200),
     /** Most list pages (100 items each) one sync fetches per resource; older history is skipped. */
     GITHUB_SYNC_MAX_PAGES: z.coerce.number().int().min(1).max(100).default(10),
+
+    // ---- AI service (FR-7, architecture §7) ----
+    /** Unset disables AI features (they answer 503 and the web app hides them): NFR-4. */
+    AI_SERVICE_URL: z.url().optional(),
+    AI_SERVICE_TOKEN: z.string().min(32).optional(),
+    AI_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(300_000).default(60_000),
+    /** Input plus output tokens one person may use per UTC day (NFR-12). */
+    AI_DAILY_TOKEN_BUDGET: z.coerce.number().int().min(0).default(200_000),
   })
   .superRefine((env, ctx) => {
     if (Boolean(env.S3_ACCESS_KEY_ID) !== Boolean(env.S3_SECRET_ACCESS_KEY)) {
@@ -96,6 +104,13 @@ export const EnvSchema = z
         code: 'custom',
         path: ['S3_ACCESS_KEY_ID'],
         message: 'Set both S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY, or neither',
+      });
+    }
+    if (env.AI_SERVICE_URL && !env.AI_SERVICE_TOKEN) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['AI_SERVICE_TOKEN'],
+        message: 'AI_SERVICE_TOKEN is required when AI_SERVICE_URL is set',
       });
     }
     const github = [

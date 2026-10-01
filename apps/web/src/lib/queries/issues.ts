@@ -10,6 +10,7 @@ import {
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 
+import { aiKeys } from '@/lib/queries/ai';
 import { apiFetch, apiJson } from '@/lib/api';
 
 export interface IssueFilters {
@@ -98,6 +99,8 @@ export function useUpdateIssue(issue: { id: string; key: string; projectId: stri
       client.setQueryData(issueKeys.byKey(updated.key), updated);
       void client.invalidateQueries({ queryKey: issueKeys.lists(issue.projectId) });
       void client.invalidateQueries({ queryKey: issueKeys.events(issue.id) });
+      // Title, description and status are part of what an AI summary was made from.
+      void client.invalidateQueries({ queryKey: aiKeys.summary(issue.id) });
     },
     onError: () => client.invalidateQueries({ queryKey: issueKeys.byKey(issue.key) }),
   });
@@ -133,6 +136,8 @@ function useCommentMutation<T>(issue: { id: string; key: string }, fn: (v: T) =>
       void client.invalidateQueries({ queryKey: issueKeys.comments(issue.id) });
       void client.invalidateQueries({ queryKey: issueKeys.events(issue.id) });
       void client.invalidateQueries({ queryKey: issueKeys.byKey(issue.key) });
+      // A comment changes the thread, so an existing AI summary may now be out of date.
+      void client.invalidateQueries({ queryKey: aiKeys.summary(issue.id) });
     },
   });
 }
