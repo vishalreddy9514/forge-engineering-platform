@@ -88,14 +88,12 @@ export class FakeAiService {
           .end('{"detail":"provider trouble"}');
         return;
       }
-      res
-        .writeHead(200, { 'content-type': 'application/json' })
-        .end(
-          JSON.stringify({
-            ...load('summary_response'),
-            usage: { inputTokens: 900, outputTokens: 120, costUsd: '0.000552' },
-          }),
-        );
+      res.writeHead(200, { 'content-type': 'application/json' }).end(
+        JSON.stringify({
+          ...load('summary_response'),
+          usage: { inputTokens: 900, outputTokens: 120, costUsd: '0.000552' },
+        }),
+      );
       return;
     }
     res.writeHead(404).end();
