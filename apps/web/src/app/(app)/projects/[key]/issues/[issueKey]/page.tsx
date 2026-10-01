@@ -14,6 +14,7 @@ import { useState } from 'react';
 
 import { SummaryPanel } from '@/components/ai/summary-panel';
 import { DevelopmentPanel } from '@/components/github/development-panel';
+import { RelatedIssuesPanel } from '@/components/search/related-issues';
 import { AttachmentsPanel } from '@/components/issues/attachments-panel';
 import { CommentThread } from '@/components/issues/comment-thread';
 import { StatusBadge, TypeIcon } from '@/components/issues/issue-badges';
@@ -254,6 +255,8 @@ function IssueView({ issue }: { issue: IssueDetail }) {
           </section>
 
           <SummaryPanel issueId={issue.id} canRequest={canUseAi} />
+
+          <RelatedIssuesPanel issueId={issue.id} projectKey={project.key} canUse={canUseAi} />
 
           <AttachmentsPanel issue={issue} canUpload={canAttach} canDeleteAny={canDelete} />
 

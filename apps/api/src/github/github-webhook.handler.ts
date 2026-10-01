@@ -127,7 +127,9 @@ export class GithubWebhookHandler {
     const written = await this.sync.upsertPullRequest(repositoryId, event.pull_request, {
       notify: event.action === 'opened',
     });
-    return written ? `pull request ${event.action}` : 'stale pull request update ignored';
+    if (!written) return 'stale pull request update ignored';
+    await this.sync.queueIndexing(repositoryId);
+    return `pull request ${event.action}`;
   }
 
   private async push(event: z.infer<typeof PushEvent>): Promise<string> {
@@ -135,6 +137,7 @@ export class GithubWebhookHandler {
     const repositoryId = await this.linkedRepository(event.repository);
     if (!repositoryId) return 'repository not linked';
     const created = await this.sync.pushCommits(repositoryId, event.commits);
+    if (created > 0) await this.sync.queueIndexing(repositoryId);
     return `${String(created)} new commits`;
   }
 

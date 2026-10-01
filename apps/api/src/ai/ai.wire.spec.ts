@@ -1,7 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { DraftResult, SummaryResponse } from './ai.wire';
+import {
+  ChatResultEvent,
+  ChatToolCallEvent,
+  DraftResult,
+  IndexResponse,
+  QueryIssuesArgs,
+  RelatedResponse,
+  SearchResponse,
+  SummaryResponse,
+} from './ai.wire';
 
 /**
  * Contract test. The AI service's own tests write these files from its real responses
@@ -25,5 +34,23 @@ describe('AI service wire contract', () => {
     const response = SummaryResponse.parse(contract('summary_response'));
     expect(response.summary.keyDecisions).toEqual(['Sam Okafor: We decided to store event IDs.']);
     expect(response.omittedComments).toBe(0);
+  });
+
+  it('reads retrieval responses exactly as the AI service writes them', () => {
+    expect(IndexResponse.parse(contract('index_response')).status).toBe('indexed');
+    const search = SearchResponse.parse(contract('search_response'));
+    expect(search.results[0]?.keywordRank).not.toBeUndefined();
+    const related = RelatedResponse.parse(contract('related_response'));
+    expect(related.results[0]?.score).toBeGreaterThanOrEqual(related.threshold);
+  });
+
+  it('reads chat events exactly as the AI service writes them', () => {
+    const result = ChatResultEvent.parse(contract('chat_result_event'));
+    expect(result.citations[0]?.n).toBe(1);
+    expect(result.promptVersion).toBe('chat_answer@1');
+    const call = ChatToolCallEvent.parse(contract('chat_tool_call_event'));
+    expect(call.name).toBe('query_issues');
+    // The tool's arguments, as the model is constrained to produce them, pass the API's check.
+    expect(QueryIssuesArgs.parse(call.arguments).project_key).toBe('PAY');
   });
 });

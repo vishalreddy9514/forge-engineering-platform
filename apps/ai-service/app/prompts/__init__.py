@@ -56,3 +56,4 @@ class Prompt:
 
 ISSUE_DRAFT = Prompt(id="issue_draft", version="issue_draft@1")
 THREAD_SUMMARY = Prompt(id="thread_summary", version="thread_summary@1")
+CHAT_ANSWER = Prompt(id="chat_answer", version="chat_answer@1")

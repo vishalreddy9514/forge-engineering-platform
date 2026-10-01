@@ -363,6 +363,48 @@ per person (`AI_DAILY_TOKEN_BUDGET`, input plus output tokens). Over budget → 
 `Retry-After` until 00:00 UTC. Every model call, failed ones included, is recorded in `ai_usage`
 with model, prompt version, tokens, latency and estimated cost.
 
+## Search, related issues and assistant chat
+
+Retrieval over issues, comments, pull requests, commits and uploaded documents (FR-8). Like the
+other AI features it is optional: without the AI service these endpoints answer **503**. Every
+request is limited to the projects the caller can read (their memberships, or all projects for a
+platform admin), and results from any other project are dropped again in the API as a second
+check ([ADR-0014](adr/0014-rag-indexing-ownership-and-chat-tool-round-trip.md)).
+
+| Method | Path                                 | Permission       | Body → Response                                                                                                                 |
+| ------ | ------------------------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/search/semantic`                   | signed in        | `?q=` (2–500 chars), optional `projectId`, `type` (repeatable source type), `limit` (≤ 50) → `{ data: SemanticSearchResult[] }` |
+| GET    | `/issues/:issueId/related`           | `ai:write`       | → `{ data: RelatedIssue[] }`: up to 5 similar issues in the same project, most similar first                                    |
+| POST   | `/projects/:projectId/ai/related`    | `ai:write`       | `{ text }` (10–8,000 chars) → `{ data: RelatedIssue[] }`: possible duplicates of an issue being drafted                         |
+| POST   | `/ai/chat`                           | signed in        | `{ message, conversationId?, projectId? }` → `text/event-stream` (below)                                                        |
+| GET    | `/ai/conversations`                  | owner            | → `Conversation[]`, latest first                                                                                                |
+| GET    | `/ai/conversations/:id`              | owner            | → `ConversationDetail` with `messages` (`role`, `content`, `citations`); **404** for anyone else                                |
+| DELETE | `/ai/conversations/:id`              | owner            | → **204**                                                                                                                       |
+| GET    | `/projects/:projectId/documents`     | `project:read`   | → `ProjectDocument[]` (`title`, `sizeBytes`, `createdBy`, `indexedAt`, `chunkCount`)                                            |
+| GET    | `/projects/:projectId/documents/:id` | `project:read`   | → `ProjectDocumentDetail` (with `content`)                                                                                      |
+| POST   | `/projects/:projectId/documents`     | `document:write` | `{ title, content }` (Markdown or text, ≤ 1 MB) → **201** `ProjectDocument`; indexed a few seconds later                        |
+| PUT    | `/projects/:projectId/documents/:id` | `document:write` | `{ title, content }` → `ProjectDocument` (re-indexed)                                                                           |
+| DELETE | `/projects/:projectId/documents/:id` | `document:write` | → **204**; its chunks are deleted with it                                                                                       |
+| POST   | `/admin/search/reindex`              | platform admin   | → **202**: re-embed everything (after changing `OPENAI_EMBEDDING_MODEL`)                                                        |
+
+**Semantic search** is hybrid: vector similarity and full-text rank, combined with reciprocal
+rank fusion, one result per document. A result has `sourceType` (`ISSUE`, `COMMENT`,
+`PULL_REQUEST`, `COMMIT`, `UPLOAD`), `title`, `url` (a Forge path, or a GitHub URL for pull
+requests and commits), `headingPath` for document sections, `snippet` and `projectKey`.
+
+**Chat stream.** `conversation` `{ conversationId }` comes first. Then `delta` `{ text }` events
+as the answer is written; a `tool` event `{ name: "query_issues", description }` when the
+assistant looks issues up by filters ("which bugs were fixed last sprint"), which the API runs
+with the caller's permissions; and finally `result`
+`{ conversationId, messageId, answer, citations }` or `error` `{ code, message }`. Each citation is
+`{ n, sourceType, title, url, projectKey, headingPath }`, matching an `[n]` in the answer; numbers
+the model invented are removed from the answer. A conversation keeps the project scope it started
+with, and access is checked again on every turn.
+
+**Limits.** Chat shares the AI limit (20 a minute) and the daily token budget. Search and related
+issues have their own limit of 60 a minute; their embedding tokens count towards the budget.
+Indexing runs in the worker and is recorded in `ai_usage` as `EMBEDDING` with no user.
+
 ## Health
 
 | Method | Path            | Auth   | Response                                                                                                    |

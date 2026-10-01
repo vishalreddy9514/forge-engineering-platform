@@ -273,6 +273,8 @@ export class GithubService {
         tx,
       );
     });
+    // Removes this project's copies of the repository's pull requests and commits from search.
+    await this.sync.queueIndexing(repositoryId);
   }
 
   async requestSync(projectId: string, repositoryId: string): Promise<SyncRequested> {

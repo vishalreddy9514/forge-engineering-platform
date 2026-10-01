@@ -6,7 +6,10 @@ import { OutboxRelay } from './outbox.relay';
 
 /** Worker side: publishes outbox rows to the queues. The API only writes rows (outbox.writer). */
 @Module({
-  imports: [BullModule.registerQueue({ name: QUEUES.NOTIFICATIONS })],
+  imports: [
+    BullModule.registerQueue({ name: QUEUES.NOTIFICATIONS }),
+    BullModule.registerQueue({ name: QUEUES.INDEXING }),
+  ],
   providers: [OutboxRelay],
   exports: [OutboxRelay],
 })

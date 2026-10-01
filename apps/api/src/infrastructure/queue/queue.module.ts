@@ -11,6 +11,7 @@ export const QUEUES = {
   MAINTENANCE: 'maintenance',
   GITHUB: 'github',
   AI: 'ai',
+  INDEXING: 'indexing',
 } as const;
 
 /**

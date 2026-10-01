@@ -12,6 +12,7 @@ import { createTestApp, type SignedInUser, signIn, type TestApp } from './test-a
 describe('outbox relay and notifications (real Postgres + Redis)', () => {
   let t: TestApp;
   let queue: Queue;
+  let indexingQueue: Queue;
   let relay: OutboxRelay;
   let fanout: NotificationFanout;
 
@@ -22,12 +23,17 @@ describe('outbox relay and notifications (real Postgres + Redis)', () => {
       prefix: 'forge',
       connection: { url: config.getOrThrow<string>('REDIS_URL') },
     });
-    relay = new OutboxRelay(t.prisma, config, queue);
+    indexingQueue = new Queue(QUEUES.INDEXING, {
+      prefix: 'forge',
+      connection: { url: config.getOrThrow<string>('REDIS_URL') },
+    });
+    relay = new OutboxRelay(t.prisma, config, queue, indexingQueue);
     fanout = new NotificationFanout(t.prisma, new EmailProducer(t.emailQueue), config);
   });
 
   afterAll(async () => {
     await queue.close();
+    await indexingQueue.close();
     await t.close();
   });
 
@@ -74,7 +80,11 @@ describe('outbox relay and notifications (real Postgres + Redis)', () => {
   }
 
   const outboxFor = (issueId: string) =>
-    t.prisma.outboxEvent.findMany({ where: { aggregateId: issueId }, orderBy: { id: 'asc' } });
+    // Search indexing events are covered by search.int-spec.
+    t.prisma.outboxEvent.findMany({
+      where: { aggregateId: issueId, eventType: { not: 'search.index' } },
+      orderBy: { id: 'asc' },
+    });
 
   /** Relays everything pending, then runs this issue's jobs through the fan-out, as the worker would. */
   async function deliver(issueId: string): Promise<void> {
@@ -163,7 +173,9 @@ describe('outbox relay and notifications (real Postgres + Redis)', () => {
         },
       } as unknown as Queue;
       const config = t.app.get(ConfigService);
-      const relays = [1, 2, 3].map(() => new OutboxRelay(t.prisma, config, recordingQueue));
+      const relays = [1, 2, 3].map(
+        () => new OutboxRelay(t.prisma, config, recordingQueue, recordingQueue),
+      );
       await Promise.all(
         relays.map(async (r) => {
           while ((await r.drain()) > 0);
@@ -179,7 +191,7 @@ describe('outbox relay and notifications (real Postgres + Redis)', () => {
 
     it('runs as a loop: new events are published promptly and shutdown is clean', async () => {
       const w = await world();
-      const looping = new OutboxRelay(t.prisma, t.app.get(ConfigService), queue);
+      const looping = new OutboxRelay(t.prisma, t.app.get(ConfigService), queue, indexingQueue);
       looping.onApplicationBootstrap();
       try {
         const issue = await createIssue(w, { assigneeId: w.dev.id });

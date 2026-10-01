@@ -19,6 +19,7 @@ import { QueueModule } from './infrastructure/queue/queue.module';
 import { RedisModule } from './infrastructure/redis/redis.module';
 import { StorageModule } from './infrastructure/storage/storage.module';
 import { RateLimitGuard } from './rate-limit/rate-limit.guard';
+import { SearchModule } from './search/search.module';
 import { RateLimitModule } from './rate-limit/rate-limit.module';
 import { SprintsModule } from './sprints/sprints.module';
 import { UsersModule } from './users/users.module';
@@ -43,6 +44,7 @@ import { UsersModule } from './users/users.module';
     SprintsModule,
     GithubModule,
     AiModule,
+    SearchModule,
     NotificationsModule,
     HealthModule,
   ],

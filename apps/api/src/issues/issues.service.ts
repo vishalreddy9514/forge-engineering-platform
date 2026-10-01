@@ -17,7 +17,7 @@ import type { AuthUser } from '../auth/auth.types';
 import { decodeCursorParts, encodeCursorParts } from '../common/http/cursor';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../infrastructure/database/prisma.service';
-import { writeOutbox } from '../outbox/outbox.writer';
+import { indexLater, writeOutbox } from '../outbox/outbox.writer';
 import { allocateIssueNumber } from './issue-number.allocator';
 import { diffIssue, type Person } from './issue-changes';
 import {
@@ -103,6 +103,7 @@ export class IssuesService {
           newValue: { title: created.title, status: created.status },
         },
       });
+      await indexLater(tx, 'ISSUE', created.id);
       if (assigneeId) {
         await writeOutbox(
           tx,
@@ -196,6 +197,7 @@ export class IssuesService {
           newValue: event.newValue ?? Prisma.JsonNull,
         })),
       });
+      await indexLater(tx, 'ISSUE', issueId);
       if (newAssignee && changes.data.assigneeId !== undefined) {
         await writeOutbox(
           tx,
@@ -214,10 +216,12 @@ export class IssuesService {
 
   /** Soft delete: history, links and comments stay; the issue disappears from every view. */
   async delete(issueId: string, user: AuthUser): Promise<void> {
-    await this.prisma.$transaction([
-      this.prisma.issue.update({ where: { id: issueId }, data: { deletedAt: new Date() } }),
-      this.prisma.issueEvent.create({ data: { issueId, actorId: user.id, type: 'DELETED' } }),
-    ]);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.issue.update({ where: { id: issueId }, data: { deletedAt: new Date() } });
+      await tx.issueEvent.create({ data: { issueId, actorId: user.id, type: 'DELETED' } });
+      // Removes it, and its comments, from search and the assistant's sources.
+      await indexLater(tx, 'ISSUE', issueId);
+    });
   }
 
   async events(issueId: string): Promise<IssueEvent[]> {

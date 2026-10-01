@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import type { Env } from '../config/env';
 import { AiFailedError, AiUnavailableException } from './ai.errors';
-import { SummaryResponse } from './ai.wire';
+import { IndexResponse, RelatedResponse, SearchResponse, SummaryResponse } from './ai.wire';
 
 const PING_TTL_MS = 30_000;
 const PING_TIMEOUT_MS = 2_000;
@@ -19,6 +19,27 @@ export interface SummaryInput {
     type: string;
   };
   comments: { author: string; createdAt: string; body: string }[];
+}
+
+/** One chat request to the AI service (apps/ai-service/app/features/chat.py). */
+export interface ChatTurnInput {
+  messages: { role: 'user' | 'assistant'; content: string }[];
+  projects: { id: string; key: string; name: string }[];
+  toolCall?: { id: string; name: string; arguments: string };
+  toolResult?: { total: number; issues: ToolIssue[] };
+}
+
+export interface ToolIssue {
+  id: string;
+  projectId: string;
+  key: string;
+  title: string;
+  type: string;
+  status: string;
+  priority: string;
+  assignee: string | null;
+  updatedAt: string;
+  url: string;
 }
 
 /**
@@ -81,6 +102,41 @@ export class AiClient {
     const parsed = SummaryResponse.safeParse(await res.json().catch(() => null));
     if (!parsed.success) {
       throw new AiFailedError('The AI service returned a summary Forge could not read', false);
+    }
+    return parsed.data;
+  }
+
+  /** Chunks and embeds a document the API has written (FR-8.2). Idempotent. */
+  async index(documentId: string): Promise<IndexResponse> {
+    const res = await this.post('/v1/index', { documentId }, AbortSignal.timeout(this.timeoutMs));
+    return this.read(res, IndexResponse, 'index result');
+  }
+
+  async search(
+    body: { query: string; projectIds: string[]; sourceTypes?: string[]; limit: number },
+    signal: AbortSignal,
+  ): Promise<SearchResponse> {
+    return this.read(await this.post('/v1/search', body, signal), SearchResponse, 'search');
+  }
+
+  async related(
+    body: { projectId: string; issueId?: string; text?: string; limit: number },
+    signal: AbortSignal,
+  ): Promise<RelatedResponse> {
+    return this.read(await this.post('/v1/related', body, signal), RelatedResponse, 'related');
+  }
+
+  /** Starts a streamed chat turn; the caller reads the SSE body. */
+  async chatStream(body: ChatTurnInput, signal: AbortSignal): Promise<ReadableStream<Uint8Array>> {
+    const res = await this.post('/v1/chat', body, signal);
+    if (!res.body) throw new AiFailedError('The AI service sent no response body', true);
+    return res.body;
+  }
+
+  private async read<T>(res: Response, schema: z.ZodType<T>, what: string): Promise<T> {
+    const parsed = schema.safeParse(await res.json().catch(() => null));
+    if (!parsed.success) {
+      throw new AiFailedError(`The AI service returned a ${what} Forge could not read`, false);
     }
     return parsed.data;
   }

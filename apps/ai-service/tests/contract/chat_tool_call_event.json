@@ -1,0 +1,25 @@
+{
+  "id": "call_fake_1",
+  "name": "query_issues",
+  "arguments": {
+    "project_key": "PAY",
+    "type": "BUG",
+    "status": "open",
+    "priority": null,
+    "sprint": null,
+    "updated_within_days": null
+  },
+  "rawArguments": "{\"project_key\": \"PAY\", \"type\": \"BUG\", \"status\": \"open\", \"priority\": null, \"sprint\": null, \"updated_within_days\": null}",
+  "model": "fake",
+  "promptVersion": "chat_answer@1",
+  "usage": {
+    "inputTokens": 401,
+    "outputTokens": 20,
+    "costUsd": "0.000000"
+  },
+  "embedding": {
+    "model": "fake-embedding-1",
+    "inputTokens": 5,
+    "costUsd": "0.000000"
+  }
+}

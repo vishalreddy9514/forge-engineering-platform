@@ -1,0 +1,35 @@
+{
+  "results": [
+    {
+      "documentId": "00000000-0000-4000-8000-000000000001",
+      "projectId": "00000000-0000-4000-8000-000000000002",
+      "sourceType": "ISSUE",
+      "sourceId": "00000000-0000-4000-8000-000000000003",
+      "title": "PAY-1: Stripe webhook retries can double-charge customers",
+      "url": "/projects/PAY/issues/PAY-1",
+      "headingPath": null,
+      "snippet": "Issue PAY-1: Stripe webhook retries can double-charge customers Customers were charged twice because the webhook handler was not idempotent.",
+      "score": 0.032787,
+      "vectorRank": 1,
+      "keywordRank": 1
+    },
+    {
+      "documentId": "00000000-0000-4000-8000-000000000004",
+      "projectId": "00000000-0000-4000-8000-000000000002",
+      "sourceType": "ISSUE",
+      "sourceId": "00000000-0000-4000-8000-000000000005",
+      "title": "PAY-2: Stripe webhook retries send duplicate receipts",
+      "url": "/projects/PAY/issues/PAY-2",
+      "headingPath": null,
+      "snippet": "Issue PAY-2: Stripe webhook retries send duplicate receipts Two receipts.",
+      "score": 0.016129,
+      "vectorRank": 2,
+      "keywordRank": null
+    }
+  ],
+  "embedding": {
+    "model": "fake-embedding-1",
+    "inputTokens": 4,
+    "costUsd": "0.000000"
+  }
+}

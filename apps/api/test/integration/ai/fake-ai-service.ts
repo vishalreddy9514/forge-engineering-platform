@@ -96,6 +96,78 @@ export class FakeAiService {
       );
       return;
     }
+    if (req.url === '/v1/index') {
+      if (this.mode === 'error_503') {
+        res.writeHead(503, { 'content-type': 'application/json' }).end('{"detail":"down"}');
+        return;
+      }
+      await this.onIndex?.(String(body.documentId));
+      res
+        .writeHead(200, { 'content-type': 'application/json' })
+        .end(JSON.stringify({ ...load('index_response'), ...this.indexResult }));
+      return;
+    }
+    if (req.url === '/v1/search') {
+      const recorded = load('search_response');
+      res
+        .writeHead(200, { 'content-type': 'application/json' })
+        .end(JSON.stringify({ results: this.searchResults, embedding: recorded.embedding }));
+      return;
+    }
+    if (req.url === '/v1/related') {
+      const recorded = load('related_response');
+      res.writeHead(200, { 'content-type': 'application/json' }).end(
+        JSON.stringify({
+          results: this.relatedResults,
+          threshold: recorded.threshold,
+          embedding: { ...(recorded.embedding as object), inputTokens: body.issueId ? 0 : 7 },
+        }),
+      );
+      return;
+    }
+    if (req.url === '/v1/chat') {
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      const send = (event: string, data: unknown) => {
+        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      };
+      if (this.mode === 'provider_unavailable') {
+        send('error', { code: 'provider_unavailable', message: 'OpenAI error 429: detail' });
+      } else if (this.chatToolArguments && !body.toolResult) {
+        const call = load('chat_tool_call_event');
+        send('tool_call', {
+          ...call,
+          arguments: this.chatToolArguments,
+          rawArguments: JSON.stringify(this.chatToolArguments),
+        });
+      } else {
+        const result = load('chat_result_event');
+        send('delta', { text: 'Answer ' });
+        send('result', { ...result, answer: this.chatAnswer, citations: this.chatCitations });
+      }
+      res.end();
+      return;
+    }
     res.writeHead(404).end();
+  }
+
+  /** Called for each /v1/index request, to stand in for the service's own database write. */
+  onIndex: ((documentId: string) => Promise<void>) | undefined;
+
+  // Retrieval behaviour, set per test.
+  indexResult: Record<string, unknown> = {};
+  searchResults: Record<string, unknown>[] = [];
+  relatedResults: Record<string, unknown>[] = [];
+  chatToolArguments: Record<string, unknown> | null = null;
+  chatAnswer = 'It was fixed by deduplicating webhook events [1].';
+  chatCitations: Record<string, unknown>[] = [];
+
+  /** Restores the default retrieval behaviour. */
+  resetRetrieval(): void {
+    this.indexResult = {};
+    this.searchResults = [];
+    this.relatedResults = [];
+    this.chatToolArguments = null;
+    this.chatAnswer = 'It was fixed by deduplicating webhook events [1].';
+    this.chatCitations = [];
   }
 }

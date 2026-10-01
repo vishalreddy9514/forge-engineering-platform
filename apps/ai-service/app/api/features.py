@@ -1,6 +1,5 @@
 """FR-7 endpoints. The API calls these with the service token; users never reach them directly."""
 
-import json
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -10,6 +9,7 @@ from fastapi.responses import StreamingResponse
 
 from app.api.deps import AppSettings, Provider
 from app.api.schemas import UsageOut, camel
+from app.api.streaming import SSE_HEADERS, sse
 from app.core.wire import Wire
 from app.features import drafts, summaries
 from app.features.structured import Generated, InvalidOutputError, generate, stream_then_validate
@@ -17,10 +17,6 @@ from app.llm.base import ProviderError, TextDelta, Usage
 
 router = APIRouter(tags=["features"])
 _log = structlog.get_logger(__name__)
-
-
-def _sse(event: str, data: dict[str, Any]) -> bytes:
-    return f"event: {event}\ndata: {json.dumps(data, default=str)}\n\n".encode()
 
 
 @router.post("/drafts")
@@ -39,21 +35,21 @@ async def create_draft(body: drafts.DraftRequest, provider: Provider) -> Streami
                 drafts.DRAFT_MAX_OUTPUT_TOKENS,
             ):
                 if isinstance(event, TextDelta):
-                    yield _sse("delta", {"text": event.text})
+                    yield sse("delta", {"text": event.text})
                 else:
-                    yield _sse("result", _draft_result(event, body.labels, version))
+                    yield sse("result", _draft_result(event, body.labels, version))
         except InvalidOutputError as error:
-            yield _sse("error", _error("invalid_output", str(error), error.model, error.usage))
+            yield sse("error", _error("invalid_output", str(error), error.model, error.usage))
         except ProviderError as error:
             _log.warning("draft failed", error=str(error), retryable=error.retryable)
             code = "provider_unavailable" if error.retryable else "provider_error"
             # A failed provider call is not billed; nothing was produced.
-            yield _sse("error", _error(code, str(error), provider.model, Usage(0, 0)))
+            yield sse("error", _error(code, str(error), provider.model, Usage(0, 0)))
 
     return StreamingResponse(
         events(),
         media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        headers=SSE_HEADERS,
     )
 
 

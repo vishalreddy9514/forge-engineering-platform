@@ -12,7 +12,7 @@ import { Client } from 'pg';
 import type { Env } from '../config/env';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 import { QUEUES } from '../infrastructure/queue/queue.module';
-import { EVENT_ROUTES, isDomainEventType } from './outbox.events';
+import { EVENT_DEDUPLICATION, EVENT_ROUTES, isDomainEventType } from './outbox.events';
 
 export const OUTBOX_CHANNEL = 'outbox_events';
 export const OUTBOX_BATCH_SIZE = 100;
@@ -54,8 +54,12 @@ export class OutboxRelay implements OnApplicationBootstrap, OnApplicationShutdow
     private readonly prisma: PrismaService,
     private readonly config: ConfigService<Env, true>,
     @InjectQueue(QUEUES.NOTIFICATIONS) notifications: Queue,
+    @InjectQueue(QUEUES.INDEXING) indexing: Queue,
   ) {
-    this.queues = new Map([[QUEUES.NOTIFICATIONS, notifications]]);
+    this.queues = new Map([
+      [QUEUES.NOTIFICATIONS, notifications],
+      [QUEUES.INDEXING, indexing],
+    ]);
   }
 
   onApplicationBootstrap(): void {
@@ -93,10 +97,18 @@ export class OutboxRelay implements OnApplicationBootstrap, OnApplicationShutdow
           const queue = this.queues.get(name);
           if (!queue) throw new Error(`No queue registered for ${name}`);
           const list = jobs.get(queue) ?? [];
+          const dedupe = EVENT_DEDUPLICATION[row.event_type] as
+            ((payload: unknown) => string) | undefined;
           list.push({
             name: row.event_type,
             data: { ...row.payload, outboxId: String(row.id) },
-            opts: { ...JOB_OPTIONS, jobId: `outbox-${String(row.id)}` },
+            opts: {
+              ...JOB_OPTIONS,
+              jobId: `outbox-${String(row.id)}`,
+              ...(dedupe
+                ? { deduplication: { id: dedupe(row.payload), keepLastIfActive: true } }
+                : {}),
+            },
           });
           jobs.set(queue, list);
         }

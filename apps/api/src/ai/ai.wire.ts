@@ -43,3 +43,106 @@ export const SummaryResponse = z.object({
   usage: WireUsage,
 });
 export type SummaryResponse = z.infer<typeof SummaryResponse>;
+
+// ───────────────────────────── Retrieval (apps/ai-service/app/api/rag.py) ─────────────
+
+export const WireEmbeddingUsage = z.object({
+  model: z.string(),
+  inputTokens: z.number().int().min(0),
+  costUsd: z.string().regex(/^\d+(\.\d+)?$/),
+});
+export type WireEmbeddingUsage = z.infer<typeof WireEmbeddingUsage>;
+
+const SourceType = z.enum(['ISSUE', 'COMMENT', 'PULL_REQUEST', 'COMMIT', 'UPLOAD']);
+
+export const IndexResponse = z.object({
+  status: z.enum(['indexed', 'unchanged', 'stale', 'missing', 'rejected']),
+  chunks: z.number().int().min(0),
+  embedded: z.number().int().min(0),
+  reused: z.number().int().min(0),
+  embedding: WireEmbeddingUsage,
+  detail: z.string().nullable().optional(),
+});
+export type IndexResponse = z.infer<typeof IndexResponse>;
+
+export const SearchResponse = z.object({
+  results: z.array(
+    z.object({
+      documentId: z.uuid(),
+      projectId: z.uuid(),
+      sourceType: SourceType,
+      sourceId: z.uuid().nullable(),
+      title: z.string(),
+      url: z.string(),
+      headingPath: z.string().nullable(),
+      snippet: z.string(),
+      score: z.number(),
+      vectorRank: z.number().int().nullable(),
+      keywordRank: z.number().int().nullable(),
+    }),
+  ),
+  embedding: WireEmbeddingUsage,
+});
+export type SearchResponse = z.infer<typeof SearchResponse>;
+
+export const RelatedResponse = z.object({
+  results: z.array(
+    z.object({
+      issueId: z.uuid(),
+      documentId: z.uuid(),
+      title: z.string(),
+      url: z.string(),
+      score: z.number(),
+    }),
+  ),
+  threshold: z.number(),
+  embedding: WireEmbeddingUsage,
+});
+export type RelatedResponse = z.infer<typeof RelatedResponse>;
+
+const ChatUsage = z.object({
+  model: z.string(),
+  promptVersion: z.string(),
+  usage: WireUsage,
+  embedding: WireEmbeddingUsage,
+});
+
+export const WireCitation = z.object({
+  n: z.number().int().min(1),
+  sourceType: SourceType,
+  sourceId: z.uuid().nullable(),
+  documentId: z.uuid().nullable(),
+  projectId: z.uuid(),
+  title: z.string(),
+  url: z.string(),
+  headingPath: z.string().nullable(),
+});
+export type WireCitation = z.infer<typeof WireCitation>;
+
+export const ChatResultEvent = ChatUsage.extend({
+  answer: z.string(),
+  citations: z.array(WireCitation),
+});
+export type ChatResultEvent = z.infer<typeof ChatResultEvent>;
+
+export const ChatToolCallEvent = ChatUsage.extend({
+  id: z.string().min(1).max(100),
+  name: z.string(),
+  /** The model's arguments: validated again by the API before anything runs (QueryIssuesArgs). */
+  arguments: z.record(z.string(), z.unknown()),
+  rawArguments: z.string().max(2000),
+});
+export type ChatToolCallEvent = z.infer<typeof ChatToolCallEvent>;
+
+export const ChatErrorEvent = z.object({ code: z.string(), message: z.string() });
+
+/** query_issues arguments as the tool schema defines them (apps/ai-service/app/rag/answer.py). */
+export const QueryIssuesArgs = z.object({
+  project_key: z.string().max(10),
+  type: z.enum(['BUG', 'FEATURE', 'TASK', 'CHORE']).nullable(),
+  status: z.enum(['open', 'in_progress', 'done']).nullable(),
+  priority: z.enum(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']).nullable(),
+  sprint: z.enum(['active', 'last_completed']).nullable(),
+  updated_within_days: z.number().int().min(1).max(365).nullable(),
+});
+export type QueryIssuesArgs = z.infer<typeof QueryIssuesArgs>;

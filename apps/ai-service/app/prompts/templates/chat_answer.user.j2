@@ -1,0 +1,11 @@
+Sources:
+<untrusted_input>
+{# Each block is built by rag.answer.render_source, which fences every field. #}
+{% for block in source_blocks %}
+{{ block }}
+{% else %}
+(no sources matched)
+{% endfor %}
+</untrusted_input>
+
+Question: {{ question | fence }}

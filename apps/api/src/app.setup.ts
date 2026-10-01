@@ -12,6 +12,7 @@ import { type Env } from './config/env';
 import { GITHUB_WEBHOOK_PATH } from './github/github-webhook.controller';
 
 export const API_PREFIX = 'api/v1';
+const DOCUMENT_ROUTES = /^\/api\/v1\/projects\/[^/]+\/documents(?:\/[^/]+)?$/;
 
 /**
  * Cross-cutting HTTP configuration, shared by main.ts and the e2e tests so tests exercise
@@ -28,6 +29,16 @@ export function configureApp(app: NestExpressApplication): INestApplication {
   // (the JSON parser then skips it). GitHub caps payloads at 25 MB; larger ones are rare and
   // hourly reconciliation fetches whatever a rejected delivery carried.
   app.use(`/${API_PREFIX}/${GITHUB_WEBHOOK_PATH}`, express.raw({ type: () => true, limit: '5mb' }));
+  // Uploaded documents are Markdown sent as JSON text, up to 1 MB of UTF-8 (MAX_DOCUMENT_BYTES)
+  // plus JSON escaping; every other route keeps the default 100 kB limit.
+  const documentJson = express.json({ limit: '2mb' });
+  app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (DOCUMENT_ROUTES.test(req.path)) {
+      documentJson(req, res, next);
+      return;
+    }
+    next();
+  });
   app.enableCors({
     origin: config.get('CORS_ORIGINS', { infer: true }),
     credentials: true,

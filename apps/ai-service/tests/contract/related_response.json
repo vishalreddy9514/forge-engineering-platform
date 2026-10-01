@@ -1,0 +1,17 @@
+{
+  "results": [
+    {
+      "issueId": "00000000-0000-4000-8000-000000000001",
+      "documentId": "00000000-0000-4000-8000-000000000002",
+      "title": "PAY-2: Stripe webhook retries send duplicate receipts",
+      "url": "/projects/PAY/issues/PAY-2",
+      "score": 0.3748
+    }
+  ],
+  "threshold": 0.3,
+  "embedding": {
+    "model": "fake-embedding-1",
+    "inputTokens": 0,
+    "costUsd": "0.000000"
+  }
+}
