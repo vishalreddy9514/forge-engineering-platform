@@ -331,6 +331,38 @@ text, so editing a mention away removes the link. An open PR newly linked throug
 webhook notifies the issue's assignee, or its reporter when nobody is assigned
 (`PULL_REQUEST_OPENED`).
 
+## AI assistant
+
+The AI features are optional (NFR-4). Without `AI_SERVICE_URL`, or while the AI service is
+unreachable, they answer **503** and the web app hides them; everything else works as usual. The
+model only ever makes suggestions: nothing is created or changed until a person saves it.
+
+| Method | Path                             | Permission     | Body → Response                                                                                                              |
+| ------ | -------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/ai/status`                     | signed in      | → `{ available, budget: { used, limit } }` (today's tokens, UTC)                                                             |
+| POST   | `/projects/:projectId/ai/drafts` | `ai:write`     | `{ text }` (10–8,000 chars) → `text/event-stream`: `delta`* then `result` or `error`                                         |
+| POST   | `/issues/:issueId/ai/summaries`  | `ai:write`     | → **200** `{ status: "completed", summary }` if the thread is unchanged, else **202** `{ status: "queued", job, statusUrl }` |
+| GET    | `/issues/:issueId/ai/summary`    | `project:read` | → `IssueAiSummary` (`summary`, `generatedAt`, `model`, `promptVersion`, `stale`); **404** if none yet                        |
+| GET    | `/ai/jobs/:jobId`                | requester      | → `AiJob` (`status`: `QUEUED`, `RUNNING`, `COMPLETED`, `FAILED`); **404** for anyone else                                    |
+
+**Draft stream.** A `delta` event is `{ text }`, a piece of the model's JSON as it is written, for
+a live preview. `result` is `{ draft, droppedLabels }`, where `draft` has `title`, `description`,
+`acceptanceCriteria` (Given/When/Then), `type`, `priority`, `priorityRationale`, `labels` (only
+the project's own, in its spelling) and `technicalArea`, and `droppedLabels` lists labels the
+model suggested that the project does not have. `error` is `{ code, message }` with a message safe
+to show. Budget and permission failures happen before the stream starts, as normal JSON errors.
+
+**Summaries** are cached per thread version: a hash of the title, description, status and every
+comment. The same thread is never summarised twice, and asking while a job is already queued
+returns that job. Any edit or new comment makes the stored summary `stale`. The job runs in the
+worker, is retried on provider outages, and notifies the requester (`AI_JOB_COMPLETED` or
+`AI_JOB_FAILED`).
+
+**Limits.** 20 requests a minute per person on the two POST endpoints, and a daily token budget
+per person (`AI_DAILY_TOKEN_BUDGET`, input plus output tokens). Over budget → **429** with
+`Retry-After` until 00:00 UTC. Every model call, failed ones included, is recorded in `ai_usage`
+with model, prompt version, tokens, latency and estimated cost.
+
 ## Health
 
 | Method | Path            | Auth   | Response                                                                                                    |

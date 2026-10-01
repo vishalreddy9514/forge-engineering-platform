@@ -33,10 +33,17 @@ export const PullRequestNotificationPayload = IssueNotificationPayload.omit({
 });
 export type PullRequestNotificationPayload = z.infer<typeof PullRequestNotificationPayload>;
 
+/** An AI job the person started finished or failed (FR-12.1). */
+export const AiJobNotificationPayload = IssueNotificationPayload.omit({ actorName: true }).extend({
+  jobId: z.string(),
+});
+export type AiJobNotificationPayload = z.infer<typeof AiJobNotificationPayload>;
+
 export const NotificationPayload = z.union([
   IssueNotificationPayload,
   SprintNotificationPayload,
   PullRequestNotificationPayload,
+  AiJobNotificationPayload,
 ]);
 export type NotificationPayload = z.infer<typeof NotificationPayload>;
 
@@ -53,6 +60,11 @@ export const Notification = z.discriminatedUnion('type', [
     ...base,
     type: z.literal('PULL_REQUEST_OPENED'),
     payload: PullRequestNotificationPayload,
+  }),
+  z.object({
+    ...base,
+    type: z.enum(['AI_JOB_COMPLETED', 'AI_JOB_FAILED']),
+    payload: AiJobNotificationPayload,
   }),
 ]);
 export type Notification = z.infer<typeof Notification>;
@@ -85,6 +97,10 @@ export function describeNotification(notification: Notification): string {
       const { authorLogin, repository, pullRequestNumber, issueKey } = notification.payload;
       return `${authorLogin ?? 'Someone'} opened ${repository}#${String(pullRequestNumber)} for ${issueKey}`;
     }
+    case 'AI_JOB_COMPLETED':
+      return `The AI summary of ${notification.payload.issueKey} is ready`;
+    case 'AI_JOB_FAILED':
+      return `The AI summary of ${notification.payload.issueKey} could not be made`;
   }
 }
 

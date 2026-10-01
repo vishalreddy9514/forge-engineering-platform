@@ -23,6 +23,11 @@ Object.assign(process.env, {
   S3_FORCE_PATH_STYLE: 'true',
   S3_ENSURE_BUCKET: 'true',
   ...githubApp(),
+  // A fake AI service (ai/fake-ai-service.ts) on a per-worker port, replaying the contract
+  // files the real service's tests produce.
+  AI_SERVICE_URL: `http://127.0.0.1:${String(48_000 + workerId)}`,
+  AI_SERVICE_TOKEN: 'integration-ai-service-token-0123456789',
+  AI_DAILY_TOKEN_BUDGET: '5000',
 });
 
 /**
