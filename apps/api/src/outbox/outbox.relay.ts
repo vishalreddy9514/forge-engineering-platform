@@ -28,7 +28,7 @@ const JOB_OPTIONS: JobsOptions = {
   removeOnFail: { age: 7 * 24 * 60 * 60 },
 };
 
-interface OutboxRow {
+export interface OutboxRow {
   id: bigint;
   event_type: string;
   payload: Record<string, unknown>;
@@ -86,40 +86,45 @@ export class OutboxRelay implements OnApplicationBootstrap, OnApplicationShutdow
         FOR UPDATE SKIP LOCKED`;
       if (rows.length === 0) return 0;
 
-      const jobs = new Map<Queue, Parameters<Queue['addBulk']>[0]>();
-      for (const row of rows) {
-        if (!isDomainEventType(row.event_type)) {
-          // Nothing consumes it; publishing is a no-op rather than a row that blocks forever.
-          this.logger.warn({ outboxId: String(row.id), type: row.event_type }, 'Unrouted event');
-          continue;
-        }
-        for (const name of EVENT_ROUTES[row.event_type]) {
-          const queue = this.queues.get(name);
-          if (!queue) throw new Error(`No queue registered for ${name}`);
-          const list = jobs.get(queue) ?? [];
-          const dedupe = EVENT_DEDUPLICATION[row.event_type] as
-            ((payload: unknown) => string) | undefined;
-          list.push({
-            name: row.event_type,
-            data: { ...row.payload, outboxId: String(row.id) },
-            opts: {
-              ...JOB_OPTIONS,
-              jobId: `outbox-${String(row.id)}`,
-              ...(dedupe
-                ? { deduplication: { id: dedupe(row.payload), keepLastIfActive: true } }
-                : {}),
-            },
-          });
-          jobs.set(queue, list);
-        }
-      }
       // If Redis is down this throws, the transaction rolls back and the rows stay pending.
-      for (const [queue, list] of jobs) await queue.addBulk(list);
+      await this.publish(rows);
 
       const ids = rows.map((row) => row.id);
       await tx.$executeRaw`UPDATE outbox_events SET published_at = now() WHERE id = ANY(${ids}::bigint[])`;
       return rows.length;
     });
+  }
+
+  /** Enqueues the jobs for these rows on every queue their event type routes to. */
+  async publish(rows: OutboxRow[]): Promise<void> {
+    const jobs = new Map<Queue, Parameters<Queue['addBulk']>[0]>();
+    for (const row of rows) {
+      if (!isDomainEventType(row.event_type)) {
+        // Nothing consumes it; publishing is a no-op rather than a row that blocks forever.
+        this.logger.warn({ outboxId: String(row.id), type: row.event_type }, 'Unrouted event');
+        continue;
+      }
+      for (const name of EVENT_ROUTES[row.event_type]) {
+        const queue = this.queues.get(name);
+        if (!queue) throw new Error(`No queue registered for ${name}`);
+        const list = jobs.get(queue) ?? [];
+        const dedupe = EVENT_DEDUPLICATION[row.event_type] as
+          ((payload: unknown) => string) | undefined;
+        list.push({
+          name: row.event_type,
+          data: { ...row.payload, outboxId: String(row.id) },
+          opts: {
+            ...JOB_OPTIONS,
+            jobId: `outbox-${String(row.id)}`,
+            ...(dedupe
+              ? { deduplication: { id: dedupe(row.payload), keepLastIfActive: true } }
+              : {}),
+          },
+        });
+        jobs.set(queue, list);
+      }
+    }
+    for (const [queue, list] of jobs) await queue.addBulk(list);
   }
 
   /** Published rows are only an audit trail of delivery; keep a week (ADR-0006). */

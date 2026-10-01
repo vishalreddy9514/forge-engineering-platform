@@ -214,7 +214,15 @@ describe('search, related issues, assistant chat and indexing (fake AI service, 
         { sourceType: 'COMMENT', sourceId: comment.id },
       ]);
 
-      while ((await relay.drain()) > 0);
+      // Other test files run their own relays over the same outbox table in parallel and may
+      // claim these rows first, so publish exactly ours through the relay's routing.
+      await relay.publish(
+        rows.map((r) => ({
+          id: r.id,
+          event_type: r.eventType,
+          payload: r.payload as Record<string, unknown>,
+        })),
+      );
       const waiting = await indexingQueue.getJobs();
       const ours = waiting.filter((job) =>
         [issue.id, comment.id].includes((job.data as { sourceId: string }).sourceId),
