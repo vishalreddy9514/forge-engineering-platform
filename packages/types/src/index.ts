@@ -11,4 +11,5 @@ export * from './permissions';
 export * from './problem';
 export * from './projects';
 export * from './rag';
+export * from './review';
 export * from './sprints';

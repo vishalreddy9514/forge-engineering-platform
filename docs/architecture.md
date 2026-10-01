@@ -533,6 +533,22 @@ from private project B. Prompting cannot prevent this; it has to be prevented in
   over vectors, exact identifiers such as `PAY-1` and `payment_intent.succeeded`, is tested
   directly in `test_rag_db.py`. `EVAL_EMBEDDER=openai` runs the same eval with real embeddings.
 
+**As built (Phase 11).** PR review follows §7.3, with these details:
+
+- Reviews are requested from the pull request's page in Forge and keyed by head commit
+  (`ai_reviews (pull_request_id, head_sha)`), so the same code is never reviewed twice and an
+  older review is marked stale once new commits arrive. The worker always reviews the head GitHub
+  reports at run time.
+- File selection (`apps/api/src/ai/review-files.ts`) skips deleted, lockfile, generated, vendored
+  and binary files and any single diff over 15k tokens, then fills a 60k-token budget (at most 60
+  files), code before documentation and configuration. Skipped files are stored with the reason.
+- The AI service reviews each file with one structured call (four at a time), then one call
+  writes the summary and missing tests. Findings must point at a line shown in the diff; others
+  become file-level remarks. One file the model cannot review is reported as such without
+  failing the rest; a provider outage fails the whole job so it is retried.
+- FR-9.4 (posting to GitHub) is not built: the App stays read-only, and the page offers "Copy
+  as Markdown" instead ([ADR-0015](adr/0015-ai-review-stays-read-only-on-github.md)).
+
 ## 8. Data architecture (overview)
 
 The detailed schema, indexes and constraints are documented in [`database.md`](database.md).

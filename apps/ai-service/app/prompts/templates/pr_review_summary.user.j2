@@ -1,0 +1,11 @@
+Pull request #{{ number }} in {{ repository }}: {{ title | fence }}
+
+Description:
+<untrusted_input>
+{{ body | fence }}
+</untrusted_input>
+
+Files reviewed, with their findings (JSON). Files not reviewed: {{ omitted | tojson }}
+<untrusted_input>
+{{ files_json | fence }}
+</untrusted_input>

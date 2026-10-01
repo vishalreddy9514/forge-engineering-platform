@@ -3,22 +3,25 @@ import { Module } from '@nestjs/common';
 
 import { QUEUES } from '../infrastructure/queue/queue.module';
 import { AiDraftsService } from './ai-drafts.service';
-import { AiSummaryProcessor } from './ai-summary.processor';
+import { AiJobProcessor } from './ai-jobs.processor';
 import { AiUsageService } from './ai-usage.service';
 import { AiClient } from './ai.client';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
+import { PullRequestReviewer } from './pr-reviewer';
+import { PullRequestReviews } from './pr-reviews.service';
+import { GithubCoreModule } from '../github/github.module';
 
 @Module({
-  imports: [BullModule.registerQueue({ name: QUEUES.AI })],
+  imports: [BullModule.registerQueue({ name: QUEUES.AI }), GithubCoreModule],
   controllers: [AiController],
-  providers: [AiClient, AiUsageService, AiService, AiDraftsService],
+  providers: [AiClient, AiUsageService, AiService, AiDraftsService, PullRequestReviews],
 })
 export class AiModule {}
 
-/** Worker side: summary jobs. */
+/** Worker side: summary and review jobs. */
 @Module({
-  imports: [BullModule.registerQueue({ name: QUEUES.AI })],
-  providers: [AiClient, AiUsageService, AiSummaryProcessor],
+  imports: [BullModule.registerQueue({ name: QUEUES.AI }), GithubCoreModule],
+  providers: [AiClient, AiUsageService, PullRequestReviewer, AiJobProcessor],
 })
 export class AiWorkerModule {}

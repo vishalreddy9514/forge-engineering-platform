@@ -1,0 +1,44 @@
+{
+  "summary": "This pull request (Dedupe webhooks) changes 2 file(s). 2 finding(s): 1 critical, 1 major. Most important: critical security issue in app/db.py; major bug issue in app/db.py.",
+  "findings": [
+    {
+      "file": "app/db.py",
+      "line": 42,
+      "severity": "critical",
+      "category": "security",
+      "explanation": "SQL is built by concatenating values, which allows SQL injection.",
+      "suggestion": "Use a parameterised query."
+    },
+    {
+      "file": "app/db.py",
+      "line": 13,
+      "severity": "major",
+      "category": "bug",
+      "explanation": "The error is swallowed, so failures here will go unnoticed.",
+      "suggestion": "Handle the error, or log it and rethrow."
+    }
+  ],
+  "missingTests": [],
+  "files": [
+    {
+      "path": "app/db.py",
+      "status": "reviewed",
+      "summary": "Adds 5 line(s) and removes 2.",
+      "findings": 2
+    },
+    {
+      "path": "tests/test_db.py",
+      "status": "reviewed",
+      "summary": "Adds 1 line(s) and removes 0.",
+      "findings": 0
+    }
+  ],
+  "model": "fake",
+  "promptVersion": "pr_review@1",
+  "calls": 3,
+  "usage": {
+    "inputTokens": 1101,
+    "outputTokens": 178,
+    "costUsd": "0.000000"
+  }
+}

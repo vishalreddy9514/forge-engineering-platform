@@ -405,6 +405,35 @@ with, and access is checked again on every turn.
 issues have their own limit of 60 a minute; their embedding tokens count towards the budget.
 Indexing runs in the worker and is recorded in `ai_usage` as `EMBEDDING` with no user.
 
+## AI code review
+
+FR-9. Needs both the AI service and the GitHub App (the diff is read from GitHub); without either,
+requests answer **503**. Reviews are suggestions, shown under _"AI-generated suggestions. This does
+not replace human code review."_ Forge never posts them to GitHub
+([ADR-0015](adr/0015-ai-review-stays-read-only-on-github.md)).
+
+| Method | Path                                                           | Permission     | Body → Response                                                                                                                           |
+| ------ | -------------------------------------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/projects/:projectId/pull-requests/:pullRequestId`            | `project:read` | → `PullRequestDetail` (the list fields plus `body`, `headSha`, `additions`, `deletions`, `changedFiles`)                                  |
+| POST   | `/projects/:projectId/pull-requests/:pullRequestId/ai/reviews` | `ai:write`     | → **200** `{ status: "completed", review }` if this head commit was already reviewed, else **202** `{ status: "queued", job, statusUrl }` |
+| GET    | `/projects/:projectId/pull-requests/:pullRequestId/ai/review`  | `project:read` | → `PullRequestReview`; **404** if not reviewed yet                                                                                        |
+
+The pull request must belong to a repository linked to the project, or the answer is **404**.
+
+**A review** has `summary`, `findings` (each `{ file, line, severity, category, explanation,
+suggestion }`, most severe first; `line` is in the new version of the file, or null for a remark
+about the whole file), `missingTests`, `files` (what was reviewed, with a one-line summary each),
+`skippedFiles` (`{ path, reason }`: lockfile, generated, vendored, deleted, binary, diff too large,
+review budget, file limit), `headSha`, `model`, `promptVersion` and `stale` (new commits since).
+
+**How it runs.** The worker reads the pull request's current head and changed files from GitHub,
+skips what a reviewer would not read, and sends at most 60 files and about 60k tokens of diff to
+the AI service, which reviews each file with a structured call and then writes the summary. A line
+number the model gives that is not in the diff becomes a file-level remark. Provider outages are
+retried; a GitHub rate limit delays the job until it resets. The requester gets an
+`AI_JOB_COMPLETED` or `AI_JOB_FAILED` notification, and every request is in the audit log
+(`ai.review.requested`). Limits: the AI rate limit (20 a minute) and the daily token budget.
+
 ## Health
 
 | Method | Path            | Auth   | Response                                                                                                    |

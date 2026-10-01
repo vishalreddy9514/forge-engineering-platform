@@ -11,8 +11,10 @@ import { Button } from '@forge/ui/components/button';
 import { Label } from '@forge/ui/components/label';
 import { Select } from '@forge/ui/components/select';
 import { CircleCheck, CircleDot, GitCommitHorizontal } from 'lucide-react';
+import Link from 'next/link';
 import { type ReactNode, useState } from 'react';
 
+import { useCurrentProject } from '@/components/projects/project-context';
 import { useCommits, useGithubIssues, usePullRequests } from '@/lib/queries/github';
 
 import {
@@ -83,6 +85,7 @@ export function CodeActivity({
   projectId: string;
   repositories: LinkedRepository[];
 }) {
+  const project = useCurrentProject();
   const [tab, setTab] = useState<Tab>('pulls');
   const [repositoryId, setRepositoryId] = useState('');
   const [prState, setPrState] = useState<PullRequestState | ''>('OPEN');
@@ -192,9 +195,12 @@ export function CodeActivity({
               <>
                 <div className="flex flex-wrap items-center gap-2">
                   <PullRequestStateBadge state={pr.state} isDraft={pr.isDraft} />
-                  <GithubLink href={pr.htmlUrl}>
-                    <span className="font-medium">{pr.title}</span>
-                  </GithubLink>
+                  <Link
+                    href={`/projects/${project.key}/pull-requests/${pr.id}`}
+                    className="font-medium hover:underline"
+                  >
+                    {pr.title}
+                  </Link>
                   <IssueKeyLinks keys={pr.issueKeys} />
                 </div>
                 <p className="text-xs text-muted-foreground">

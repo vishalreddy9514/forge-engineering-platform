@@ -57,3 +57,6 @@ class Prompt:
 ISSUE_DRAFT = Prompt(id="issue_draft", version="issue_draft@1")
 THREAD_SUMMARY = Prompt(id="thread_summary", version="thread_summary@1")
 CHAT_ANSWER = Prompt(id="chat_answer", version="chat_answer@1")
+# Both review templates share one version: a review is made by the pair together.
+PR_REVIEW_FILE = Prompt(id="pr_review_file", version="pr_review@1")
+PR_REVIEW_SUMMARY = Prompt(id="pr_review_summary", version="pr_review@1")
