@@ -108,12 +108,15 @@ jobs:
         run: docker compose down --volumes
 
   e2e:
-    name: End-to-end (Playwright, axe)
+    name: End-to-end on the containers (Playwright, axe)
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     env:
       CI: 'true'
-      NEXT_TELEMETRY_DISABLED: '1'
+      # The production images, with rate limits off for the browser suite (see docs/testing.md).
+      STACK_NODE_ENV: test
+      STACK_RATE_LIMITS_ENABLED: 'false'
+      E2E_BASE_URL: http://localhost:8080
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -121,25 +124,29 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-          cache-dependency-glob: apps/ai-service/uv.lock
       - run: cp .env.example .env
-      - run: docker compose up --detach --wait --wait-timeout 120
-      - run: pnpm install --frozen-lockfile
-      - run: uv sync --locked
-        working-directory: apps/ai-service
-      - run: pnpm --filter @forge/api exec prisma migrate deploy
-      - run: pnpm turbo run build --filter=!@forge/ai-service
+      - name: Build the images
+        run: docker compose --profile app build
+      - name: Start the stack (migrations run first, as a one-shot job)
+        run: pnpm stack:up
+      - name: Seed demo data inside the migrate image
+        run: pnpm stack:seed
+      - run: pnpm install --frozen-lockfile --filter @forge/e2e...
       - run: pnpm --filter @forge/e2e exec playwright install --with-deps chromium
-      # Starts the AI service (fake provider), API, worker and web app, then runs every journey.
-      - run: pnpm e2e
+      - name: Every journey, through Nginx on the production images
+        run: pnpm e2e
+      - name: Image sizes
+        if: always()
+        run: docker images --filter reference='forge-*' --format '{{.Repository}}:{{.Tag}} {{.Size}}'
+      - if: failure()
+        run: docker compose --profile app logs --no-color > stack.log
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
-          path: e2e/playwright-report
+          name: e2e-failure
+          path: |
+            e2e/playwright-report
+            stack.log
           retention-days: 7
       - if: always()
-        run: docker compose down --volumes
+        run: docker compose --profile app down --volumes

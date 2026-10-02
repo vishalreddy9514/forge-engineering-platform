@@ -4,7 +4,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { type APIRequestContext, expect, type Page, request } from '@playwright/test';
 
 export const PASSWORD = 'correct horse battery staple';
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:3000';
 
 /** A short random suffix, so data created by parallel tests never collides. */
 export const unique = () => randomBytes(4).toString('hex');

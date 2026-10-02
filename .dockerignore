@@ -1,0 +1,21 @@
+# Build context for every image is the repository root; send only what builds need.
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/.turbo
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/*.tsbuildinfo
+e2e/test-results
+e2e/playwright-report
+.git
+.github
+.env
+.env.*
+!.env.example
+docs
+infrastructure/terraform
