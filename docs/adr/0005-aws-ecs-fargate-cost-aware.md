@@ -41,3 +41,19 @@ pgvector) and Redis.
   serving. That is acceptable for dev; prod `tfvars` switch to a NAT Gateway.
 - ➖ Fargate Spot tasks can be interrupted. The worker is idempotent and BullMQ re-delivers
   stalled jobs.
+
+## Update: as built in Phase 16 (2026-10-02)
+
+The decision stands. What changed while building it:
+
+- **Hibernate instead of `desired_count = 0`.** Scaling services to zero left the load balancer,
+  its public IPv4 addresses, the NAT and Redis running (about $45/month). `hibernate = true`
+  removes those and stops RDS with `aws_rds_instance_state`, leaving about $4/month.
+- **The running estimate is about $85/month, not $60–75.** Since February 2024 AWS charges for
+  every public IPv4 address (the ALB's two and the NAT's one, about $11/month), and eu-west-2 is
+  slightly dearer than us-east-1. Every service runs on Fargate Spot in dev to compensate. The
+  itemised table is in [deployment](../deployment.md#cost).
+- **Email through SES's API** with the task role, not SMTP credentials, so there is no SMTP
+  password to store.
+- **No secrets in Terraform state.** Generated passwords and keys are ephemeral and written
+  through write-only arguments.

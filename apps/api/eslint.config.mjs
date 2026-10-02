@@ -11,7 +11,7 @@ export default [
   },
   {
     // CLI scripts report progress on stdout.
-    files: ['prisma/seed.ts'],
+    files: ['prisma/seed.ts', 'prisma/ai-login.ts'],
     rules: { 'no-console': 'off' },
   },
   {

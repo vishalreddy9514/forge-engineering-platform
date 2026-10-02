@@ -8,14 +8,16 @@ history with cited sources.
 AI is a feature of the product, not the product. Every core workflow works with the AI service
 switched off.
 
-> **Status: Phase 15 of 20 (CI/CD).** Every push to `main` builds the four container images,
-> scans them with Trivy (no fixable High or Critical vulnerabilities in the images that serve
-> traffic), and publishes them to GitHub Container Registry with an SBOM and a signed provenance
-> attestation. Every GitHub Action is pinned to a commit SHA. Before that: Docker (Phase 14), test
-> hardening with Playwright and axe (Phase 13), the dashboard (Phase 12), AI code review
-> (Phase 11), RAG search and cited chat (Phase 10), the AI assistant (Phase 9), the GitHub App
-> integration (Phase 8), sprints (Phase 7), issues and notifications (Phase 6), projects
-> (Phase 5), authentication and RBAC (Phase 4), the schema (Phase 3) and the monorepo (Phase 2).
+> **Status: Phase 16 of 20 (AWS with Terraform).** The whole product is defined in Terraform
+> for AWS: ECS Fargate behind an HTTPS load balancer, RDS PostgreSQL with pgvector, ElastiCache,
+> S3, SES and SSM, in private subnets, with no secret ever stored in Terraform state. A merge to
+> `main` verifies each image's signed provenance, promotes it to ECR by digest, runs the
+> migrations and rolls the services ([deployment](docs/deployment.md)). Before that: CI/CD with
+> signed, scanned images (Phase 15), Docker (Phase 14), test hardening with Playwright and axe
+> (Phase 13), the dashboard (Phase 12), AI code review (Phase 11), RAG search and cited chat
+> (Phase 10), the AI assistant (Phase 9), the GitHub App integration (Phase 8), sprints
+> (Phase 7), issues and notifications (Phase 6), projects (Phase 5), authentication and RBAC
+> (Phase 4), the schema (Phase 3) and the monorepo (Phase 2).
 
 ## Stack
 
@@ -41,6 +43,7 @@ packages/
   config/       Shared TypeScript, ESLint and Prettier presets
 infrastructure/
   docker/       Nginx config, Postgres init scripts, SeaweedFS config, stack secrets generator
+  terraform/    AWS: bootstrap, modules (network, data, service, stack) and environments
 e2e/            Playwright journeys and axe accessibility checks against the built stack
 docs/           Requirements, architecture, ADRs, testing
 ```
@@ -109,6 +112,8 @@ including the Python service, in dependency order and caches the results.
 - [Testing](docs/testing.md): the test layers, the coverage gate, and the end-to-end journeys
 - [Running in containers](docs/docker.md): the production images, the stack, and why it is built this way
 - [CI/CD](docs/cicd.md): the workflows, image publishing, signing, and the vulnerability policy
+- [Deploying to AWS](docs/deployment.md): setup, how a deploy works, secrets, TLS, hibernation,
+  teardown and cost
 - [GitHub App setup](docs/github-app-setup.md): registering the App, configuration, local webhooks
 - [Database design](docs/database.md): ER diagrams, integrity rules, indexes, search, and
   why each constraint exists

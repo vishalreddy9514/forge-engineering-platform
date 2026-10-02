@@ -45,6 +45,10 @@ FROM node:22-bookworm-slim AS migrate
 # their dependencies' advisories from the image too.
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
       /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg
+# Amazon RDS's CA bundle, so the database's TLS certificate is verified in AWS
+# (docs/deployment.md). Pinned by checksum; unused locally.
+ADD --checksum=sha256:fe45bbebf92ad3e27a583bbb2ddd1553c521ed4d49af5514dc0a40372ea5395c --chmod=644 \
+    https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /opt/rds-global-bundle.pem
 COPY --from=build /repo /repo
 # The seed reuses the retrieval eval's documents (FR-8.6).
 COPY apps/ai-service/evals/corpus.jsonl /repo/apps/ai-service/evals/corpus.jsonl
@@ -61,6 +65,10 @@ ENV NODE_ENV=production
 # their dependencies' advisories from the image too.
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
       /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg
+# Amazon RDS's CA bundle, so the database's TLS certificate is verified in AWS
+# (docs/deployment.md). Pinned by checksum; unused locally.
+ADD --checksum=sha256:fe45bbebf92ad3e27a583bbb2ddd1553c521ed4d49af5514dc0a40372ea5395c --chmod=644 \
+    https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /opt/rds-global-bundle.pem
 WORKDIR /app
 COPY --from=build --chown=node:node /out/node_modules ./node_modules
 COPY --from=build --chown=node:node /out/package.json ./package.json

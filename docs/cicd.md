@@ -1,7 +1,8 @@
 # CI/CD
 
-Two workflows. `ci.yml` decides whether a change is correct; `images.yml` turns `main` into
-signed, scanned container images. Deployment (Phase 16) pulls those images by digest.
+Three workflows. `ci.yml` decides whether a change is correct; `images.yml` turns `main` into
+signed, scanned container images; `deploy.yml` ships those images to AWS by digest
+([deployment](deployment.md)).
 
 ```mermaid
 flowchart LR
@@ -9,17 +10,18 @@ flowchart LR
     pr --> imgpr["images.yml<br/>build + Trivy gate<br/>(nothing pushed)"]
     main["Push to main / tag v*"] --> ci
     main --> img["images.yml<br/>build + Trivy gate<br/>push to ghcr.io<br/>SBOM + provenance (signed)"]
-    img --> deploy["Phase 16: deploy by digest"]
+    img --> deploy["deploy.yml<br/>verify provenance · copy to ECR by digest<br/>terraform apply: migrate, then roll<br/>smoke test"]
 ```
 
 ## `ci.yml` (every pull request and every push to main)
 
-| Job                                            | Checks                                                                                                 |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| TypeScript (lint, typecheck, test, build)      | Prettier, ESLint, `tsc`, unit/HTTP/integration tests with the coverage gate (Testcontainers), builds   |
-| Python (ruff, mypy, pytest, retrieval eval)    | The AI service against real pgvector, including the hit-rate@5 ≥ 0.8 gate                              |
-| Docker Compose (bootstrap, migrate, seed)      | A clean `docker compose up`, migrations, no schema drift, seed idempotency, the AI role's restrictions |
-| End-to-end on the containers (Playwright, axe) | Builds the images, starts the stack, seeds it, runs every journey through Nginx                        |
+| Job                                                    | Checks                                                                                                               |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| TypeScript (lint, typecheck, test, build)              | Prettier, ESLint, `tsc`, unit/HTTP/integration tests with the coverage gate (Testcontainers), builds                 |
+| Python (ruff, mypy, pytest, retrieval eval)            | The AI service against real pgvector, including the hit-rate@5 ≥ 0.8 gate                                            |
+| Docker Compose (bootstrap, migrate, seed)              | A clean `docker compose up`, migrations, no schema drift, seed idempotency, the AI role's restrictions               |
+| End-to-end on the containers (Playwright, axe)         | Builds the images, starts the stack, seeds it, runs every journey through Nginx                                      |
+| Terraform (fmt, validate, test, misconfiguration scan) | `terraform fmt`, `validate` on every root, the mocked-provider plan tests, Trivy's IaC scan (High and Critical fail) |
 
 ## `images.yml` (pull requests, main, and `v*` tags)
 
@@ -82,5 +84,8 @@ Getting there (Phase 15):
   the GitHub Actions pins, the compose images and the Dockerfile base images, weekly.
 - **Least privilege.** Workflows default to `contents: read`; only the image job asks for
   `packages: write`, `id-token: write` and `attestations: write`, and only uses them on `main`
-  and tags. Nothing needs a long-lived secret: GHCR takes the job's `GITHUB_TOKEN`, and the AWS
-  deployment (Phase 16) will use OIDC.
+  and tags. The deploy job asks for `id-token: write` (AWS through OIDC) and read access to
+  packages and attestations. Nothing needs a long-lived secret: GHCR takes the job's
+  `GITHUB_TOKEN`, and AWS trusts only this repository's `dev` environment.
+- **Verify before deploy.** `deploy.yml` runs `gh attestation verify` on every image, requiring
+  the signature of this repository's `images.yml`, before copying it to ECR by digest.
