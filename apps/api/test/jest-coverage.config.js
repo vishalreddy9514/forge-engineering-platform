@@ -9,6 +9,9 @@
 module.exports = {
   rootDir: '..',
   forceExit: true,
+  // A global option: Jest ignores testTimeout inside a project, and integration tests (a first
+  // upload to a fresh object store, a cold database) need more than the 5 s default.
+  testTimeout: 30_000,
   projects: [
     {
       displayName: 'unit',
@@ -28,7 +31,6 @@ module.exports = {
       globalSetup: '<rootDir>/test/integration/global-setup.ts',
       globalTeardown: '<rootDir>/test/integration/global-teardown.ts',
       setupFiles: ['<rootDir>/test/integration/setup-env.ts'],
-      testTimeout: 30_000,
     },
   ],
   collectCoverageFrom: ['src/**/*.service.ts'],
