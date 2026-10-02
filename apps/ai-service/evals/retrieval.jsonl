@@ -1,0 +1,42 @@
+{"question": "Why were customers charged twice when Stripe retried a webhook?", "expected": ["PAY-1", "comment:PAY-1:3", "pr:41", "upload:payments-runbook"]}
+{"question": "How did we fix the double-charge bug?", "expected": ["comment:PAY-1:3", "pr:41", "PAY-1"]}
+{"question": "What table stores processed Stripe events?", "expected": ["comment:PAY-1:3", "upload:payments-runbook"]}
+{"question": "How was the duplicate ledger entry reproduced?", "expected": ["comment:PAY-1:1"]}
+{"question": "Which incident did the webhook bug cause?", "expected": ["comment:PAY-1:2", "PAY-1"]}
+{"question": "PAY-1", "expected": ["PAY-1"]}
+{"question": "How long are idempotency responses kept for POST /payments?", "expected": ["PAY-2", "pr:44"]}
+{"question": "What header do clients send to avoid duplicate payments?", "expected": ["PAY-2"]}
+{"question": "Why does refunding a partially captured payment return a 500?", "expected": ["PAY-3"]}
+{"question": "refund validation assumes a single capture", "expected": ["PAY-3"]}
+{"question": "Why are we moving money amounts away from floating point?", "expected": ["PAY-4", "pr:47"]}
+{"question": "Which service still reads floats for currency amounts?", "expected": ["comment:PAY-4:1"]}
+{"question": "Is there a pull request for integer minor units?", "expected": ["pr:47", "PAY-4"]}
+{"question": "Why does the reconciliation job time out at the end of the month?", "expected": ["PAY-5", "upload:payments-runbook"]}
+{"question": "How do I rerun reconciliation for a failed date range?", "expected": ["upload:payments-runbook"]}
+{"question": "What replaced the bigger worker spike for reconciliation?", "expected": ["pr:45", "pr:48"]}
+{"question": "Is the reconciliation batching change merged yet?", "expected": ["pr:48", "PAY-5"]}
+{"question": "How will merchants learn about payment status changes without polling?", "expected": ["PAY-6"]}
+{"question": "What is the latency alert threshold for checkout?", "expected": ["PAY-7"]}
+{"question": "checkout p95 latency alert", "expected": ["PAY-7"]}
+{"question": "Why do customers see card decline reasons in English?", "expected": ["PAY-8"]}
+{"question": "Are we adding Apple Pay to checkout?", "expected": ["PAY-9"]}
+{"question": "Can we delete the old v1 payments API?", "expected": ["PAY-10"]}
+{"question": "What causes the 502 errors from fraud-check at night?", "expected": ["PAY-11", "upload:payments-runbook"]}
+{"question": "When should the risk team be paged for fraud-check errors?", "expected": ["upload:payments-runbook"]}
+{"question": "Why was moving settlement files to S3 cancelled?", "expected": ["comment:PAY-12:1", "PAY-12"]}
+{"question": "Who do I escalate to for a data correction in payments?", "expected": ["upload:payments-runbook"]}
+{"question": "How should a duplicate charge be refunded?", "expected": ["upload:payments-runbook"]}
+{"question": "Why are password reset emails not delivered for plus-sign addresses?", "expected": ["AUTH-1", "comment:AUTH-1:2"]}
+{"question": "What was the root cause of the password reset bug?", "expected": ["comment:AUTH-1:2", "AUTH-1"]}
+{"question": "How many support tickets did the reset email problem cause?", "expected": ["comment:AUTH-1:1"]}
+{"question": "Are we adding two-factor authentication with an authenticator app?", "expected": ["AUTH-2"]}
+{"question": "Do users get recovery codes for TOTP?", "expected": ["AUTH-2"]}
+{"question": "Why do deactivated users still have working sessions?", "expected": ["AUTH-3", "upload:auth-architecture"]}
+{"question": "What must happen to refresh tokens when a user is deactivated?", "expected": ["upload:auth-architecture", "AUTH-3"]}
+{"question": "How are failed login attempts limited?", "expected": ["AUTH-4", "upload:auth-architecture"]}
+{"question": "Can users sign in with their GitHub account?", "expected": ["AUTH-5"]}
+{"question": "How long is an access token valid?", "expected": ["upload:auth-architecture"]}
+{"question": "What happens if an old refresh token is reused?", "expected": ["upload:auth-architecture"]}
+{"question": "How long does a password reset link stay valid?", "expected": ["upload:auth-architecture"]}
+{"question": "Which hashing algorithm protects passwords?", "expected": ["upload:auth-architecture"]}
+{"question": "AUTH-3 token revocation", "expected": ["AUTH-3"]}

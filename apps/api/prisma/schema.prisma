@@ -820,7 +820,9 @@ model Document {
   createdBy User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
   chunks    DocumentChunk[]
 
-  @@unique([sourceType, sourceId])
+  /// A pull request or commit in a repository linked to two projects is indexed once per
+  /// project, so the permission filter stays a plain project_id match (§7.4).
+  @@unique([sourceType, sourceId, projectId])
   @@unique([id, projectId])
   @@index([projectId, sourceType])
   @@map("documents")
@@ -850,6 +852,8 @@ model DocumentChunk {
 
   @@unique([documentId, chunkIndex])
   @@index([projectId])
+  /// Identical text embedded by the same model reuses its stored vector (FR-8.3).
+  @@index([contentHash, embeddingModel])
   @@index([searchVector], type: Gin, map: "document_chunks_search_vector_idx")
   // Created in raw SQL as HNSW (vector_cosine_ops). Prisma cannot express the HNSW access
   // method; declaring the index by name stops migrate from proposing to drop it.

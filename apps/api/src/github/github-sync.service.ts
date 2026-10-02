@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { IndexingJobs } from '../search/indexing.jobs';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 import { writeOutbox } from '../outbox/outbox.writer';
 import { GithubClient } from './github.client';
@@ -49,6 +50,7 @@ export class GithubSync {
     private readonly github: GithubClient,
     private readonly settings: GithubSettings,
     private readonly linker: IssueLinker,
+    private readonly indexing: IndexingJobs,
   ) {}
 
   // ───────────── Installations ─────────────
@@ -187,6 +189,13 @@ export class GithubSync {
       where: { id: repositoryId },
       data: { lastSyncedAt: startedAt, syncStatus: 'IDLE', lastSyncError: null },
     });
+    // Pull requests and commits are searchable and citable (FR-8.1); unchanged ones are skipped.
+    await this.indexing.repository(repositoryId);
+  }
+
+  /** Queues indexing of the repository's pull requests and commits for search (FR-8.1). */
+  queueIndexing(repositoryId: string): Promise<void> {
+    return this.indexing.repository(repositoryId);
   }
 
   async setStatus(

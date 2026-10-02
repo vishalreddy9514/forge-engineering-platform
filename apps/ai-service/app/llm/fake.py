@@ -9,16 +9,20 @@ repeatable. It is not a model: quality is measured with the real provider, never
 
 import json
 import re
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Iterator, Sequence
 from typing import Any
 
 from app.llm.base import (
+    ChatEvent,
+    ChatMessage,
     Completion,
     Message,
     OutputSchema,
     ProviderError,
     StreamEvent,
     TextDelta,
+    Tool,
+    ToolCall,
     Usage,
 )
 from app.llm.tokens import estimate_tokens
@@ -34,6 +38,7 @@ class FakeChatProvider:
     def __init__(self, replies: list[str] | None = None) -> None:
         self._replies: Iterator[str] | None = iter(replies) if replies is not None else None
         self.calls: list[list[Message]] = []
+        self.chat_calls: list[tuple[Sequence[ChatMessage], list[Tool]]] = []
 
     async def stream(
         self, messages: list[Message], schema: OutputSchema, max_output_tokens: int
@@ -49,6 +54,133 @@ class FakeChatProvider:
             yield TextDelta(text[start : start + _CHUNK])
         prompt = "".join(m["content"] for m in messages)
         yield Completion(text, self.model, Usage(estimate_tokens(prompt), estimate_tokens(text)))
+
+    async def stream_chat(
+        self, messages: Sequence[ChatMessage], tools: list[Tool], max_output_tokens: int
+    ) -> AsyncIterator[ChatEvent]:
+        """Calls query_issues for counting and listing questions when it is offered; otherwise
+        answers from the numbered source with the most words in common with the question,
+        citing it, or says it does not know."""
+        self.chat_calls.append((messages, tools))
+        prompt = "".join(m["content"] for m in messages if m["role"] != "tool_call")
+        if self._replies is not None:
+            text = next(self._replies, None)
+            if text is None:
+                raise ProviderError("No scripted reply left", retryable=False)
+        else:
+            question = _question(messages)
+            query_tool = next((t for t in tools if t.name == "query_issues"), None)
+            if query_tool is not None and _LISTING.search(question):
+                arguments = json.dumps(_issue_filters(question, query_tool))
+                yield ToolCall("call_fake_1", "query_issues", arguments)
+                yield Completion("", self.model, Usage(estimate_tokens(prompt), 20))
+                return
+            text = _chat_answer(question, messages)
+        for start in range(0, len(text), _CHUNK):
+            yield TextDelta(text[start : start + _CHUNK])
+        yield Completion(text, self.model, Usage(estimate_tokens(prompt), estimate_tokens(text)))
+
+
+_QUESTION = re.compile(r"^Question: (.+)$", re.MULTILINE | re.DOTALL)
+# Attribute values may contain ">" (heading paths such as "Setup > Database").
+_SOURCE = re.compile(
+    r'<source n="(\d+)" type="\w+" title="([^"]*)"(?: section="[^"]*")?>\n(.*?)\n</source>', re.S
+)
+_FACTS = re.compile(r"^(Type|State): .* · ")
+_LISTING = re.compile(r"\b(how many|which|list|count)\b", re.IGNORECASE)
+_WORDS = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+_COMMON_TEXT = """a an and are did do does for from how i in is it of on or the to was
+    what when where
+    which who why with"""
+_COMMON = frozenset(_COMMON_TEXT.split())
+
+
+def _question(messages: Sequence[ChatMessage]) -> str:
+    for message in reversed(messages):
+        if message["role"] == "user":
+            match = _QUESTION.search(message["content"])
+            return match.group(1).strip() if match else message["content"]
+    return ""
+
+
+def _words(text: str) -> set[str]:
+    return {w[:6] for w in _WORDS.findall(text.lower()) if w not in _COMMON}
+
+
+def _issue_filters(question: str, tool: Tool) -> dict[str, Any]:
+    keys: list[str] = [k for k in tool.parameters["properties"]["project_key"]["enum"] if k]
+    mentioned = [k for k in keys if re.search(rf"\b{k}\b", question)]
+    status = None
+    if _has(question, "fixed", "done", "closed", "resolved", "completed", "shipped"):
+        status = "done"
+    elif _has(question, "in progress", "being worked"):
+        status = "in_progress"
+    elif _has(question, "open", "outstanding", "unresolved"):
+        status = "open"
+    priority = next(
+        (p for p in ("CRITICAL", "HIGH", "MEDIUM", "LOW") if _has(question, p.lower())), None
+    )
+    kind = next(
+        (
+            t
+            for t, w in (
+                ("BUG", "bug"),
+                ("FEATURE", "feature"),
+                ("TASK", "task"),
+                ("CHORE", "chore"),
+            )
+            if _has(question, w)
+        ),
+        None,
+    )
+    sprint = None
+    if _has(question, "last sprint", "previous sprint"):
+        sprint = "last_completed"
+    elif _has(question, "this sprint", "current sprint", "active sprint"):
+        sprint = "active"
+    days = re.search(r"last (\d{1,3}) days", question, re.IGNORECASE)
+    return {
+        "project_key": (mentioned or keys or [""])[0],
+        "type": kind,
+        "status": status,
+        "priority": priority,
+        "sprint": sprint,
+        "updated_within_days": int(days.group(1))
+        if days
+        else (7 if _has(question, "this week") else None),
+    }
+
+
+def _chat_answer(question: str, messages: Sequence[ChatMessage]) -> str:
+    tool_results = [m["content"] for m in messages if m["role"] == "tool"]
+    if tool_results:
+        listed = _SOURCE.findall(tool_results[-1])
+        count = re.match(r"(\d+) issue", tool_results[-1])
+        if not listed:
+            return "No issues match those filters."
+        items = "; ".join(f"{title} [{n}]" for n, title, _ in listed[:10])
+        return f"{count.group(1) if count else len(listed)} issue(s) match: {items}."
+
+    prompt = next(
+        (m["content"] for m in messages if m["role"] == "user" and "<source" in m["content"]), ""
+    )
+    wanted = _words(question)
+    scored = []
+    for n, title, body in _SOURCE.findall(prompt):
+        overlap = len(wanted & _words(f"{title} {body}"))
+        if overlap:
+            scored.append((overlap, -int(n), n, title, body))
+    if not scored:
+        return "I don't know: none of the project data I can see answers that."
+    scored.sort(reverse=True)
+    parts = []
+    for _, _, n, title, body in scored[:2]:
+        # Skip header lines (the facts line under an issue or PR title) to quote the body.
+        lines = [line for line in body.splitlines() if line.strip() and not _FACTS.match(line)]
+        text = " ".join(lines[1:] if len(lines) > 1 else lines)
+        sentence = re.split(r"(?<=[.!?])\s", text.strip(), maxsplit=1)[0].strip()
+        parts.append(f"{title}: {sentence[:300]} [{n}]")
+    return " ".join(parts)
 
 
 def _answer(schema: str, prompt: str) -> dict[str, Any]:

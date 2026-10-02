@@ -1,0 +1,27 @@
+{
+  "answer": "PAY-1: Stripe webhook retries can double-charge customers: Customers were charged twice because the webhook handler was not idempotent. [1]",
+  "citations": [
+    {
+      "n": 1,
+      "sourceType": "ISSUE",
+      "sourceId": "00000000-0000-4000-8000-000000000001",
+      "documentId": "00000000-0000-4000-8000-000000000002",
+      "projectId": "00000000-0000-4000-8000-000000000003",
+      "title": "PAY-1: Stripe webhook retries can double-charge customers",
+      "url": "/projects/PAY/issues/PAY-1",
+      "headingPath": null
+    }
+  ],
+  "model": "fake",
+  "promptVersion": "chat_answer@1",
+  "usage": {
+    "inputTokens": 404,
+    "outputTokens": 35,
+    "costUsd": "0.000000"
+  },
+  "embedding": {
+    "model": "fake-embedding-1",
+    "inputTokens": 9,
+    "costUsd": "0.000000"
+  }
+}

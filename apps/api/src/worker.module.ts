@@ -11,6 +11,7 @@ import { MailWorkerModule } from './mail/mail.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { NotificationsWorkerModule } from './notifications/notifications.module';
 import { OutboxRelayModule } from './outbox/outbox.module';
+import { SearchWorkerModule } from './search/search.module';
 
 /** Background job processors (architecture §5). Separate process: no HTTP server. */
 @Module({
@@ -27,6 +28,7 @@ import { OutboxRelayModule } from './outbox/outbox.module';
     MaintenanceModule,
     GithubWorkerModule,
     AiWorkerModule,
+    SearchWorkerModule,
   ],
 })
 export class WorkerModule {}

@@ -8,17 +8,16 @@ history with cited sources.
 AI is a feature of the product, not the product. Every core workflow works with the AI service
 switched off.
 
-> **Status: Phase 9 of 20 (AI assistant).** Describe a problem in your own words and Forge
-> drafts a structured issue (title, description, Given/When/Then acceptance criteria, type,
-> priority with its rationale, and labels from the project), streamed into the form for you to
-> review before saving. Long threads get an AI summary (TL;DR, decisions, open questions, next
-> steps), made in the background, cached per version of the thread and marked stale when it
-> changes. A Python AI service sits behind a provider interface (OpenAI, or a deterministic fake
-> for development and CI). It validates every model output against a schema, fences untrusted
-> text in prompts, and costs every call against a per-person daily budget. Forge keeps working
-> when the AI service is down. Before that: the GitHub App integration (Phase 8), sprints
-> (Phase 7), issues and notifications (Phase 6), projects (Phase 5), authentication and RBAC
-> (Phase 4), the schema (Phase 3) and the monorepo (Phase 2).
+> **Status: Phase 10 of 20 (RAG).** Ask questions about your projects in plain language and get
+> answers that cite the issues, comments, pull requests, commits and uploaded documents they come
+> from, or "I don't know" when the data doesn't say. Questions like "which bugs were fixed last
+> sprint" are answered by a database query the assistant asks for and the API runs. Search
+> finds work by meaning as well as by keyword, issue pages list similar issues, and the create
+> form warns about likely duplicates while you type. Retrieval is hybrid (pgvector HNSW plus full
+> text, fused with reciprocal rank fusion), always filtered to the projects you can read, and
+> measured by an evaluation set in CI. Before that: the AI assistant (Phase 9), the GitHub App
+> integration (Phase 8), sprints (Phase 7), issues and notifications (Phase 6), projects (Phase
+> 5), authentication and RBAC (Phase 4), the schema (Phase 3) and the monorepo (Phase 2).
 
 ## Stack
 

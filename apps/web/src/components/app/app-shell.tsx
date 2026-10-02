@@ -2,7 +2,7 @@
 
 import { Button } from '@forge/ui/components/button';
 import { cn } from '@forge/ui/lib/utils';
-import { FolderKanban, GitPullRequest, LogOut } from 'lucide-react';
+import { Bot, FolderKanban, GitPullRequest, LogOut, Search } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -44,6 +44,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               <FolderKanban className="size-4" aria-hidden="true" />
               Projects
             </Link>
+            <NavLink href="/search" active={pathname.startsWith('/search')} icon={Search}>
+              Search
+            </NavLink>
+            <NavLink href="/assistant" active={pathname.startsWith('/assistant')} icon={Bot}>
+              Assistant
+            </NavLink>
             {state.user.isAdmin && (
               <Link
                 href="/github"
@@ -70,5 +76,31 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
       <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>
     </div>
+  );
+}
+
+function NavLink({
+  href,
+  active,
+  icon: Icon,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  icon: typeof Search;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground',
+        active && 'font-medium text-foreground',
+      )}
+    >
+      <Icon className="size-4" aria-hidden="true" />
+      {children}
+    </Link>
   );
 }

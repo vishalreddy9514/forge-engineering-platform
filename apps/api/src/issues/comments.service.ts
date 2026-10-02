@@ -5,7 +5,7 @@ import type { ProjectAccess } from '../access-control/project-access.guard';
 import { can } from '../access-control/permissions';
 import type { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../infrastructure/database/prisma.service';
-import { writeOutbox } from '../outbox/outbox.writer';
+import { indexLater, writeOutbox } from '../outbox/outbox.writer';
 import { COMMENT_INCLUDE, toComment } from './issue.mappers';
 
 @Injectable()
@@ -47,6 +47,7 @@ export class CommentsService {
           actorId: user.id,
         },
       );
+      await indexLater(tx, 'COMMENT', created.id, { type: 'issue', id: issueId });
       return created;
     });
     return toComment(comment);
@@ -73,6 +74,7 @@ export class CommentsService {
           newValue: { commentId },
         },
       });
+      await indexLater(tx, 'COMMENT', commentId, { type: 'issue', id: existing.issueId });
       return updated;
     });
     return toComment(comment);
@@ -81,20 +83,18 @@ export class CommentsService {
   /** Soft delete: the thread shows "comment deleted" in its place. */
   async delete(commentId: string, user: AuthUser, access: ProjectAccess): Promise<void> {
     const existing = await this.assertCanChange(commentId, user, access);
-    await this.prisma.$transaction([
-      this.prisma.issueComment.update({
-        where: { id: commentId },
-        data: { deletedAt: new Date() },
-      }),
-      this.prisma.issueEvent.create({
+    await this.prisma.$transaction(async (tx) => {
+      await tx.issueComment.update({ where: { id: commentId }, data: { deletedAt: new Date() } });
+      await tx.issueEvent.create({
         data: {
           issueId: existing.issueId,
           actorId: user.id,
           type: 'COMMENT_DELETED',
           oldValue: { commentId },
         },
-      }),
-    ]);
+      });
+      await indexLater(tx, 'COMMENT', commentId, { type: 'issue', id: existing.issueId });
+    });
   }
 
   /** Authors change their own comments; managers (comment:moderate) change anyone's. */

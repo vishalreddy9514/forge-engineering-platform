@@ -9,7 +9,16 @@ import pytest
 from openai import AsyncOpenAI
 
 from app.features.drafts import DRAFT_SCHEMA
-from app.llm.base import Completion, Message, ProviderError, TextDelta, Usage
+from app.llm.base import (
+    ChatMessage,
+    Completion,
+    Message,
+    ProviderError,
+    TextDelta,
+    Tool,
+    ToolCall,
+    Usage,
+)
 from app.llm.openai_provider import OpenAIChatProvider
 
 MESSAGES: list[Message] = [
@@ -122,3 +131,109 @@ async def test_output_cut_off_at_the_token_limit_is_an_error() -> None:
     with pytest.raises(ProviderError, match="cut off") as caught:
         await collect(provider_for(handler))
     assert caught.value.retryable is False
+
+
+def raw_chunk(delta: dict[str, Any], finish: str | None = None) -> str:
+    body = {
+        "id": "chatcmpl-2",
+        "object": "chat.completion.chunk",
+        "created": 1,
+        "model": "gpt-4.1-mini-2025-04-14",
+        "choices": [{"index": 0, "delta": delta, "finish_reason": finish}],
+    }
+    return f"data: {json.dumps(body)}\n\n"
+
+
+QUERY_TOOL = Tool("query_issues", "List issues", {"type": "object", "properties": {}})
+USAGE = chunk(usage={"prompt_tokens": 50, "completion_tokens": 9, "total_tokens": 59})
+
+
+async def test_chat_streams_text_without_tools_when_none_are_offered() -> None:
+    seen: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(request.content)
+        stream = chunk("Fixed ") + chunk("[1].") + chunk(finish="stop") + USAGE + "data: [DONE]\n\n"
+        return httpx.Response(200, text=stream, headers={"content-type": "text/event-stream"})
+
+    provider = provider_for(handler)
+    events = [e async for e in provider.stream_chat(MESSAGES, [], 300)]
+
+    assert "tools" not in seen["body"]
+    assert "parallel_tool_calls" not in seen["body"]
+    assert "response_format" not in seen["body"]
+    assert events == [
+        TextDelta("Fixed "),
+        TextDelta("[1]."),
+        Completion("Fixed [1].", "gpt-4.1-mini-2025-04-14", Usage(50, 9)),
+    ]
+
+
+async def test_chat_assembles_a_streamed_tool_call() -> None:
+    seen: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(request.content)
+        call = {"index": 0, "id": "call_1", "type": "function"}
+        stream = (
+            raw_chunk(
+                {"tool_calls": [{**call, "function": {"name": "query_issues", "arguments": ""}}]}
+            )
+            + raw_chunk({"tool_calls": [{"index": 0, "function": {"arguments": '{"project_key"'}}]})
+            + raw_chunk({"tool_calls": [{"index": 0, "function": {"arguments": ': "PAY"}'}}]})
+            + raw_chunk({}, finish="tool_calls")
+            + USAGE
+            + "data: [DONE]\n\n"
+        )
+        return httpx.Response(200, text=stream, headers={"content-type": "text/event-stream"})
+
+    provider = provider_for(handler)
+    events = [e async for e in provider.stream_chat(MESSAGES, [QUERY_TOOL], 300)]
+
+    assert seen["body"]["tools"] == [
+        {
+            "type": "function",
+            "function": {
+                "name": "query_issues",
+                "description": "List issues",
+                "parameters": {"type": "object", "properties": {}},
+                "strict": True,
+            },
+        }
+    ]
+    assert seen["body"]["parallel_tool_calls"] is False
+    assert events == [
+        ToolCall("call_1", "query_issues", '{"project_key": "PAY"}'),
+        Completion("", "gpt-4.1-mini-2025-04-14", Usage(50, 9)),
+    ]
+
+
+async def test_chat_sends_tool_turns_in_openai_format() -> None:
+    seen: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(request.content)
+        stream = chunk("ok") + chunk(finish="stop") + USAGE + "data: [DONE]\n\n"
+        return httpx.Response(200, text=stream, headers={"content-type": "text/event-stream"})
+
+    call = ToolCall("call_1", "query_issues", "{}")
+    messages: list[ChatMessage] = [
+        *MESSAGES,
+        {"role": "tool_call", "call": call},
+        {"role": "tool", "call_id": "call_1", "content": "2 issues"},
+    ]
+    _ = [e async for e in provider_for(handler).stream_chat(messages, [], 300)]
+
+    assert seen["body"]["messages"][2:] == [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {"name": "query_issues", "arguments": "{}"},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call_1", "content": "2 issues"},
+    ]

@@ -45,6 +45,20 @@ class Settings(BaseSettings):
         default=12_000, ge=1_000, le=200_000, validation_alias="AI_MAX_INPUT_TOKENS"
     )
 
+    openai_embedding_model: str = Field(
+        default="text-embedding-3-small", validation_alias="OPENAI_EMBEDDING_MODEL"
+    )
+
+    # ---- Retrieval (architecture §7.2) ----
+    # Login for the least-privilege `forge_ai` role (ADR-0004). Unset disables retrieval: the
+    # RAG endpoints answer 503 and drafts and summaries keep working.
+    database_url: SecretStr | None = Field(default=None, validation_alias="AI_DATABASE_URL")
+    db_pool_max_size: int = Field(default=10, ge=1, le=100, validation_alias="AI_DB_POOL_MAX")
+    # Overrides the embedding model's own related-issues threshold (FR-7.3).
+    related_min_score: float | None = Field(
+        default=None, ge=0, le=1, validation_alias="RELATED_MIN_SCORE"
+    )
+
     @model_validator(mode="after")
     def _openai_needs_a_key(self) -> "Settings":
         if self.provider == "openai" and self.openai_api_key is None:

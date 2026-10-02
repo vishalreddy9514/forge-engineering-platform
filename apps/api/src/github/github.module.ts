@@ -2,6 +2,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
 import { QUEUES } from '../infrastructure/queue/queue.module';
+import { SearchCoreModule } from '../search/search.module';
 import { GithubSync } from './github-sync.service';
 import { GithubWebhookController } from './github-webhook.controller';
 import { GithubWebhookHandler } from './github-webhook.handler';
@@ -15,10 +16,18 @@ import { IssueLinker } from './issue-linker';
 
 /** Shared by the API and the worker: configuration, the REST client, sync and the job producer. */
 @Module({
-  imports: [BullModule.registerQueue({ name: QUEUES.GITHUB })],
+  imports: [BullModule.registerQueue({ name: QUEUES.GITHUB }), SearchCoreModule],
   providers: [GithubSettings, GithubClient, GithubJobs, IssueLinker, GithubSync],
   // The queue too: the worker's processor injects it to register its job schedulers.
-  exports: [BullModule, GithubSettings, GithubClient, GithubJobs, IssueLinker, GithubSync],
+  exports: [
+    BullModule,
+    SearchCoreModule,
+    GithubSettings,
+    GithubClient,
+    GithubJobs,
+    IssueLinker,
+    GithubSync,
+  ],
 })
 export class GithubCoreModule {}
 

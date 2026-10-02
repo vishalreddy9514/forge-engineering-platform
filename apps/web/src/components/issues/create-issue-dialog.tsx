@@ -29,6 +29,7 @@ import type { z } from 'zod';
 
 import { DraftAssistant, type DraftValues } from '@/components/ai/draft-assistant';
 import { FormField } from '@/components/forms/form-field';
+import { DuplicateHints } from '@/components/search/duplicate-hints';
 import { useCan, useCurrentProject } from '@/components/projects/project-context';
 import { applyServerErrors } from '@/lib/form-errors';
 import { useAiStatus } from '@/lib/queries/ai';
@@ -66,6 +67,8 @@ export function CreateIssueDialog() {
     },
   });
   const labelIds = useWatch({ control, name: 'labelIds' }) ?? [];
+  const title = useWatch({ control, name: 'title' });
+  const description = useWatch({ control, name: 'description' }) ?? '';
 
   const applyDraft = (draft: DraftValues) => {
     const options = { shouldDirty: true, shouldValidate: true };
@@ -119,6 +122,13 @@ export function CreateIssueDialog() {
             <Label htmlFor="issue-description">Description (Markdown)</Label>
             <Textarea id="issue-description" rows={5} {...register('description')} />
           </div>
+          {canUseAi && aiStatus?.available && (
+            <DuplicateHints
+              projectId={project.id}
+              projectKey={project.key}
+              text={`${title}\n\n${description}`}
+            />
+          )}
           <div className="grid grid-cols-3 gap-3">
             <div className="grid gap-2">
               <Label htmlFor="issue-type">Type</Label>

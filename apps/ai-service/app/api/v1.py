@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
-from app.api import features
+from app.api import features, rag
 from app.core.security import ServiceAuth
 
 # Every feature endpoint lives under this router and therefore requires the service token.
@@ -21,3 +21,4 @@ def whoami(request: Request) -> WhoAmIResponse:
 
 
 router.include_router(features.router)
+router.include_router(rag.router)
