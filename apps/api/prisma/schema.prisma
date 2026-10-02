@@ -948,6 +948,10 @@ model AiReview {
   /// [{ file, line, severity, category, explanation, suggestion }]
   findings      Json
   missingTests  Json     @map("missing_tests")
+  /// [{ path, status, summary, findings }]: what was reviewed, file by file.
+  files         Json     @default("[]")
+  /// [{ path, reason }]: changed files not sent for review (lockfile, generated, binary, budget).
+  skippedFiles  Json     @default("[]") @map("skipped_files")
   model         String   @db.VarChar(100)
   promptVersion String   @map("prompt_version") @db.VarChar(50)
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz

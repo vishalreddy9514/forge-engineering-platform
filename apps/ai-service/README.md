@@ -19,6 +19,7 @@ UPDATE_CONTRACTS=1 uv run pytest tests/test_feature_api.py   # after changing th
 | `POST /v1/index`    | Chunk and embed one document the API wrote; unchanged chunks keep their vectors (FR-8.3)   |
 | `POST /v1/search`   | Hybrid retrieval (pgvector + full text, RRF) within the given projects (FR-11.2)           |
 | `POST /v1/related`  | Issues similar to an issue or to draft text, above a threshold (FR-7.3)                    |
+| `POST /v1/reviews`  | A pull request's diffs → findings per file (line, severity, category), summary, missing tests (FR-9) |
 | `POST /v1/chat`     | Answer with numbered citations, or a `query_issues` tool call for the API to run (FR-7.4)  |
 | `GET /health/ready` | The provider and model in use                                                              |
 

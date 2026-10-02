@@ -13,7 +13,7 @@ import { AiClient } from './ai.client';
 import { AiUnavailableException } from './ai.errors';
 import { loadThread } from './thread';
 
-export const AI_JOBS = { ISSUE_SUMMARY: 'issue.summary' } as const;
+export const AI_JOBS = { ISSUE_SUMMARY: 'issue.summary', PR_REVIEW: 'pr.review' } as const;
 
 export interface SummaryJob {
   aiJobId: string;

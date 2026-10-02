@@ -13,6 +13,7 @@ import {
   ListGithubIssuesQuery,
   ListPullRequestsQuery,
   type PullRequest,
+  type PullRequestDetail,
   type SyncRequested,
 } from '@forge/types';
 import {
@@ -122,6 +123,15 @@ export class GithubController {
     @ZodQuery(ListPullRequestsQuery) query: ListPullRequestsQuery,
   ): Promise<CursorPage<PullRequest>> {
     return this.github.listPullRequests(projectId, query);
+  }
+
+  @Get('projects/:projectId/pull-requests/:pullRequestId')
+  @RequireProjectPermission('project:read')
+  pullRequest(
+    @Param('projectId') projectId: string,
+    @Param('pullRequestId', new ParseUUIDPipe()) pullRequestId: string,
+  ): Promise<PullRequestDetail> {
+    return this.github.pullRequest(projectId, pullRequestId);
   }
 
   @Get('projects/:projectId/commits')
