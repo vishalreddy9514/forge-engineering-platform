@@ -49,6 +49,16 @@ describe('API (e2e)', () => {
     prisma.$queryRaw.mockReset().mockResolvedValue([{ '?column?': 1 }]);
   });
 
+  describe('HTTP server', () => {
+    it('keeps idle connections open longer than the proxy in front of it', () => {
+      // A proxy that reuses a keep-alive connection the API has just closed gets "socket hang
+      // up" (Next.js's dev rewrite) or a 502 (the ALB, idle timeout 120 s).
+      const server = app.getHttpServer();
+      expect(server.keepAliveTimeout).toBeGreaterThan(120_000);
+      expect(server.headersTimeout).toBeGreaterThan(server.keepAliveTimeout);
+    });
+  });
+
   describe('GET /api/v1/health/live', () => {
     it('returns 200 without touching dependencies', async () => {
       await request(app.getHttpServer())
