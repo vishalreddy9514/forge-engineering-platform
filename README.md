@@ -8,15 +8,14 @@ history with cited sources.
 AI is a feature of the product, not the product. Every core workflow works with the AI service
 switched off.
 
-> **Status: Phase 11 of 20 (AI code review).** Open a pull request from a linked repository in
-> Forge and ask for an AI review: each changed file is reviewed for bugs, security problems and
-> fragile code, with findings tied to the exact lines of the diff, a summary, and the tests the
-> change is missing. Lockfiles, generated and vendored code are skipped and listed, reviews are
-> cached per commit and marked stale after new pushes, and every review carries the banner
-> "AI-generated suggestions. This does not replace human code review." Before that: RAG search
-> and cited chat (Phase 10), the AI assistant (Phase 9), the GitHub App integration (Phase 8),
-> sprints (Phase 7), issues and notifications (Phase 6), projects (Phase 5), authentication and
-> RBAC (Phase 4), the schema (Phase 3) and the monorepo (Phase 2).
+> **Status: Phase 12 of 20 (dashboard).** Each project's Overview tab is now its dashboard:
+> open issues by status and priority, the active sprint's progress and burndown, workload per
+> person, pull requests opened and merged per week, median and p90 time to resolve, and AI
+> requests, tokens and estimated cost per feature, over the last 4 to 26 weeks. Before that: AI
+> code review (Phase 11), RAG search and cited chat (Phase 10), the AI assistant (Phase 9), the
+> GitHub App integration (Phase 8), sprints (Phase 7), issues and notifications (Phase 6),
+> projects (Phase 5), authentication and RBAC (Phase 4), the schema (Phase 3) and the monorepo
+> (Phase 2).
 
 ## Stack
 

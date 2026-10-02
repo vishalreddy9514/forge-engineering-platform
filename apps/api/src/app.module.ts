@@ -9,6 +9,7 @@ import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { configModule, loggerModule } from './config/root-modules';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { GithubModule } from './github/github.module';
 import { HealthModule } from './health/health.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -42,6 +43,7 @@ import { UsersModule } from './users/users.module';
     IssuesModule,
     AttachmentsModule,
     SprintsModule,
+    DashboardModule,
     GithubModule,
     AiModule,
     SearchModule,

@@ -16,6 +16,7 @@ import { join } from 'node:path';
 
 import { hashPassword } from '../src/common/security/password-hasher';
 import {
+  type AiFeature,
   type IssuePriority,
   type IssueStatus,
   type IssueType,
@@ -433,15 +434,63 @@ async function seed(prisma: Prisma.TransactionClient): Promise<void> {
 
   const pullRequests = await seedGithub(prisma, users, payments);
   const documents = await seedDocuments(prisma, users, { PAY: payments, AUTH: identity });
+  const aiCalls = await seedAiUsage(prisma, users, payments.id);
 
   console.log(
     `Seeded ${Object.keys(users).length} users, 2 projects, 3 sprints, ${issueCount} issues and ` +
-      `${pullRequests} demo pull requests and ${documents} documents.\n` +
+      `${pullRequests} demo pull requests, ${documents} documents and ${aiCalls} AI calls.\n` +
       `Log in as any of: ${Object.values(USERS)
         .map((u) => u.email)
         .join(', ')}\n` +
       `Password: ${password === 'forge-demo-password' ? 'forge-demo-password (dev default)' : '(from SEED_USER_PASSWORD)'}`,
   );
+}
+
+/**
+ * Six weeks of AI usage for the Payments dashboard (FR-10, NFR-12). Real calls write these rows
+ * through AiUsageService; the demo needs history to draw. Counts grow week on week, as they would
+ * after the features ship; costs follow the token counts at a flat demo rate.
+ */
+async function seedAiUsage(
+  tx: Prisma.TransactionClient,
+  users: Record<UserKey, string>,
+  projectId: string,
+): Promise<number> {
+  const PER_TOKEN_USD = 0.000_002;
+  const calls: { feature: AiFeature; input: number; output: number; perWeek: number[] }[] = [
+    { feature: 'CHAT', input: 2_400, output: 350, perWeek: [2, 4, 5, 7, 9, 6] },
+    { feature: 'ISSUE_DRAFT', input: 600, output: 250, perWeek: [3, 3, 4, 6, 5, 4] },
+    { feature: 'ISSUE_SUMMARY', input: 1_800, output: 200, perWeek: [0, 1, 2, 2, 3, 2] },
+    { feature: 'PR_REVIEW', input: 9_000, output: 1_200, perWeek: [0, 0, 1, 2, 2, 1] },
+    { feature: 'SEMANTIC_SEARCH', input: 30, output: 0, perWeek: [5, 8, 12, 15, 14, 10] },
+  ];
+  const people: UserKey[] = ['sam', 'alex', 'mei', 'priya'];
+  const rows: Prisma.AiUsageCreateManyInput[] = [];
+  for (const call of calls) {
+    call.perWeek.forEach((count, i) => {
+      const weeksAgo = call.perWeek.length - 1 - i;
+      for (let n = 0; n < count; n++) {
+        // Spread over a few days and hours of that week; today's later hours are skipped.
+        const createdAt = daysAgo(weeksAgo * 7 + (n % 5), 9 + (n % 8));
+        if (createdAt > now) continue;
+        rows.push({
+          userId: users[people[n % people.length] ?? 'sam'],
+          projectId,
+          feature: call.feature,
+          model: 'demo',
+          promptVersion: null,
+          inputTokens: call.input,
+          outputTokens: call.output,
+          latencyMs: 400 + ((n * 137) % 900),
+          costUsd: ((call.input + call.output) * PER_TOKEN_USD).toFixed(6),
+          success: true,
+          createdAt,
+        });
+      }
+    });
+  }
+  await tx.aiUsage.createMany({ data: rows });
+  return rows.length;
 }
 
 /**
