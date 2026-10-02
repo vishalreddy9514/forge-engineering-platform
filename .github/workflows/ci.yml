@@ -73,6 +73,39 @@ jobs:
       - run: uv run mypy
       - run: uv run pytest
 
+  terraform:
+    name: Terraform (fmt, validate, test, misconfiguration scan)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: infrastructure/terraform
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.5
+          terraform_wrapper: false
+      - name: Format
+        run: terraform fmt -check -recursive -diff
+      - name: Validate every root (no backend, no credentials)
+        run: |
+          for root in bootstrap environments/dev environments/prod modules/stack; do
+            echo "::group::$root"
+            terraform -chdir="$root" init -backend=false -input=false -lockfile=readonly
+            terraform -chdir="$root" validate
+            echo "::endgroup::"
+          done
+      - name: Plan tests with a mocked AWS provider
+        run: terraform -chdir=modules/stack test
+      - name: Misconfiguration scan (fails on High and Critical)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: config
+          scan-ref: infrastructure/terraform
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+
   compose:
     name: Docker Compose (bootstrap, migrate, seed)
     runs-on: ubuntu-latest

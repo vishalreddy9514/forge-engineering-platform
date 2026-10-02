@@ -38,10 +38,10 @@ flowchart LR
 | ------------ | ----------------------------- | ----------------- | --------------- | -------------------------------- |
 | `proxy`      | `nginx:1.29-alpine`           | 94 MB             | `nginx` (101)   | `/api/v1/health/live` through it |
 | `web`        | `apps/web/Dockerfile`         | 388 MB            | `node` (1000)   | `GET /login`                     |
-| `api`        | `apps/api/Dockerfile` runtime | 661 MB            | `node` (1000)   | `/api/v1/health/live`            |
+| `api`        | `apps/api/Dockerfile` runtime | 664 MB            | `node` (1000)   | `/api/v1/health/live`            |
 | `worker`     | the same image as `api`       | (shared)          | `node` (1000)   | process (no HTTP port)           |
 | `ai-service` | `apps/ai-service/Dockerfile`  | 311 MB            | `forge` (10001) | `/health/live`                   |
-| `migrate`    | `apps/api/Dockerfile` migrate | 1.9 GB            | `node` (1000)   | exits 0 when done                |
+| `migrate`    | `apps/api/Dockerfile` migrate | 1.2 GB            | `node` (1000)   | exits 0 when done                |
 
 ## Design notes
 
@@ -50,12 +50,16 @@ flowchart LR
   become two ECS services from one ECR image.
 - **Migrations are a job, not a startup step.** `migrate` runs `prisma migrate deploy` and exits;
   `api`, `worker` and `ai-service` wait for it to complete successfully. Two API replicas never
-  race to migrate, and the runtime image carries no migration tooling. The migrate image is the
-  build stage (it has the Prisma CLI and `tsx` for the seed), which is why it is large; it never
-  serves traffic.
+  race to migrate, and the runtime image carries no migration tooling. The migrate image is its
+  own stage with the installed workspace (the Prisma CLI, and `tsx` for the seed and the AWS AI
+  login script), which is why it is large; it never serves traffic.
+- **Ready for RDS.** The api, migrate and ai-service images carry Amazon RDS's CA bundle
+  (`/opt/rds-global-bundle.pem`, pinned by checksum) so that in AWS every database connection
+  verifies the server certificate ([deployment](deployment.md#database-tls)). Locally it is
+  unused.
 - **Small runtime images.** The web image is Next.js's standalone output (only the files its
   server traces). The API image is `pnpm deploy --prod`, minus Prisma's CLI tooling that arrives
-  as auto-installed peers of `@prisma/client` and that nothing imports at run time (913 → 661 MB;
+  as auto-installed peers of `@prisma/client` and that nothing imports at run time (913 → 664 MB;
   the full end-to-end suite passes on the trimmed image). The AI image is a `uv sync --no-dev`
   virtual environment on `python:3.12-slim`.
 - **Nginx is the single origin** (`infrastructure/docker/nginx/nginx.conf`), as the ALB is in AWS:

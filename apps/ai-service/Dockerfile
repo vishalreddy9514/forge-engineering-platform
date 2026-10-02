@@ -19,6 +19,10 @@ FROM python:3.12-slim-bookworm AS runtime
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 RUN useradd --system --uid 10001 --no-create-home forge
 WORKDIR /app
+# Amazon RDS's CA bundle, so the database's TLS certificate is verified in AWS
+# (docs/deployment.md). Pinned by checksum; unused locally.
+ADD --checksum=sha256:fe45bbebf92ad3e27a583bbb2ddd1553c521ed4d49af5514dc0a40372ea5395c --chmod=644 \
+    https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /opt/rds-global-bundle.pem
 COPY --from=build /app/.venv /app/.venv
 COPY apps/ai-service/app ./app
 USER forge
