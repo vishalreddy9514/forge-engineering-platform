@@ -28,8 +28,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen">
       <header className="border-b">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
-          <nav aria-label="Main" className="flex items-center gap-6">
+        <div className="mx-auto flex min-h-14 max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-2 sm:px-6">
+          <nav aria-label="Main" className="flex flex-wrap items-center gap-x-6 gap-y-2">
             <Link href="/" className="font-bold tracking-tight">
               Forge
             </Link>
@@ -66,7 +66,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
           <div className="flex items-center gap-3 text-sm">
             <NotificationBell active={pathname.startsWith('/notifications')} />
-            <span aria-label="Signed in as">{state.user.displayName}</span>
+            <span aria-label="Signed in as" className="hidden sm:inline">
+              {state.user.displayName}
+            </span>
             <Button variant="ghost" size="sm" onClick={() => void logout()}>
               <LogOut aria-hidden="true" />
               Sign out
@@ -74,7 +76,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>
+      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">{children}</main>
     </div>
   );
 }

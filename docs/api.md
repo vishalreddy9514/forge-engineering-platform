@@ -297,6 +297,33 @@ done at completion.
 The issue list takes `sprint=<id>|active|none` (`none` is the backlog), and every issue carries
 its current `sprint: { id, name } | null`.
 
+## Dashboard
+
+| Method | Path                                     | Permission     | Response                                     |
+| ------ | ---------------------------------------- | -------------- | -------------------------------------------- |
+| GET    | `/projects/:projectId/dashboard?weeks=8` | `project:read` | → `ProjectDashboard` for the last 1–26 weeks |
+
+One request returns the whole project dashboard (FR-10), aggregated from the live tables on
+every call, so it is as current as the board and needs no cache to invalidate. Weeks run Monday
+to Sunday in UTC; `since` is the Monday the period starts on, and the current week is included.
+
+- `issues`: `open` (not Done or Cancelled), `byStatus` for every status and `byPriority` for open
+  issues, with every key present (zero when empty). Deleted issues are left out everywhere.
+- `activeSprint`: the running sprint with `totalPoints`/`donePoints` and
+  `totalIssues`/`doneIssues` of the issues in it now, and its `Burndown` (as
+  `/sprints/:sprintId/burndown`); `null` when no sprint is active.
+- `workload`: open issues and open story points per assignee, most points first, then most
+  issues; the unassigned pile (`assignee: null`) is always last, because it is a queue rather than
+  someone's load.
+- `pullRequests`: `repositories` linked to the project and, for every week of the period, PRs
+  `opened` and `merged` in it on those repositories (a PR merged this week but opened earlier
+  counts as merged this week). `repositories: 0` means there is no data to show, not zero activity.
+- `resolution`: `resolved`, `medianHours` and `p90Hours` (linear interpolation, one decimal)
+  from creation to Done for issues done in the period. Cancelled issues are not resolutions and
+  are excluded; the figures are `null` when nothing was done.
+- `aiUsage`: one row per week and feature that had calls (`requests`, input plus output
+  `tokens`, estimated `costUsd`) for calls made in this project, and the period's `totals`.
+
 ## GitHub
 
 The integration is optional (see [GitHub App setup](github-app-setup.md)). While it is not

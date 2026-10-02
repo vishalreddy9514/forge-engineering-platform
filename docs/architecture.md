@@ -282,6 +282,15 @@ the row lock or the dedupe key breaks them.
 | Indexing / embeddings (FR-8)  | **Async**                      | Triggered by writes and never visible to the user as latency                                                                               |
 | GitHub sync (FR-6)            | **Async**                      | Paginated external API with rate limits                                                                                                    |
 
+**As built (Phase 12).** The dashboard is one endpoint (`GET /projects/:projectId/dashboard`)
+that runs its aggregates in parallel on request: `GROUP BY` counts for issues and workload,
+`percentile_cont` for resolution time, and `date_trunc('week')` buckets for pull requests and AI
+usage, each with the project in the `WHERE` clause and served by the indexes in
+[`database.md`](database.md). Computing on read keeps it exact and removes any snapshot or cache
+invalidation; at this scale (thousands of issues per project) it is a few milliseconds of
+Postgres work. If projects grow far beyond that, the weekly series are the part to move to a
+materialised view refreshed by the worker.
+
 The brief says "do not make expensive AI operations block normal API requests". Streaming
 endpoints hold a connection open but do not block the event loop or any other request.
 Anything that is expensive and has **no user waiting on it** goes to a queue. Async jobs are
