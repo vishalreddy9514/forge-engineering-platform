@@ -107,12 +107,23 @@ before/after values), `project.created`, `project.updated` (only the fields that
 `.role_changed`, `.removed` and `.left`. (Issue, comment and attachment changes are recorded
 in each issue's own history instead.) Each entry has the actor, IP, user agent and request ID.
 
+## Supply chain and images
+
+| Control               | Implementation                                                                                                                                | Tested by                                    |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| CI actions            | Every GitHub Action pinned to a full commit SHA; workflows default to `contents: read`; no long-lived secrets (GHCR uses the job token)       | `actionlint`; review of `.github/workflows`  |
+| Vulnerable components | Trivy scans every image on every PR and on main; any fixable High or Critical fails the images that serve traffic ([cicd.md](cicd.md))        | `images.yml` gate                            |
+| Image provenance      | Images published from `main` only, with an SBOM, BuildKit provenance and a Sigstore-signed build attestation; deploy by `sha-<commit>` digest | `gh attestation verify` ([cicd.md](cicd.md)) |
+| Container hardening   | Non-root users in every container; no npm, corepack or yarn in runtime images; no build tooling or package caches in runtime images           | `docker compose exec … id`; Trivy            |
+| Dependency updates    | Dependabot for npm, uv, GitHub Actions, compose images and Dockerfile base images, weekly                                                     | `.github/dependabot.yml`                     |
+
 ## Deliberate trade-offs
 
-| Decision                                                                | Why                                                                                                                                  |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Registration returns 409 for an existing email                          | Registration inherently reveals account existence unless email verification is added (future). Rate-limited to 5/min/IP              |
-| Rate limiting, lockout and revocation checks fail open if Redis is down | A cache outage should degrade abuse protection, not take authentication offline. Refresh still checks the database                   |
-| One-second revocation window                                            | `iat` has one-second resolution (ADR-0010)                                                                                           |
-| The session-hint cookie (`forge_session`) is readable by JavaScript     | It holds no credential (the value is `1`); it only lets the web proxy redirect before rendering                                      |
-| Every GitHub installation belongs to the deployment                     | v1 is single-organisation: any installation of this App is the organisation's, and project managers may link any of its repositories |
+| Decision                                                                | Why                                                                                                                                                                                                  |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Registration returns 409 for an existing email                          | Registration inherently reveals account existence unless email verification is added (future). Rate-limited to 5/min/IP                                                                              |
+| Rate limiting, lockout and revocation checks fail open if Redis is down | A cache outage should degrade abuse protection, not take authentication offline. Refresh still checks the database                                                                                   |
+| One-second revocation window                                            | `iat` has one-second resolution (ADR-0010)                                                                                                                                                           |
+| The session-hint cookie (`forge_session`) is readable by JavaScript     | It holds no credential (the value is `1`); it only lets the web proxy redirect before rendering                                                                                                      |
+| Every GitHub installation belongs to the deployment                     | v1 is single-organisation: any installation of this App is the organisation's, and project managers may link any of its repositories                                                                 |
+| The migrate image may ship two High findings that Prisma pins           | `mysql2` and `deepmerge-ts` are exact dependencies of the Prisma CLI; overriding them runs Prisma on untested versions. The image is a one-shot job with no listener; Criticals still fail the build |

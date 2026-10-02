@@ -725,7 +725,7 @@ forge-engineering-platform/
 ├── observability/           # prometheus.yml, alert rules, grafana dashboards
 ├── e2e/                     # Playwright
 ├── docs/                    # this folder
-├── .github/workflows/       # pr.yml, main.yml, security.yml
+├── .github/workflows/       # ci.yml (checks), images.yml (build, scan, publish) — see cicd.md
 ├── docker-compose.yml
 ├── pnpm-workspace.yaml
 └── turbo.json
