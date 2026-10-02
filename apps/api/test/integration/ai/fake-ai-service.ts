@@ -96,6 +96,21 @@ export class FakeAiService {
       );
       return;
     }
+    if (req.url === '/v1/reviews') {
+      if (this.mode === 'error_503' || this.mode === 'error_502') {
+        res
+          .writeHead(this.mode === 'error_503' ? 503 : 502, { 'content-type': 'application/json' })
+          .end('{"detail":"provider trouble"}');
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' }).end(
+        JSON.stringify({
+          ...load('review_response'),
+          usage: { inputTokens: 3200, outputTokens: 600, costUsd: '0.002240' },
+        }),
+      );
+      return;
+    }
     if (req.url === '/v1/index') {
       if (this.mode === 'error_503') {
         res.writeHead(503, { 'content-type': 'application/json' }).end('{"detail":"down"}');

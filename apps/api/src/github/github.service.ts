@@ -10,6 +10,7 @@ import type {
   ListGithubIssuesQuery,
   ListPullRequestsQuery,
   PullRequest,
+  PullRequestDetail,
   SyncRequested,
   CursorPage,
 } from '@forge/types';
@@ -312,6 +313,26 @@ export class GithubService {
       (r) => [r.openedAt.toISOString(), r.id],
       (r) => toPullRequest(r, projectId),
     );
+  }
+
+  /** One pull request of a repository linked to the project, with its description. */
+  async pullRequest(projectId: string, pullRequestId: string): Promise<PullRequestDetail> {
+    const row = await this.prisma.githubPullRequest.findFirst({
+      where: { id: pullRequestId, repository: { projects: { some: { projectId } } } },
+      include: {
+        repository: { select: { id: true, fullName: true } },
+        issueLinks: { select: linkIssueSelect },
+      },
+    });
+    if (!row) throw new NotFoundException('Pull request not found');
+    return {
+      ...toPullRequest(row, projectId),
+      body: row.body,
+      headSha: row.headSha,
+      additions: row.additions,
+      deletions: row.deletions,
+      changedFiles: row.changedFiles,
+    };
   }
 
   async listCommits(projectId: string, query: ListCommitsQuery): Promise<CursorPage<Commit>> {

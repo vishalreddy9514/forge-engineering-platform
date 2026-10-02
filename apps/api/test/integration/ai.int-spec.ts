@@ -6,7 +6,9 @@ import type request from 'supertest';
 
 import { AiUsageService } from '../../src/ai/ai-usage.service';
 import { AiClient } from '../../src/ai/ai.client';
-import { AiSummaryProcessor } from '../../src/ai/ai-summary.processor';
+import { AiJobProcessor } from '../../src/ai/ai-jobs.processor';
+import { PullRequestReviewer } from '../../src/ai/pr-reviewer';
+import { GithubClient } from '../../src/github/github.client';
 import { QUEUES } from '../../src/infrastructure/queue/queue.module';
 import { FakeAiService } from './ai/fake-ai-service';
 import { uid } from './helpers';
@@ -18,7 +20,7 @@ describe('AI assistant (fake AI service, real Postgres + Redis)', () => {
   let t: TestApp;
   let ai: FakeAiService;
   let queue: Queue;
-  let processor: AiSummaryProcessor;
+  let processor: AiJobProcessor;
   let aiUrl: string;
 
   beforeAll(async () => {
@@ -28,7 +30,17 @@ describe('AI assistant (fake AI service, real Postgres + Redis)', () => {
     ai = new FakeAiService(config.getOrThrow<string>('AI_SERVICE_TOKEN'));
     await ai.listen(aiUrl);
     queue = t.app.get<Queue>(getQueueToken(QUEUES.AI));
-    processor = new AiSummaryProcessor(t.prisma, t.app.get(AiClient), t.app.get(AiUsageService));
+    processor = new AiJobProcessor(
+      t.prisma,
+      t.app.get(AiClient),
+      t.app.get(AiUsageService),
+      new PullRequestReviewer(
+        t.prisma,
+        t.app.get(GithubClient),
+        t.app.get(AiClient),
+        t.app.get(AiUsageService),
+      ),
+    );
   });
 
   afterAll(async () => {

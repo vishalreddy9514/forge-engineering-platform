@@ -33,10 +33,18 @@ export const PullRequestNotificationPayload = IssueNotificationPayload.omit({
 });
 export type PullRequestNotificationPayload = z.infer<typeof PullRequestNotificationPayload>;
 
-/** An AI job the person started finished or failed (FR-12.1). */
-export const AiJobNotificationPayload = IssueNotificationPayload.omit({ actorName: true }).extend({
-  jobId: z.string(),
-});
+/** An AI job the person started finished or failed (FR-12.1): an issue summary or a PR review. */
+export const AiJobNotificationPayload = z.union([
+  IssueNotificationPayload.omit({ actorName: true }).extend({ jobId: z.string() }),
+  z.object({
+    projectKey: z.string(),
+    jobId: z.string(),
+    repository: z.string(),
+    pullRequestId: z.string(),
+    pullRequestNumber: z.number().int(),
+    pullRequestTitle: z.string(),
+  }),
+]);
 export type AiJobNotificationPayload = z.infer<typeof AiJobNotificationPayload>;
 
 export const NotificationPayload = z.union([
@@ -98,9 +106,16 @@ export function describeNotification(notification: Notification): string {
       return `${authorLogin ?? 'Someone'} opened ${repository}#${String(pullRequestNumber)} for ${issueKey}`;
     }
     case 'AI_JOB_COMPLETED':
-      return `The AI summary of ${notification.payload.issueKey} is ready`;
-    case 'AI_JOB_FAILED':
-      return `The AI summary of ${notification.payload.issueKey} could not be made`;
+    case 'AI_JOB_FAILED': {
+      const { payload } = notification;
+      const subject =
+        'issueKey' in payload
+          ? `The AI summary of ${payload.issueKey}`
+          : `The AI review of ${payload.repository}#${String(payload.pullRequestNumber)}`;
+      return notification.type === 'AI_JOB_COMPLETED'
+        ? `${subject} is ready`
+        : `${subject} could not be made`;
+    }
   }
 }
 
@@ -110,6 +125,11 @@ export function notificationHref(notification: Notification): string {
     case 'SPRINT_STARTED':
     case 'SPRINT_COMPLETED':
       return `/projects/${notification.payload.projectKey}/sprints`;
+    case 'AI_JOB_COMPLETED':
+    case 'AI_JOB_FAILED':
+      return 'pullRequestId' in notification.payload
+        ? `/projects/${notification.payload.projectKey}/pull-requests/${notification.payload.pullRequestId}`
+        : `/projects/${notification.payload.projectKey}/issues/${notification.payload.issueKey}`;
     default:
       return `/projects/${notification.payload.projectKey}/issues/${notification.payload.issueKey}`;
   }

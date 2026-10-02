@@ -8,16 +8,15 @@ history with cited sources.
 AI is a feature of the product, not the product. Every core workflow works with the AI service
 switched off.
 
-> **Status: Phase 10 of 20 (RAG).** Ask questions about your projects in plain language and get
-> answers that cite the issues, comments, pull requests, commits and uploaded documents they come
-> from, or "I don't know" when the data doesn't say. Questions like "which bugs were fixed last
-> sprint" are answered by a database query the assistant asks for and the API runs. Search
-> finds work by meaning as well as by keyword, issue pages list similar issues, and the create
-> form warns about likely duplicates while you type. Retrieval is hybrid (pgvector HNSW plus full
-> text, fused with reciprocal rank fusion), always filtered to the projects you can read, and
-> measured by an evaluation set in CI. Before that: the AI assistant (Phase 9), the GitHub App
-> integration (Phase 8), sprints (Phase 7), issues and notifications (Phase 6), projects (Phase
-> 5), authentication and RBAC (Phase 4), the schema (Phase 3) and the monorepo (Phase 2).
+> **Status: Phase 11 of 20 (AI code review).** Open a pull request from a linked repository in
+> Forge and ask for an AI review: each changed file is reviewed for bugs, security problems and
+> fragile code, with findings tied to the exact lines of the diff, a summary, and the tests the
+> change is missing. Lockfiles, generated and vendored code are skipped and listed, reviews are
+> cached per commit and marked stale after new pushes, and every review carries the banner
+> "AI-generated suggestions. This does not replace human code review." Before that: RAG search
+> and cited chat (Phase 10), the AI assistant (Phase 9), the GitHub App integration (Phase 8),
+> sprints (Phase 7), issues and notifications (Phase 6), projects (Phase 5), authentication and
+> RBAC (Phase 4), the schema (Phase 3) and the monorepo (Phase 2).
 
 ## Stack
 

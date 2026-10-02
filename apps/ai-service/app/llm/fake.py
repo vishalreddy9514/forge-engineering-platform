@@ -192,6 +192,10 @@ def _answer(schema: str, prompt: str) -> dict[str, Any]:
         return _draft(text, labels)
     if schema == "thread_summary":
         return _summary(text)
+    if schema == "review_file":
+        return _review_file(_last_block(prompt))
+    if schema == "review_summary":
+        return _review_summary(prompt, _last_block(prompt))
     raise ProviderError(f"The fake provider has no rule for {schema}", retryable=False)
 
 
@@ -296,3 +300,142 @@ def _summary(thread: str) -> dict[str, Any]:
         "open_questions": sentences(r"\?$"),
         "next_steps": sentences(r"\b(next|todo|i'll|i will|will add|follow up)\b"),
     }
+
+
+def _last_block(prompt: str) -> str:
+    blocks = _BLOCK.findall(prompt)
+    return blocks[-1].strip("\n") if blocks else ""
+
+
+# (pattern on an added line, severity, category, explanation, suggestion)
+_REVIEW_RULES: list[tuple[re.Pattern[str], str, str, str, str]] = [
+    (
+        re.compile(r"\beval\(|\bexec\("),
+        "critical",
+        "security",
+        "Evaluating dynamic code can run attacker-controlled input.",
+        "Parse the input explicitly instead of evaluating it.",
+    ),
+    (
+        re.compile(r"(?i)(password|secret|api_key|token)\s*[:=]\s*['\"][^'\"]{4,}['\"]"),
+        "critical",
+        "security",
+        "A credential is hard-coded in the source.",
+        "Read it from configuration or a secret store, and rotate the exposed value.",
+    ),
+    (
+        re.compile(
+            r"(?i)['\"`][^'\"`]*\b(select|insert|update|delete)\b[^'\"`]*['\"`]+\s*\+|\$\{[^}]+\}[^`]*\bwhere\b"
+        ),
+        "critical",
+        "security",
+        "SQL is built by concatenating values, which allows SQL injection.",
+        "Use a parameterised query.",
+    ),
+    (
+        re.compile(r"except\s*(Exception)?\s*:\s*pass\b|catch\s*(\([^)]*\))?\s*\{\s*\}"),
+        "major",
+        "bug",
+        "The error is swallowed, so failures here will go unnoticed.",
+        "Handle the error, or log it and rethrow.",
+    ),
+    (
+        re.compile(r"\bconsole\.log\(|^\s*print\("),
+        "nit",
+        "maintainability",
+        "Debug output left in the change.",
+        "Remove it, or use the project's logger.",
+    ),
+    (
+        re.compile(r"\b(TODO|FIXME)\b"),
+        "minor",
+        "maintainability",
+        "A TODO is being merged; it is easy to forget.",
+        "Do it now, or link it to an issue.",
+    ),
+]
+_DIFF_LINE = re.compile(r"^\s*(\d*) ([+ -]) (.*)$")
+
+
+def _review_file(diff: str) -> dict[str, Any]:
+    added = removed = 0
+    findings: list[dict[str, Any]] = []
+    for raw in diff.splitlines():
+        match = _DIFF_LINE.match(raw)
+        if not match:
+            continue
+        number, kind, code = match.groups()
+        if kind == "-":
+            removed += 1
+            continue
+        if kind != "+":
+            continue
+        added += 1
+        for pattern, severity, category, explanation, suggestion in _REVIEW_RULES:
+            if pattern.search(code):
+                findings.append(
+                    {
+                        "line": int(number) if number else None,
+                        "severity": severity,
+                        "category": category,
+                        "explanation": explanation,
+                        "suggestion": suggestion,
+                    }
+                )
+                break
+    return {
+        "summary": f"Adds {added} line(s) and removes {removed}.",
+        "findings": findings[:20],
+    }
+
+
+_TEST_PATH = re.compile(r"(^|/)(tests?|__tests__|spec)/|[._-](test|spec)\.[a-z]+$|(^|/)test_[^/]+$")
+_SOURCE_PATH = re.compile(r"\.(py|ts|tsx|js|jsx|go|rb|java|kt|rs|cs|php)$")
+
+
+def _review_summary(prompt: str, files_json: str) -> dict[str, Any]:
+    try:
+        files: list[dict[str, Any]] = json.loads(files_json)
+    except ValueError:
+        files = []
+    counts: dict[str, int] = {}
+    worst: list[str] = []
+    for file in files:
+        for finding in file.get("findings", []):
+            counts[finding["severity"]] = counts.get(finding["severity"], 0) + 1
+            if finding["severity"] in ("critical", "major"):
+                worst.append(f"{finding['severity']} {finding['category']} issue in {file['path']}")
+    title = re.search(r"^Pull request #\d+ in \S+: (.+)$", prompt, re.M)
+    total = sum(counts.values())
+    name = title.group(1) if title else "untitled"
+    summary = f"This pull request ({name}) changes {len(files)} file(s)."
+    if total == 0:
+        summary += " No problems were found."
+    else:
+        breakdown = ", ".join(
+            f"{n} {s}"
+            for s, n in sorted(
+                counts.items(), key=lambda kv: ["critical", "major", "minor", "nit"].index(kv[0])
+            )
+        )
+        summary += f" {total} finding(s): {breakdown}."
+        if worst:
+            summary += (
+                " Most important: "
+                + "; ".join(sorted(worst, key=lambda w: not w.startswith("critical"))[:3])
+                + "."
+            )
+    paths = [f["path"] for f in files]
+    tested = {
+        re.sub(r"(^test_|[._-](test|spec)$)", "", p.rsplit("/", 1)[-1].rsplit(".", 1)[0])
+        for p in paths
+        if _TEST_PATH.search(p)
+    }
+    missing = [
+        {"description": f"Add tests covering the changes to {p}.", "file": p}
+        for p in paths
+        if _SOURCE_PATH.search(p)
+        and not _TEST_PATH.search(p)
+        and p.rsplit("/", 1)[-1].rsplit(".", 1)[0] not in tested
+    ]
+    return {"summary": summary, "missing_tests": missing[:10]}

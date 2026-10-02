@@ -1,0 +1,13 @@
+Pull request #{{ number }} in {{ repository }}: {{ title | fence }}
+
+Description:
+<untrusted_input>
+{{ body | fence }}
+</untrusted_input>
+
+File: {{ path | fence }} ({{ status }}, +{{ additions }} -{{ deletions }}){% if truncated %} - the diff is long and was cut; review what is shown{% endif %}
+
+Diff (line number in the new file, then +, - or space):
+<untrusted_input>
+{{ diff | fence }}
+</untrusted_input>

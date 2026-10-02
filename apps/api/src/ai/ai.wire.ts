@@ -1,4 +1,4 @@
-import { IssueDraft, ThreadSummary } from '@forge/types';
+import { IssueDraft, MissingTest, ReviewedFile, ReviewFinding, ThreadSummary } from '@forge/types';
 import { z } from 'zod';
 
 /**
@@ -146,3 +146,29 @@ export const QueryIssuesArgs = z.object({
   updated_within_days: z.number().int().min(1).max(365).nullable(),
 });
 export type QueryIssuesArgs = z.infer<typeof QueryIssuesArgs>;
+
+// ───────────────────────────── Code review (apps/ai-service/app/api/features.py) ───────────
+
+export const ReviewResponse = z.object({
+  summary: z.string(),
+  findings: z.array(ReviewFinding),
+  missingTests: z.array(MissingTest),
+  files: z.array(ReviewedFile),
+  model: z.string(),
+  promptVersion: z.string(),
+  calls: z.number().int().min(0),
+  usage: WireUsage,
+});
+export type ReviewResponse = z.infer<typeof ReviewResponse>;
+
+export interface ReviewInput {
+  pullRequest: { number: number; title: string; body: string | null; repository: string };
+  files: {
+    path: string;
+    status: 'added' | 'modified' | 'renamed' | 'copied' | 'changed';
+    additions: number;
+    deletions: number;
+    patch: string;
+  }[];
+  omittedFiles: { path: string; reason: string }[];
+}

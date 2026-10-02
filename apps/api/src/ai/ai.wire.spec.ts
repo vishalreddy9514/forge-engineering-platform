@@ -8,6 +8,7 @@ import {
   IndexResponse,
   QueryIssuesArgs,
   RelatedResponse,
+  ReviewResponse,
   SearchResponse,
   SummaryResponse,
 } from './ai.wire';
@@ -52,5 +53,11 @@ describe('AI service wire contract', () => {
     expect(call.name).toBe('query_issues');
     // The tool's arguments, as the model is constrained to produce them, pass the API's check.
     expect(QueryIssuesArgs.parse(call.arguments).project_key).toBe('PAY');
+  });
+
+  it('reads a review exactly as the AI service writes it', () => {
+    const review = ReviewResponse.parse(contract('review_response'));
+    expect(review.findings[0]?.severity).toBe('critical');
+    expect(review.promptVersion).toBe('pr_review@1');
   });
 });

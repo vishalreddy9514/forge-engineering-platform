@@ -4,10 +4,18 @@ import { z } from 'zod';
 
 import type { Env } from '../config/env';
 import { AiFailedError, AiUnavailableException } from './ai.errors';
-import { IndexResponse, RelatedResponse, SearchResponse, SummaryResponse } from './ai.wire';
+import {
+  IndexResponse,
+  RelatedResponse,
+  type ReviewInput,
+  ReviewResponse,
+  SearchResponse,
+  SummaryResponse,
+} from './ai.wire';
 
 const PING_TTL_MS = 30_000;
 const PING_TIMEOUT_MS = 2_000;
+const REVIEW_TIMEOUT_FACTOR = 5;
 
 export interface SummaryInput {
   issue: {
@@ -104,6 +112,19 @@ export class AiClient {
       throw new AiFailedError('The AI service returned a summary Forge could not read', false);
     }
     return parsed.data;
+  }
+
+  /**
+   * Reviews a pull request (FR-9.2). One model call per file plus a summary, so it gets a
+   * longer timeout than other calls; it only ever runs in a background job.
+   */
+  async review(body: ReviewInput): Promise<ReviewResponse> {
+    const res = await this.post(
+      '/v1/reviews',
+      body,
+      AbortSignal.timeout(this.timeoutMs * REVIEW_TIMEOUT_FACTOR),
+    );
+    return this.read(res, ReviewResponse, 'review');
   }
 
   /** Chunks and embeds a document the API has written (FR-8.2). Idempotent. */
