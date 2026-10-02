@@ -15,6 +15,9 @@ PRICES: dict[str, tuple[Decimal, Decimal]] = {
     "gpt-4.1-mini": (Decimal("0.40"), Decimal("1.60")),
     "gpt-4.1-nano": (Decimal("0.10"), Decimal("0.40")),
     "gpt-4o-mini": (Decimal("0.15"), Decimal("0.60")),
+    # Embeddings are billed on input only.
+    "text-embedding-3-small": (Decimal("0.02"), Decimal(0)),
+    "text-embedding-3-large": (Decimal("0.13"), Decimal(0)),
     "fake": (Decimal(0), Decimal(0)),
 }
 

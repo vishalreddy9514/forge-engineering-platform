@@ -36,12 +36,28 @@ jobs:
       - run: pnpm turbo run build $TURBO_FILTER
 
   python:
-    name: Python (ruff, mypy, pytest)
+    name: Python (ruff, mypy, pytest, retrieval eval)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
       run:
         working-directory: apps/ai-service
+    # Retrieval tests and the FR-8.6 eval run against real pgvector, the same image as compose.
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.6-pg16
+        env:
+          POSTGRES_USER: forge
+          POSTGRES_PASSWORD: forge_ci_password
+          POSTGRES_DB: forge
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U forge" --health-interval 2s --health-timeout 5s
+          --health-retries 30
+    env:
+      TEST_DATABASE_ADMIN_URL: postgresql://forge:forge_ci_password@localhost:5432/postgres
+      # Database tests fail instead of skipping if the service above is missing.
+      REQUIRE_DB_TESTS: '1'
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7

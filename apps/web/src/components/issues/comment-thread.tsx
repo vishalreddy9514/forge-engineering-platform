@@ -107,7 +107,8 @@ function CommentItem({
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <li className="flex gap-3">
+    // The anchor that search results and assistant citations link to.
+    <li id={`comment-${comment.id}`} className="flex scroll-mt-20 gap-3">
       <Avatar user={comment.author} size="md" />
       <div className="grid min-w-0 flex-1 gap-1">
         <p className="text-sm">

@@ -9,8 +9,9 @@ import type { WireUsage } from './ai.wire';
 
 export interface UsageRecord {
   feature: AiFeature;
-  userId: string;
-  projectId: string;
+  /** Null for system work with no requesting user (indexing). */
+  userId: string | null;
+  projectId: string | null;
   model: string;
   promptVersion?: string;
   usage: WireUsage;

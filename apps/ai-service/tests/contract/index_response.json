@@ -1,0 +1,12 @@
+{
+  "status": "indexed",
+  "chunks": 1,
+  "embedded": 1,
+  "reused": 0,
+  "embedding": {
+    "model": "fake-embedding-1",
+    "inputTokens": 50,
+    "costUsd": "0.000000"
+  },
+  "detail": null
+}

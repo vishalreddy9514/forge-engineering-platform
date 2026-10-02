@@ -11,6 +11,8 @@
  */
 import { PrismaPg } from '@prisma/adapter-pg';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { hashPassword } from '../src/common/security/password-hasher';
 import {
@@ -430,15 +432,59 @@ async function seed(prisma: Prisma.TransactionClient): Promise<void> {
   });
 
   const pullRequests = await seedGithub(prisma, users, payments);
+  const documents = await seedDocuments(prisma, users, { PAY: payments, AUTH: identity });
 
   console.log(
     `Seeded ${Object.keys(users).length} users, 2 projects, 3 sprints, ${issueCount} issues and ` +
-      `${pullRequests} demo pull requests.\n` +
+      `${pullRequests} demo pull requests and ${documents} documents.\n` +
       `Log in as any of: ${Object.values(USERS)
         .map((u) => u.email)
         .join(', ')}\n` +
       `Password: ${password === 'forge-demo-password' ? 'forge-demo-password (dev default)' : '(from SEED_USER_PASSWORD)'}`,
   );
+}
+
+/**
+ * Engineering documents for the assistant to cite (FR-8.1). They are the uploads in the
+ * retrieval eval's corpus, read from there so the eval and the demo use the same text. The
+ * worker's index backfill embeds them on startup (they are written unindexed, like an upload).
+ */
+async function seedDocuments(
+  prisma: Prisma.TransactionClient,
+  users: Record<UserKey, string>,
+  projects: Record<string, { id: string; key: string }>,
+): Promise<number> {
+  const corpus = readFileSync(join(__dirname, '../../ai-service/evals/corpus.jsonl'), 'utf8');
+  const uploads = corpus
+    .split('\n')
+    .filter((line) => line.trim())
+    .map(
+      (line) =>
+        JSON.parse(line) as { sourceType: string; project: string; title: string; content: string },
+    )
+    .filter((row) => row.sourceType === 'UPLOAD');
+  for (const upload of uploads) {
+    const project = projects[upload.project];
+    if (!project) continue;
+    const created = await prisma.document.create({
+      data: {
+        projectId: project.id,
+        sourceType: 'UPLOAD',
+        title: upload.title,
+        content: upload.content,
+        url: '',
+        contentHash: createHash('sha256')
+          .update(`${upload.title}\n${upload.content}`)
+          .digest('hex'),
+        createdById: users.priya,
+      },
+    });
+    await prisma.document.update({
+      where: { id: created.id },
+      data: { url: `/projects/${project.key}/documents/${created.id}` },
+    });
+  }
+  return uploads.length;
 }
 
 /**

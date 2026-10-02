@@ -506,6 +506,33 @@ from private project B. Prompting cannot prevent this; it has to be prevented in
   tokens, latency, estimated cost, user, project). This row feeds the dashboard (FR-10) and the
   daily budget (NFR-12).
 
+**As built (Phase 10).** The pipeline above is live, with these decisions recorded in
+[ADR-0014](adr/0014-rag-indexing-ownership-and-chat-tool-round-trip.md):
+
+- The API normalises each source (a header line such as `Issue PAY-12: …` with its facts, then
+  the body) and writes `documents`; the AI service chunks, embeds and writes `document_chunks`.
+  Issue, comment and document writes add a `search.index` event to the outbox; GitHub syncs and
+  webhooks queue a per-repository job; a backfill job at worker start and every six hours repairs
+  anything that failed. Jobs for the same source collapse (BullMQ deduplication).
+- A pull request or commit in a repository linked to several projects has one document per
+  project. Identical text reuses stored vectors, so the copies cost nothing to embed.
+- The `query_issues` tool is executed by the API, not by a callback from the AI service: the chat
+  stream ends with a `tool_call` event, and the API sends the results in a second request.
+- Keyword retrieval matches any query term (an OR over `plainto_tsquery` lexemes) and ranks with
+  `ts_rank_cd`; an AND would make natural-language questions match nothing. Vector search uses
+  HNSW with `hnsw.iterative_scan = relaxed_order`, so a selective project filter still returns
+  enough rows.
+- Related issues reuse the issue's stored vector. The threshold belongs to the embedding model
+  (0.55 for `text-embedding-3-small`, whose similarities run lower than the 0.78 sketched in §7.3;
+  `RELATED_MIN_SCORE` overrides it). It is a starting point, to be tuned on real data.
+- The eval (`apps/ai-service/evals/`, 42 questions over a corpus that mirrors the demo seed)
+  runs in CI against real pgvector. With the fake embedder, hybrid retrieval scores hit-rate@5
+  1.00 and MRR 0.935; vector-only and keyword-only also reach 1.00 (MRR 0.945 and 0.897),
+  because the fake embedder measures word overlap too. So the gate catches broken wiring
+  (chunking, storage, the project filter, fusion), not ranking quality. What keyword search adds
+  over vectors, exact identifiers such as `PAY-1` and `payment_intent.succeeded`, is tested
+  directly in `test_rag_db.py`. `EVAL_EMBEDDER=openai` runs the same eval with real embeddings.
+
 ## 8. Data architecture (overview)
 
 The detailed schema, indexes and constraints are documented in [`database.md`](database.md).

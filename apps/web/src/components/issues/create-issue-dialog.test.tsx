@@ -32,6 +32,10 @@ jest.mock('@/lib/queries/projects', () => ({
 
 const mutateAsync = jest.fn();
 jest.mock('@/lib/queries/issues', () => ({ useCreateIssue: () => ({ mutateAsync }) }));
+// Duplicate hints have their own tests (search.test.tsx); here they only need to render.
+jest.mock('@/components/search/duplicate-hints', () => ({
+  DuplicateHints: ({ text }: { text: string }) => <p data-testid="duplicate-hints">{text}</p>,
+}));
 
 async function openDialog() {
   const user = userEvent.setup();

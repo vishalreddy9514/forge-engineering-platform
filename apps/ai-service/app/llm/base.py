@@ -1,6 +1,6 @@
 """Model-provider interface. Features depend on this, never on a vendor SDK directly."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol, TypedDict
 
@@ -48,14 +48,56 @@ class Completion:
 StreamEvent = TextDelta | Completion
 
 
-class ChatProvider(Protocol):
-    """Streams a completion constrained to `schema`. The last event is always a Completion."""
+@dataclass(frozen=True)
+class Tool:
+    """A function the model may call (strict JSON Schema for its arguments)."""
 
+    name: str
+    description: str
+    parameters: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class ToolCall:
+    """The model asked for a tool. `arguments` is the JSON text it produced, not yet trusted."""
+
+    id: str
+    name: str
+    arguments: str
+
+
+class ToolCallTurn(TypedDict):
+    """An earlier turn in which the assistant called a tool."""
+
+    role: Literal["tool_call"]
+    call: ToolCall
+
+
+class ToolResultTurn(TypedDict):
+    role: Literal["tool"]
+    call_id: str
+    content: str
+
+
+ChatMessage = Message | ToolCallTurn | ToolResultTurn
+ChatEvent = TextDelta | ToolCall | Completion
+
+
+class ChatProvider(Protocol):
     model: str
 
     def stream(
         self, messages: list[Message], schema: OutputSchema, max_output_tokens: int
-    ) -> AsyncIterator[StreamEvent]: ...
+    ) -> AsyncIterator[StreamEvent]:
+        """Streams a completion constrained to `schema`. The last event is always a Completion."""
+        ...
+
+    def stream_chat(
+        self, messages: Sequence[ChatMessage], tools: list[Tool], max_output_tokens: int
+    ) -> AsyncIterator[ChatEvent]:
+        """Streams free text, or at most one ToolCall when `tools` are offered. The last event
+        is always a Completion (with empty text after a tool call)."""
+        ...
 
 
 class ProviderError(Exception):

@@ -107,7 +107,7 @@ erDiagram
         uuid id PK
         uuid project_id FK
         document_source_type source_type
-        uuid source_id "UK with source_type, NULL for uploads"
+        uuid source_id "UK with source_type + project_id, NULL for uploads"
         char content_hash "skip unchanged sources"
     }
     document_chunks {
@@ -209,6 +209,7 @@ Terraform in AWS; no password is ever in a migration). Tests confirm it cannot r
 | Keyword search over issues (FR-11.1)     | `issues.search_vector`: a `GENERATED ALWAYS … STORED` tsvector (title weighted A, description B), GIN index. Postgres maintains it, so it can never be stale |
 | Fuzzy / partial title match ("reconcil") | `pg_trgm` GIN index on `issues.title`                                                                                                                        |
 | Keyword half of hybrid RAG retrieval     | `document_chunks.search_vector` (heading path A, content B), GIN index                                                                                       |
+| Re-embedding only what changed           | `document_chunks (content_hash, embedding_model)`: identical text reuses its stored vector                                                                   |
 | Semantic half                            | `document_chunks.embedding vector(1536)`, **HNSW** index with `vector_cosine_ops`                                                                            |
 
 **HNSW over IVFFlat.** IVFFlat needs a training step on representative data and loses recall as
@@ -237,14 +238,14 @@ Every index corresponds to a known query. The ones worth calling out:
 
 ### Concurrency patterns the schema supports
 
-| Pattern                                                               | Where                                                                                                                                                        |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Row lock via `UPDATE … RETURNING`                                     | Issue number allocation                                                                                                                                      |
-| Optimistic locking (`version` column, `WHERE id = ? AND version = ?`) | Issue updates, so concurrent edits return `409` instead of silently overwriting (FR-4.8)                                                                     |
-| `FOR UPDATE SKIP LOCKED`                                              | Outbox relay: several workers claim disjoint batches without blocking (tested)                                                                               |
-| Unique constraints as idempotency keys                                | `documents (source_type, source_id)`, `ai_reviews (pull_request_id, head_sha)`, `ai_summaries (issue_id, thread_hash)`, `github_pull_requests (github_id)`   |
-| Last-write-wins by source timestamp                                   | `github_pull_requests` and `github_issues.github_updated_at`: writes apply only if newer, so out-of-order deliveries are safe (tested, and mutation-checked) |
-| Delivery ID as primary key                                            | `github_webhook_deliveries.id` is GitHub's `X-GitHub-Delivery`: a redelivered webhook inserts nothing (`ON CONFLICT DO NOTHING`) and queues nothing new      |
+| Pattern                                                               | Where                                                                                                                                                                  |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Row lock via `UPDATE … RETURNING`                                     | Issue number allocation                                                                                                                                                |
+| Optimistic locking (`version` column, `WHERE id = ? AND version = ?`) | Issue updates, so concurrent edits return `409` instead of silently overwriting (FR-4.8)                                                                               |
+| `FOR UPDATE SKIP LOCKED`                                              | Outbox relay: several workers claim disjoint batches without blocking (tested)                                                                                         |
+| Unique constraints as idempotency keys                                | `documents (source_type, source_id, project_id)`, `ai_reviews (pull_request_id, head_sha)`, `ai_summaries (issue_id, thread_hash)`, `github_pull_requests (github_id)` |
+| Last-write-wins by source timestamp                                   | `github_pull_requests` and `github_issues.github_updated_at`: writes apply only if newer, so out-of-order deliveries are safe (tested, and mutation-checked)           |
+| Delivery ID as primary key                                            | `github_webhook_deliveries.id` is GitHub's `X-GitHub-Delivery`: a redelivered webhook inserts nothing (`ON CONFLICT DO NOTHING`) and queues nothing new                |
 
 ## Working with the schema
 
