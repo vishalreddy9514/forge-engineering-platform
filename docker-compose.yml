@@ -61,6 +61,10 @@ services:
       - server
       - -dir=/data
       - -volume.max=10
+      # Small volume files without preallocation: the defaults reserve 1 GB per file and create
+      # seven at once for a new bucket, so one upload took about 7 GB of disk.
+      - -master.volumeSizeLimitMB=64
+      - -master.volumePreallocate=false
       - -s3
       - -s3.port=8333
       - -s3.config=/etc/seaweedfs/s3.json
