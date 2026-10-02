@@ -43,10 +43,8 @@ export function refreshSession(): Promise<AuthResponse | null> {
   return refreshInFlight;
 }
 
-async function doRefresh(attempt = 1): Promise<AuthResponse | null> {
+async function doRefresh(): Promise<AuthResponse | null> {
   const res = await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'same-origin' });
-  // 409: another tab refreshed a moment ago; our cookie jar now holds its new cookie.
-  if (res.status === 409 && attempt === 1) return doRefresh(2);
   if (!res.ok) {
     setAccessToken(null);
     return null;

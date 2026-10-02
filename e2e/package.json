@@ -1,0 +1,20 @@
+{
+  "name": "@forge/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Playwright end-to-end tests of the critical user journeys, with axe accessibility checks",
+  "type": "module",
+  "scripts": {
+    "e2e": "playwright test",
+    "e2e:report": "playwright show-report",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf test-results playwright-report"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@forge/config": "workspace:*",
+    "@playwright/test": "1.56.1",
+    "@types/node": "22.20.4"
+  }
+}

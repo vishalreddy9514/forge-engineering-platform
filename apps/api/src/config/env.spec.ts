@@ -92,4 +92,19 @@ describe('validateEnv', () => {
       /AI_SERVICE_TOKEN/,
     );
   });
+
+  it('keeps rate limits on unless turned off outside production', () => {
+    expect(validateEnv(valid).RATE_LIMITS_ENABLED).toBe(true);
+    expect(validateEnv({ ...valid, RATE_LIMITS_ENABLED: 'false' }).RATE_LIMITS_ENABLED).toBe(false);
+    const production = {
+      ...valid,
+      NODE_ENV: 'production',
+      JWT_PRIVATE_KEY: 'private',
+      JWT_PUBLIC_KEY: 'public',
+    };
+    expect(validateEnv(production).RATE_LIMITS_ENABLED).toBe(true);
+    expect(() => validateEnv({ ...production, RATE_LIMITS_ENABLED: 'false' })).toThrow(
+      /RATE_LIMITS_ENABLED: Rate limits cannot be turned off in production/,
+    );
+  });
 });

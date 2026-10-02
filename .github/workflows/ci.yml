@@ -106,3 +106,40 @@ jobs:
             psql -h localhost -U forge_ai_service -d forge -tAc 'select count(*) from users'
       - if: always()
         run: docker compose down --volumes
+
+  e2e:
+    name: End-to-end (Playwright, axe)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: apps/ai-service/uv.lock
+      - run: cp .env.example .env
+      - run: docker compose up --detach --wait --wait-timeout 120
+      - run: pnpm install --frozen-lockfile
+      - run: uv sync --locked
+        working-directory: apps/ai-service
+      - run: pnpm --filter @forge/api exec prisma migrate deploy
+      - run: pnpm turbo run build --filter=!@forge/ai-service
+      - run: pnpm --filter @forge/e2e exec playwright install --with-deps chromium
+      # Starts the AI service (fake provider), API, worker and web app, then runs every journey.
+      - run: pnpm e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 7
+      - if: always()
+        run: docker compose down --volumes
