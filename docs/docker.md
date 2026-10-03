@@ -83,3 +83,9 @@ to and from object storage, and the axe accessibility checks. It runs the images
 Found while containerising: SeaweedFS's defaults preallocated 1 GB per volume file and created
 seven at once for a new bucket, so the first upload took about 7 GB of disk in local
 development. The compose command now uses 64 MB volumes without preallocation.
+
+Found by CI's clean checkout: Prisma infers the generated client's import extension from the
+tsconfig it can see, and the image runs `prisma generate` before `tsconfig.json` is copied, so
+the client imported `./internal/class.ts` and the API could not start. Local builds hid it
+because the host's own generated client was in the build context. The schema now sets
+`importFileExtension` explicitly, and `.dockerignore` keeps the host copy out of every build.

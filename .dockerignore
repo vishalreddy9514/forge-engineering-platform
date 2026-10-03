@@ -10,6 +10,8 @@
 **/.mypy_cache
 **/.ruff_cache
 **/*.tsbuildinfo
+# Generated in the image by `prisma generate`; a host copy would hide what the image produces.
+apps/api/src/generated
 e2e/test-results
 e2e/playwright-report
 .git

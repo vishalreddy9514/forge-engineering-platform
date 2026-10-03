@@ -11,9 +11,12 @@
 // - Timestamps are timestamptz, stored in UTC.
 
 generator client {
-  provider     = "prisma-client"
-  output       = "../src/generated/prisma"
-  moduleFormat = "cjs"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  // Explicit, because Prisma otherwise infers it from whichever tsconfig it finds: the Docker
+  // build generates before tsconfig.json is copied and got `.ts` imports that dist/ cannot load.
+  importFileExtension = ""
 }
 
 datasource db {
