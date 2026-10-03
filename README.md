@@ -8,12 +8,11 @@ history with cited sources.
 AI is a feature of the product, not the product. Every core workflow works with the AI service
 switched off.
 
-> **Status: Phase 13 of 20 (test hardening).** Playwright drives the built stack through the
-> critical journeys (sign-in, issues and the board, sprints, notifications, roles, AI drafting and
-> the cited assistant), checking every page with axe against WCAG 2.1 AA, in CI on every push.
-> Domain-service coverage is gated at 90 % of lines (95 % measured). The journeys found and fixed a
-> sign-out on reload, a hydration failure on every public page, and three accessibility defects.
-> Before that: the dashboard (Phase 12), AI code review (Phase 11), RAG search and cited chat
+> **Status: Phase 14 of 20 (Docker).** `pnpm stack:up` runs the whole product from its
+> production images behind Nginx on http://localhost:8080: web, API, worker and AI service as
+> non-root containers with health checks, and migrations as a one-shot job. CI builds the images
+> and runs every browser journey against them. Before that: test hardening with Playwright and
+> axe (Phase 13), the dashboard (Phase 12), AI code review (Phase 11), RAG search and cited chat
 > (Phase 10), the AI assistant (Phase 9), the GitHub App integration (Phase 8), sprints (Phase 7),
 > issues and notifications (Phase 6), projects (Phase 5), authentication and RBAC (Phase 4), the
 > schema (Phase 3) and the monorepo (Phase 2).
@@ -41,7 +40,7 @@ packages/
   ui/           shadcn/ui components and design tokens
   config/       Shared TypeScript, ESLint and Prettier presets
 infrastructure/
-  docker/       Postgres init scripts (extensions, test database, AI service login)
+  docker/       Nginx config, Postgres init scripts, SeaweedFS config, stack secrets generator
 e2e/            Playwright journeys and axe accessibility checks against the built stack
 docs/           Requirements, architecture, ADRs, testing
 ```
@@ -108,6 +107,7 @@ including the Python service, in dependency order and caches the results.
 - [API reference](docs/api.md): conventions, errors, and the auth, user and admin endpoints
 - [Security](docs/security.md): implemented controls, how each is tested, and deliberate trade-offs
 - [Testing](docs/testing.md): the test layers, the coverage gate, and the end-to-end journeys
+- [Running in containers](docs/docker.md): the production images, the stack, and why it is built this way
 - [GitHub App setup](docs/github-app-setup.md): registering the App, configuration, local webhooks
 - [Database design](docs/database.md): ER diagrams, integrity rules, indexes, search, and
   why each constraint exists
