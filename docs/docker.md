@@ -77,8 +77,9 @@ CI (`End-to-end on the containers`) builds the three images, starts this stack, 
 the migrate image, and runs every Playwright journey through Nginx on port 8080: sign-in, issues
 and the board, sprints, notifications and roles, AI drafts and the cited assistant, attachments
 to and from object storage, and the axe accessibility checks. It runs the images with
-`STACK_NODE_ENV=test` and `STACK_RATE_LIMITS_ENABLED=false`, the one difference from production
-(see [testing](testing.md)).
+`STACK_NODE_ENV=test`, `STACK_RATE_LIMITS_ENABLED=false` and `STACK_HIBP_ENABLED=false` (no
+breached-password lookup against the outside service), as the suite's local launcher does; that
+is the only difference from production (see [testing](testing.md)).
 
 Found while containerising: SeaweedFS's defaults preallocated 1 GB per volume file and created
 seven at once for a new bucket, so the first upload took about 7 GB of disk in local

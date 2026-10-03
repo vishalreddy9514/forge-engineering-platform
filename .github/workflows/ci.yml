@@ -113,9 +113,11 @@ jobs:
     timeout-minutes: 30
     env:
       CI: 'true'
-      # The production images, with rate limits off for the browser suite (see docs/testing.md).
+      # The production images, with rate limits and the breached-password lookup off for the
+      # browser suite, as in its local launcher (see docs/testing.md).
       STACK_NODE_ENV: test
       STACK_RATE_LIMITS_ENABLED: 'false'
+      STACK_HIBP_ENABLED: 'false'
       E2E_BASE_URL: http://localhost:8080
     steps:
       - uses: actions/checkout@v7

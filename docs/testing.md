@@ -58,6 +58,11 @@ The suite sets `RATE_LIMITS_ENABLED=false`: every page load refreshes the sessio
 address, faster than any person would. The switch is refused when `NODE_ENV=production`, and
 rate limiting itself is tested in `app.e2e-spec.ts`.
 
+It also sets `HIBP_ENABLED=false`: the journeys share one fixed password, which is a known
+breached one, and the run must not depend on the Pwned Passwords service. The lookup itself is
+tested in `breached-password.service.spec.ts`. The containerised run in CI sets both through
+`STACK_RATE_LIMITS_ENABLED` and `STACK_HIBP_ENABLED` ([docker](docker.md#verified)).
+
 ### What the journeys found
 
 Writing them found real defects, each fixed with a test that fails without the fix:

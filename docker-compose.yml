@@ -114,10 +114,13 @@ services:
       - path: infrastructure/docker/.stack.env
         required: false
     environment: &api-env
-      # The end-to-end run in CI starts the same images with STACK_NODE_ENV=test and
-      # STACK_RATE_LIMITS_ENABLED=false (rate limits cannot be turned off in production).
+      # The end-to-end run in CI starts the same images with STACK_NODE_ENV=test,
+      # STACK_RATE_LIMITS_ENABLED=false (rate limits cannot be turned off in production) and
+      # STACK_HIBP_ENABLED=false (the suite's fixed password is a known breached one, and the
+      # run must not depend on an outside service).
       NODE_ENV: ${STACK_NODE_ENV:-production}
       RATE_LIMITS_ENABLED: ${STACK_RATE_LIMITS_ENABLED:-true}
+      HIBP_ENABLED: ${STACK_HIBP_ENABLED:-true}
       LOG_PRETTY: 'false'
       LOG_LEVEL: ${LOG_LEVEL_STACK:-info}
       DATABASE_URL: *database-url
