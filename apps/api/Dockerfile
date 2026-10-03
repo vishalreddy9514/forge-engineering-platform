@@ -31,16 +31,23 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     if [ -s /run/secrets/build_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/build_ca; fi; \
     pnpm --filter @forge/api deploy --prod --legacy /out
 # Prisma's CLI tooling arrives as auto-installed peers of @prisma/client; nothing at run time
-# imports it (migrations run in the `migrate` image). Dropping it saves about 200 MB.
+# imports it (migrations run in the `migrate` image). Dropping it saves about 250 MB.
 RUN cd /out/node_modules/.pnpm \
  && rm -rf prisma@* @prisma+studio-core@* @prisma+dev@* @prisma+engines@* @prisma+config@* \
-      @electric-sql+pglite@* effect@* \
+      @electric-sql+pglite@* effect@* mysql2@* deepmerge-ts@* \
  && find /out/node_modules -xtype l -delete
 
 # ---- Migrations and seed (one-shot job): needs the Prisma CLI and tsx ----
-FROM build AS migrate
+# A fresh stage with the installed workspace, without the build stage's package manager
+# download cache or the deploy output.
+FROM node:22-bookworm-slim AS migrate
+# The base image's npm, corepack and yarn are not used at run time; removing them removes
+# their dependencies' advisories from the image too.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
+      /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg
+COPY --from=build /repo /repo
 # The seed reuses the retrieval eval's documents (FR-8.6).
-COPY apps/ai-service/evals/corpus.jsonl apps/ai-service/evals/corpus.jsonl
+COPY apps/ai-service/evals/corpus.jsonl /repo/apps/ai-service/evals/corpus.jsonl
 WORKDIR /repo/apps/api
 # The binaries directly, not through pnpm: nothing is downloaded at run time.
 ENV PATH=/repo/apps/api/node_modules/.bin:$PATH
@@ -50,6 +57,10 @@ CMD ["prisma", "migrate", "deploy"]
 # ---- Runtime ----
 FROM node:22-bookworm-slim AS runtime
 ENV NODE_ENV=production
+# The base image's npm, corepack and yarn are not used at run time; removing them removes
+# their dependencies' advisories from the image too.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
+      /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg
 WORKDIR /app
 COPY --from=build --chown=node:node /out/node_modules ./node_modules
 COPY --from=build --chown=node:node /out/package.json ./package.json

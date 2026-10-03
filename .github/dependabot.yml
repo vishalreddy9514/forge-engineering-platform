@@ -21,3 +21,9 @@ updates:
   - package-ecosystem: docker-compose
     directory: /
     schedule: { interval: weekly }
+  # Base images of the production Dockerfiles (node, python), so OS security fixes arrive as PRs.
+  - package-ecosystem: docker
+    directories: [/apps/api, /apps/web, /apps/ai-service]
+    schedule: { interval: weekly }
+    groups:
+      base-images: { patterns: ['*'] }

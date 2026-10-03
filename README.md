@@ -8,14 +8,14 @@ history with cited sources.
 AI is a feature of the product, not the product. Every core workflow works with the AI service
 switched off.
 
-> **Status: Phase 14 of 20 (Docker).** `pnpm stack:up` runs the whole product from its
-> production images behind Nginx on http://localhost:8080: web, API, worker and AI service as
-> non-root containers with health checks, and migrations as a one-shot job. CI builds the images
-> and runs every browser journey against them. Before that: test hardening with Playwright and
-> axe (Phase 13), the dashboard (Phase 12), AI code review (Phase 11), RAG search and cited chat
-> (Phase 10), the AI assistant (Phase 9), the GitHub App integration (Phase 8), sprints (Phase 7),
-> issues and notifications (Phase 6), projects (Phase 5), authentication and RBAC (Phase 4), the
-> schema (Phase 3) and the monorepo (Phase 2).
+> **Status: Phase 15 of 20 (CI/CD).** Every push to `main` builds the four container images,
+> scans them with Trivy (no fixable High or Critical vulnerabilities in the images that serve
+> traffic), and publishes them to GitHub Container Registry with an SBOM and a signed provenance
+> attestation. Every GitHub Action is pinned to a commit SHA. Before that: Docker (Phase 14), test
+> hardening with Playwright and axe (Phase 13), the dashboard (Phase 12), AI code review
+> (Phase 11), RAG search and cited chat (Phase 10), the AI assistant (Phase 9), the GitHub App
+> integration (Phase 8), sprints (Phase 7), issues and notifications (Phase 6), projects
+> (Phase 5), authentication and RBAC (Phase 4), the schema (Phase 3) and the monorepo (Phase 2).
 
 ## Stack
 
@@ -108,6 +108,7 @@ including the Python service, in dependency order and caches the results.
 - [Security](docs/security.md): implemented controls, how each is tested, and deliberate trade-offs
 - [Testing](docs/testing.md): the test layers, the coverage gate, and the end-to-end journeys
 - [Running in containers](docs/docker.md): the production images, the stack, and why it is built this way
+- [CI/CD](docs/cicd.md): the workflows, image publishing, signing, and the vulnerability policy
 - [GitHub App setup](docs/github-app-setup.md): registering the App, configuration, local webhooks
 - [Database design](docs/database.md): ER diagrams, integrity rules, indexes, search, and
   why each constraint exists
