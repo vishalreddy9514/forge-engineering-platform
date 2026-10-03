@@ -58,7 +58,7 @@ services:
     # S3-compatible object storage for attachments (AWS S3 in deployed environments). The app
     # only speaks the S3 API through the AWS SDK, so nothing is SeaweedFS-specific. The API
     # creates the bucket and its CORS rule on startup when S3_ENSURE_BUCKET=true.
-    image: chrislusf/seaweedfs:3.97
+    image: chrislusf/seaweedfs:4.48
     command:
       - server
       - -dir=/data
