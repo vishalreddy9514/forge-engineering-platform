@@ -38,6 +38,10 @@ export default async function globalSetup(): Promise<void> {
             'server',
             '-dir=/data',
             '-volume.max=5',
+            // As in docker-compose.yml: the defaults preallocate 1 GB per volume file, seven at
+            // a time, which fails uploads with InternalError when the disk is short of space.
+            '-master.volumeSizeLimitMB=64',
+            '-master.volumePreallocate=false',
             '-s3',
             '-s3.port=8333',
             '-s3.config=/etc/seaweedfs/s3.json',

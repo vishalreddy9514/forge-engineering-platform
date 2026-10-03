@@ -23,7 +23,7 @@ import { ReqMeta, type RequestMeta } from '../common/http/request-meta';
 import { ApiZodBody, ZodBody } from '../common/http/zod';
 import type { Env } from '../config/env';
 import { RateLimit } from '../rate-limit/rate-limit.decorator';
-import { AuthService, RefreshRaceException, type Session } from './auth.service';
+import { AuthService, type Session } from './auth.service';
 import type { AuthUser } from './auth.types';
 import { CookieOriginGuard } from './cookie-origin.guard';
 import { clearSessionCookies, readRefreshCookie, setSessionCookies } from './cookies';
@@ -85,8 +85,7 @@ export class AuthController {
     try {
       return this.withCookies(res, await this.auth.refresh(token, meta));
     } catch (error) {
-      // A race keeps the cookies: the browser already holds the winner's new cookie.
-      if (!(error instanceof RefreshRaceException)) clearSessionCookies(res, this.secureCookies);
+      clearSessionCookies(res, this.secureCookies);
       throw error;
     }
   }

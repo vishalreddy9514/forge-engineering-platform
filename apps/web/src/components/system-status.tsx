@@ -30,7 +30,9 @@ export function SystemStatus() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <CardTitle>System status</CardTitle>
+        <CardTitle>
+          <h2>System status</h2>
+        </CardTitle>
         <CardDescription>Live readiness of the API and its dependencies</CardDescription>
       </CardHeader>
       <CardContent>

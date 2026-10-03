@@ -35,16 +35,6 @@ export interface Session {
   refresh: IssuedRefreshToken;
 }
 
-/**
- * 409: the token was rotated a moment ago by a concurrent request (another tab). The browser
- * already holds the new cookie, so the client should simply retry the refresh once.
- */
-export class RefreshRaceException extends ConflictException {
-  constructor() {
-    super('Session was refreshed by another request; retry');
-  }
-}
-
 const INVALID_CREDENTIALS = 'Invalid email or password';
 const BREACHED_PASSWORD =
   'This password has appeared in a data breach. Choose a different password.';
@@ -135,8 +125,6 @@ export class AuthService {
     switch (result.kind) {
       case 'invalid':
         throw new UnauthorizedException('Session expired. Sign in again.');
-      case 'race':
-        throw new RefreshRaceException();
       case 'reuse':
         await this.audit.record(
           {

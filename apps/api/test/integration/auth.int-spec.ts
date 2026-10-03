@@ -153,13 +153,24 @@ describe('authentication (HTTP, real Postgres + Redis)', () => {
       await me(res.body.accessToken).expect(200);
     });
 
-    it('treats an immediate second use as a benign race: 409 to retry, session intact', async () => {
+    it('keeps the session when the browser never received the rotated cookie (reload mid-refresh)', async () => {
       const { cookie } = await register();
-      const first = await refresh(cookie).expect(200);
+      // The server rotated, but a reload cancelled the response: the browser still holds `cookie`.
+      const lost = await refresh(cookie).expect(200);
 
-      const second = await refresh(cookie).expect(409);
-      expect(setCookieHeader(second, 'forge_rt')).toBeUndefined(); // cookies not cleared
-      await refresh(refreshCookie(first) ?? '').expect(200); // winner's token still works
+      const retried = await refresh(cookie).expect(200); // within the reuse interval: a new token
+      const next = refreshCookie(retried) ?? '';
+      expect(next).not.toBe(refreshCookie(lost));
+      await me(retried.body.accessToken).expect(200);
+      await refresh(next).expect(200); // and the session goes on from there
+    });
+
+    it('gives two tabs refreshing at the same moment a working session each', async () => {
+      const { cookie } = await register();
+      const [a, b] = await Promise.all([refresh(cookie), refresh(cookie)]);
+      expect([a.status, b.status]).toEqual([200, 200]);
+      await refresh(refreshCookie(a) ?? '').expect(200);
+      await refresh(refreshCookie(b) ?? '').expect(200);
     });
 
     it('revokes the whole session family when a rotated token is replayed later (theft)', async () => {

@@ -12,6 +12,12 @@ import { type Env } from './config/env';
 import { GITHUB_WEBHOOK_PATH } from './github/github-webhook.controller';
 
 export const API_PREFIX = 'api/v1';
+/**
+ * Longer than any proxy in front of the API keeps an idle connection (the ALB: 120 s), so the
+ * proxy, not the API, closes it. Otherwise a proxy can reuse a socket the API has just closed
+ * and the request fails ("socket hang up", or a 502 from the ALB).
+ */
+export const KEEP_ALIVE_TIMEOUT_MS = 125_000;
 const DOCUMENT_ROUTES = /^\/api\/v1\/projects\/[^/]+\/documents(?:\/[^/]+)?$/;
 
 /**
@@ -20,6 +26,10 @@ const DOCUMENT_ROUTES = /^\/api\/v1\/projects\/[^/]+\/documents(?:\/[^/]+)?$/;
  */
 export function configureApp(app: NestExpressApplication): INestApplication {
   const config = app.get<ConfigService<Env, true>>(ConfigService);
+
+  const server = app.getHttpServer();
+  server.keepAliveTimeout = KEEP_ALIVE_TIMEOUT_MS;
+  server.headersTimeout = KEEP_ALIVE_TIMEOUT_MS + 1_000;
 
   app.set('trust proxy', config.get('TRUST_PROXY_HOPS', { infer: true }));
   app.disable('x-powered-by');

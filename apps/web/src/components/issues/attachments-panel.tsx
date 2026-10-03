@@ -76,7 +76,8 @@ export function AttachmentsPanel({ issue, canUpload, canDeleteAny }: Attachments
               id="attachment-input"
               type="file"
               multiple
-              className="sr-only"
+              // Not shown or focusable: the "Attach files" button below opens it.
+              hidden
               onChange={(e) => void onFiles(e)}
             />
             <Button
