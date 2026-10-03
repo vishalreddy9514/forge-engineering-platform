@@ -154,9 +154,15 @@ services:
     depends_on:
       <<: *api-depends
       api: { condition: service_healthy }
-    # No HTTP port: liveness is the process itself (the ECS task restarts it if it exits).
+    # No HTTP port: liveness is the process itself (the ECS task restarts it if it exits). The
+    # check replaces the image's API probe, and gives `up --wait` something to wait on: Compose
+    # v2 refuses to wait for a service whose healthcheck is disabled.
     healthcheck:
-      disable: true
+      test: ['CMD', 'node', '-e', 'process.kill(1, 0)']
+      interval: 10s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
     restart: unless-stopped
 
   ai-service:
