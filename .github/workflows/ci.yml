@@ -106,6 +106,25 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: '1'
 
+  observability:
+    name: Observability config (promtool, dashboard)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Prometheus config and alert rules are valid
+        run: |
+          docker run --rm --entrypoint promtool \
+            -v "$PWD/observability/prometheus:/etc/prometheus:ro" \
+            prom/prometheus:v3.7.2 check config /etc/prometheus/prometheus.yml
+      - name: Alert rules behave as specified (promtool test rules)
+        run: |
+          docker run --rm --entrypoint promtool -w /rules \
+            -v "$PWD/observability/prometheus:/rules:ro" \
+            prom/prometheus:v3.7.2 test rules alerts.test.yml
+      - name: Dashboard is valid JSON and queries only metrics the services export
+        run: python3 observability/check_dashboard.py
+
   compose:
     name: Docker Compose (bootstrap, migrate, seed)
     runs-on: ubuntu-latest

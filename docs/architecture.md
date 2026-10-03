@@ -694,21 +694,25 @@ updated ([deployment](deployment.md)).
 
 ## 11. Observability
 
-| Signal  | Local                                                                                                                                                           | AWS                                                                 |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Logs    | pino (api/worker) and structlog (ai) as JSON to stdout; `docker compose logs`                                                                                   | CloudWatch Logs, 14-day retention                                   |
-| Metrics | `/metrics` (prom-client, prometheus-fastapi-instrumentator) → Prometheus → Grafana                                                                              | CloudWatch Container Insights + alarms; Prometheus/Grafana optional |
-| Traces  | OpenTelemetry → Jaeger (Could)                                                                                                                                  | X-Ray via ADOT sidecar (Could)                                      |
-| Errors  | Sentry (all three apps; free tier)                                                                                                                              | Same                                                                |
-| Health  | `/health/live` (process up), `/health/ready` (DB, Redis and, for api, _not_ ai-service, because the AI service being down is a degraded state, not "not ready") | ALB target group health checks                                      |
+As built in Phase 17; details, the metric catalogue and the alert list are in
+[observability](observability.md).
 
-**Correlation:** the proxy or ALB assigns `X-Request-ID`. The API logs it and puts it in job data
-and in calls to ai-service, and every log line in every service carries it. One ID follows a
-request from click → API → queue → worker → AI → OpenAI.
+| Signal  | Local                                                                                                                                                           | AWS                                                          |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Logs    | pino (api/worker) and structlog (ai) as JSON to stdout, every line with its request ID; `docker compose logs`                                                   | CloudWatch Logs, 14-day retention                            |
+| Metrics | `/metrics` on port 9464 in every service (prom-client, prometheus_client) → Prometheus → Grafana (`observability`)                                              | CloudWatch dashboard and alarms (ALB, ECS, RDS, ElastiCache) |
+| Traces  | Not built (Could); the request ID correlates logs across services                                                                                               | Not built (X-Ray via ADOT would be the route)                |
+| Errors  | Sentry when `SENTRY_DSN` is set (api, worker, ai-service), scrubbed of credentials and personal data                                                            | Same, with the DSN in SSM (`error_reporting = true`)         |
+| Health  | `/health/live` (process up), `/health/ready` (DB, Redis and, for api, _not_ ai-service, because the AI service being down is a degraded state, not "not ready") | ALB target group health checks                               |
+
+**Correlation:** the proxy or ALB assigns `X-Request-ID` (the API reuses a safe incoming one or
+mints one). It travels in job data and outbox payloads to the worker, and as a header to the AI
+service, and every log line in every service carries it. One ID follows a request from click →
+API → queue → worker → AI.
 
 **Key metrics and alerts:** HTTP p95 latency and 5xx rate per route; queue depth and
-dead-letter count per queue; job duration; LLM latency, tokens, cost and error rate by
-feature; GitHub rate-limit remaining; DB pool saturation.
+dead-letter count per queue; job duration; LLM latency, tokens, cost and error rate by feature;
+GitHub rate-limit remaining; DB pool saturation. Each alert has a `for` and a `promtool` test.
 
 ## 12. Repository structure (target)
 
@@ -726,7 +730,7 @@ forge-engineering-platform/
 ├── infrastructure/
 │   ├── docker/              # nginx.conf, postgres init (roles, extensions)
 │   └── terraform/           # modules/ + environments/{dev,prod}/
-├── observability/           # prometheus.yml, alert rules, grafana dashboards
+├── observability/           # prometheus.yml, alert rules (+ promtool tests), grafana dashboard
 ├── e2e/                     # Playwright
 ├── docs/                    # this folder
 ├── .github/workflows/       # ci.yml (checks), images.yml (build, scan, publish) — see cicd.md

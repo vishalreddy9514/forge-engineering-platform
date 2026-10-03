@@ -8,11 +8,13 @@ history with cited sources.
 AI is a feature of the product, not the product. Every core workflow works with the AI service
 switched off.
 
-> **Status: Phase 16 of 20 (AWS with Terraform).** The whole product is defined in Terraform
-> for AWS: ECS Fargate behind an HTTPS load balancer, RDS PostgreSQL with pgvector, ElastiCache,
-> S3, SES and SSM, in private subnets, with no secret ever stored in Terraform state. A merge to
-> `main` verifies each image's signed provenance, promotes it to ECR by digest, runs the
-> migrations and rolls the services ([deployment](docs/deployment.md)). Before that: CI/CD with
+> **Status: Phase 17 of 20 (observability).** Every service exports Prometheus metrics
+> (requests by route, jobs and queues, every model call's latency, tokens and cost), one request
+> ID follows a request from the proxy through the queue to the AI service, errors can go to
+> Sentry scrubbed of personal data, and an `observability` compose profile adds Prometheus, a
+> provisioned Grafana dashboard and tested alert rules ([observability](docs/observability.md)).
+> Before that: AWS with Terraform, deployed through GitHub OIDC with no secret in Terraform
+> state (Phase 16, [deployment](docs/deployment.md)), CI/CD with
 > signed, scanned images (Phase 15), Docker (Phase 14), test hardening with Playwright and axe
 > (Phase 13), the dashboard (Phase 12), AI code review (Phase 11), RAG search and cited chat
 > (Phase 10), the AI assistant (Phase 9), the GitHub App integration (Phase 8), sprints
@@ -45,6 +47,7 @@ infrastructure/
   docker/       Nginx config, Postgres init scripts, SeaweedFS config, stack secrets generator
   terraform/    AWS: bootstrap, modules (network, data, service, stack) and environments
 e2e/            Playwright journeys and axe accessibility checks against the built stack
+observability/  Prometheus config, alert rules and their tests, the Grafana dashboard
 docs/           Requirements, architecture, ADRs, testing
 ```
 
@@ -114,6 +117,8 @@ including the Python service, in dependency order and caches the results.
 - [CI/CD](docs/cicd.md): the workflows, image publishing, signing, and the vulnerability policy
 - [Deploying to AWS](docs/deployment.md): setup, how a deploy works, secrets, TLS, hibernation,
   teardown and cost
+- [Observability](docs/observability.md): request IDs, metrics, the dashboard, alerts and error
+  reporting
 - [GitHub App setup](docs/github-app-setup.md): registering the App, configuration, local webhooks
 - [Database design](docs/database.md): ER diagrams, integrity rules, indexes, search, and
   why each constraint exists

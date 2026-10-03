@@ -13,8 +13,12 @@ export type Mode = 'ok' | 'invalid_output' | 'provider_unavailable' | 'error_503
  * write from real responses, so this cannot drift from what the service actually sends.
  */
 export class FakeAiService {
-  readonly requests: { path: string; auth: string | undefined; body: Record<string, unknown> }[] =
-    [];
+  readonly requests: {
+    path: string;
+    auth: string | undefined;
+    requestId: string | undefined;
+    body: Record<string, unknown>;
+  }[] = [];
   mode: Mode = 'ok';
   private server: Server | undefined;
 
@@ -48,7 +52,12 @@ export class FakeAiService {
     const body = chunks.length
       ? (JSON.parse(Buffer.concat(chunks).toString()) as Record<string, unknown>)
       : {};
-    this.requests.push({ path: req.url ?? '', auth: req.headers.authorization, body });
+    this.requests.push({
+      path: req.url ?? '',
+      auth: req.headers.authorization,
+      requestId: req.headers['x-request-id'] as string | undefined,
+      body,
+    });
 
     if (req.url === '/health/ready') {
       res.writeHead(200, { 'content-type': 'application/json' }).end('{"status":"ok"}');

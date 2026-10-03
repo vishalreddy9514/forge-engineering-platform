@@ -74,6 +74,10 @@ flowchart LR
   `object-storage:8333` itself.
 - **Builds behind a TLS-intercepting proxy.** Each network step accepts an optional `build_ca`
   build secret (`BUILD_CA_CERT=/path/to/ca.pem pnpm stack:up`). Without it nothing changes.
+- **Metrics stay inside.** api, worker and ai-service serve Prometheus metrics on port 9464 of
+  the compose network; nothing publishes it. `docker compose --profile app --profile
+observability up -d` adds Prometheus (`:9090`) and Grafana (`:3001`, the Forge service
+  overview), both bound to localhost ([observability](observability.md)).
 
 ## Verified
 

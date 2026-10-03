@@ -15,6 +15,7 @@ import {
   type SyncRepositoryJob,
 } from './github.jobs';
 import { GithubSettings } from './github.settings';
+import { Instrumented } from '../observability/instrumented';
 
 const HOUR = 60 * 60 * 1000;
 /** Webhook deliveries are kept this long for debugging and replay, then pruned. */
@@ -30,6 +31,7 @@ const STRANDED_DELIVERY_MS = 10 * 60 * 1000;
  * reset time (plus jitter, so jobs for one installation do not all resume in the same second)
  * without using up a retry attempt.
  */
+@Instrumented(QUEUES.GITHUB)
 @Processor(QUEUES.GITHUB, { concurrency: 4 })
 export class GithubProcessor extends WorkerHost implements OnApplicationBootstrap {
   private readonly logger = new Logger(GithubProcessor.name);

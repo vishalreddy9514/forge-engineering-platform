@@ -22,6 +22,7 @@ import { AiUsageService } from './ai-usage.service';
 import { AiClient } from './ai.client';
 import { AiUnavailableException } from './ai.errors';
 import { AI_JOBS, toJob } from './ai.service';
+import { traced } from '../observability/request-context';
 
 export interface ReviewJob {
   aiJobId: string;
@@ -88,7 +89,7 @@ export class PullRequestReviews {
       }));
     if (!pending) {
       const data: ReviewJob = { aiJobId: job.id };
-      await this.queue.add(AI_JOBS.PR_REVIEW, data, {
+      await this.queue.add(AI_JOBS.PR_REVIEW, traced(data), {
         jobId: `ai-job-${job.id}`,
         attempts: 3,
         backoff: { type: 'exponential', delay: 15_000 },

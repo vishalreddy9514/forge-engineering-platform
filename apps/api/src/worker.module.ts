@@ -10,6 +10,7 @@ import { StorageModule } from './infrastructure/storage/storage.module';
 import { MailWorkerModule } from './mail/mail.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { NotificationsWorkerModule } from './notifications/notifications.module';
+import { ObservabilityModule } from './observability/observability.module';
 import { OutboxRelayModule } from './outbox/outbox.module';
 import { SearchWorkerModule } from './search/search.module';
 
@@ -18,6 +19,7 @@ import { SearchWorkerModule } from './search/search.module';
   imports: [
     configModule(),
     loggerModule('worker'),
+    ObservabilityModule.forRoot('worker'),
     DatabaseModule,
     RedisModule,
     StorageModule,

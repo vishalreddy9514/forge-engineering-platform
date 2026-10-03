@@ -210,6 +210,12 @@ run "dev_running" {
     error_message = "The worker is the API image with the worker entry point."
   }
 
+  # ---- Dashboard
+  assert {
+    condition     = length(aws_cloudwatch_dashboard.this) == 1 && length(jsondecode(aws_cloudwatch_dashboard.this[0].dashboard_body).widgets) == 7
+    error_message = "One CloudWatch dashboard: load balancer, services and data stores."
+  }
+
   # ---- Alarms
   assert {
     condition     = toset(keys(aws_cloudwatch_metric_alarm.this)) == toset(["api-5xx", "api-latency-p95", "api-unhealthy", "web-unhealthy", "db-cpu", "db-storage", "redis-memory"])
@@ -248,6 +254,10 @@ run "dev_hibernated" {
     error_message = "The load balancer (the largest fixed cost) is removed."
   }
   assert {
+    condition     = length(aws_cloudwatch_dashboard.this) == 0
+    error_message = "No dashboard for resources that do not exist while hibernated."
+  }
+  assert {
     condition     = length(terraform_data.migrate) == 0 && length(aws_cloudwatch_metric_alarm.this) == 0
     error_message = "Nothing tries to migrate or alarm while hibernated."
   }
@@ -261,16 +271,17 @@ run "integrations_enabled" {
   command = plan
 
   variables {
-    ai_provider = "openai"
-    github_app  = { id = 123456, slug = "forge-dev" }
+    ai_provider     = "openai"
+    github_app      = { id = 123456, slug = "forge-dev" }
+    error_reporting = true
   }
 
   assert {
-    condition     = toset(keys(aws_ssm_parameter.external)) == toset(["openai-api-key", "github-app-private-key", "github-webhook-secret"])
+    condition     = toset(keys(aws_ssm_parameter.external)) == toset(["openai-api-key", "github-app-private-key", "github-webhook-secret", "sentry-dsn"])
     error_message = "Each external secret gets an operator-set parameter."
   }
   assert {
-    condition     = output.operator_parameters == ["/forge-dev/github-app-private-key", "/forge-dev/github-webhook-secret", "/forge-dev/openai-api-key"]
+    condition     = output.operator_parameters == ["/forge-dev/github-app-private-key", "/forge-dev/github-webhook-secret", "/forge-dev/openai-api-key", "/forge-dev/sentry-dsn"]
     error_message = "The parameters an operator must set are listed in the outputs."
   }
 }

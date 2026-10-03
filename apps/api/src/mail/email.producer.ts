@@ -4,6 +4,7 @@ import type { JobsOptions, Queue } from 'bullmq';
 
 import { QUEUES } from '../infrastructure/queue/queue.module';
 import { EMAIL_JOBS, type IssueAssignedEmailJob, type PasswordResetEmailJob } from './email.jobs';
+import { traced } from '../observability/request-context';
 
 const JOB_OPTIONS: JobsOptions = {
   attempts: 5,
@@ -22,12 +23,12 @@ export class EmailProducer {
   constructor(@InjectQueue(QUEUES.EMAIL) private readonly queue: Queue) {}
 
   async sendPasswordReset(job: PasswordResetEmailJob): Promise<void> {
-    await this.queue.add(EMAIL_JOBS.PASSWORD_RESET, job, JOB_OPTIONS);
+    await this.queue.add(EMAIL_JOBS.PASSWORD_RESET, traced(job), JOB_OPTIONS);
   }
 
   /** `jobId` makes a repeated request for the same notification collapse into one email. */
   async sendIssueAssigned(job: IssueAssignedEmailJob, jobId: string): Promise<void> {
-    await this.queue.add(EMAIL_JOBS.ISSUE_ASSIGNED, job, {
+    await this.queue.add(EMAIL_JOBS.ISSUE_ASSIGNED, traced(job), {
       ...JOB_OPTIONS,
       jobId,
       removeOnComplete: { age: 24 * 60 * 60 },

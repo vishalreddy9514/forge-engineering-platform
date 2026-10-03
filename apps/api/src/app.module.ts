@@ -13,6 +13,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { GithubModule } from './github/github.module';
 import { HealthModule } from './health/health.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ObservabilityModule } from './observability/observability.module';
 import { ProjectsModule } from './projects/projects.module';
 import { DatabaseModule } from './infrastructure/database/database.module';
 import { IssuesModule } from './issues/issues.module';
@@ -29,6 +30,7 @@ import { UsersModule } from './users/users.module';
   imports: [
     configModule(),
     loggerModule('api'),
+    ObservabilityModule.forRoot('api'),
     DatabaseModule,
     RedisModule,
     StorageModule,

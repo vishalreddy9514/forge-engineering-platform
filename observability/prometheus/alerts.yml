@@ -1,0 +1,90 @@
+# Alerts on symptoms people notice, each with a `for` so a blip does not page anyone.
+# Tested with `promtool test rules alerts.test.yml` (CI: Observability config job).
+groups:
+  - name: forge
+    rules:
+      - alert: ForgeTargetDown
+        expr: up{job=~"forge-.*"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: '{{ $labels.job }} has not answered a metrics scrape for 2 minutes'
+
+      - alert: ForgeApiHighErrorRate
+        expr: |
+          sum(rate(forge_http_request_duration_seconds_count{status=~"5.."}[5m]))
+            / sum(rate(forge_http_request_duration_seconds_count[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'More than 5% of API requests are failing with a 5xx'
+
+      - alert: ForgeApiSlow
+        # NFR-1 targets p95 < 250 ms for CRUD; this fires on a clear breach, not on noise.
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(forge_http_request_duration_seconds_bucket{route!="unmatched"}[5m]))
+          ) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'API p95 latency has been above 1 s for 10 minutes'
+
+      - alert: ForgeQueueBacklog
+        expr: forge_queue_jobs{state="waiting"} > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Queue {{ $labels.queue }} has had more than 100 waiting jobs for 10 minutes'
+
+      - alert: ForgeJobsDeadLettered
+        expr: sum by (queue, job) (increase(forge_jobs_dead_lettered_total[15m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $labels.queue }}/{{ $labels.job }} jobs failed every attempt and were dead-lettered'
+
+      - alert: ForgeLlmErrorRate
+        expr: |
+          sum by (feature) (rate(forge_llm_request_duration_seconds_count{outcome=~"error.*"}[10m]))
+            / sum by (feature) (rate(forge_llm_request_duration_seconds_count[10m])) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'More than 20% of model calls for {{ $labels.feature }} are failing'
+
+      - alert: ForgeAiUnavailable
+        # Degraded mode (NFR-4): the product works, AI features answer 503.
+        expr: increase(forge_ai_unavailable_total[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: 'The API could not reach the AI service in the last 10 minutes'
+
+      - alert: ForgeLlmSpendHigh
+        expr: sum(increase(forge_llm_cost_usd_total[1h])) > 1
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Model spend is above $1 in the last hour'
+
+      - alert: ForgeGithubRateLimitLow
+        expr: forge_github_rate_limit_remaining < 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'GitHub installation {{ $labels.installation }} has fewer than 500 requests left'
+
+      - alert: ForgeDbPoolSaturated
+        expr: forge_db_pool_connections{state="waiting"} > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $labels.job }} has had requests waiting for a database connection for 5 minutes'

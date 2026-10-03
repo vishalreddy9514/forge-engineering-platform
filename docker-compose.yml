@@ -140,6 +140,8 @@ services:
       S3_ENSURE_BUCKET: 'true'
       AI_SERVICE_URL: http://ai-service:8000
       API_INTERNAL_URL: http://api:4000
+      # Prometheus metrics, reachable on the compose network only (no published port).
+      METRICS_PORT: '9464'
     depends_on: &api-depends
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
@@ -179,6 +181,7 @@ services:
     environment:
       NODE_ENV: production
       AI_LOG_JSON: 'true'
+      METRICS_PORT: '9464'
       AI_DATABASE_URL: postgresql://forge_ai_service:${AI_DB_PASSWORD:-forge_ai_dev_password}@postgres:5432/${POSTGRES_DB:-forge}
     # No published port: only the API and the worker reach it, on the compose network.
     depends_on:
@@ -214,6 +217,47 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # ---- Observability (docker compose --profile app --profile observability up) ----
+  prometheus:
+    profiles: [observability]
+    image: prom/prometheus:v3.7.2
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
+    ports:
+      - '127.0.0.1:${PROMETHEUS_PORT:-9090}:9090'
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:9090/-/ready']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  grafana:
+    profiles: [observability]
+    image: grafana/grafana:12.2.0
+    environment:
+      # Local only: anyone on this machine may view; signing in as admin is for editing.
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-forge_dev_grafana}
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/forge-overview.json
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
+    ports:
+      - '127.0.0.1:${GRAFANA_PORT:-3001}:3000'
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      prometheus: { condition: service_healthy }
+    restart: unless-stopped
+
 secrets:
   # Optional: an extra CA certificate for builds behind a TLS-intercepting proxy
   # (BUILD_CA_CERT=/path/to/ca.pem). Empty by default, and then unused.
@@ -221,6 +265,7 @@ secrets:
     file: ${BUILD_CA_CERT:-/dev/null}
 
 volumes:
+  prometheus-data:
   postgres-data:
   redis-data:
   object-data:

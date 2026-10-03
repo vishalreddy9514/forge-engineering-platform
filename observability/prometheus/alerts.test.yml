@@ -1,0 +1,92 @@
+# promtool test rules alerts.test.yml
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: a silent target pages after two minutes, not before
+    interval: 1m
+    input_series:
+      - series: 'up{job="forge-worker", instance="worker:9464"}'
+        values: '1 0 0 0'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: ForgeTargetDown
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: ForgeTargetDown
+        exp_alerts:
+          - exp_labels: { severity: critical, job: forge-worker, instance: 'worker:9464' }
+            exp_annotations:
+              summary: 'forge-worker has not answered a metrics scrape for 2 minutes'
+
+  - name: 10% of requests failing fires the error-rate alert; 1% does not
+    interval: 1m
+    input_series:
+      - series: 'forge_http_request_duration_seconds_count{route="/api/v1/issues/:issueId", status="200", method="GET"}'
+        values: '0+90x15'
+      - series: 'forge_http_request_duration_seconds_count{route="/api/v1/issues/:issueId", status="500", method="GET"}'
+        values: '0+10x15'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: ForgeApiHighErrorRate
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: 'More than 5% of API requests are failing with a 5xx' }
+
+  - name: a healthy API does not alert
+    interval: 1m
+    input_series:
+      - series: 'forge_http_request_duration_seconds_count{route="/api/v1/issues/:issueId", status="200", method="GET"}'
+        values: '0+99x15'
+      - series: 'forge_http_request_duration_seconds_count{route="/api/v1/issues/:issueId", status="500", method="GET"}'
+        values: '0+1x15'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: ForgeApiHighErrorRate
+        exp_alerts: []
+
+  - name: a backlog alerts only when it lasts
+    interval: 1m
+    input_series:
+      - series: 'forge_queue_jobs{queue="indexing", state="waiting", job="forge-worker"}'
+        values: '150x5 20x10'
+      - series: 'forge_queue_jobs{queue="ai", state="waiting", job="forge-worker"}'
+        values: '150x15'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: ForgeQueueBacklog
+        exp_alerts:
+          - exp_labels: { severity: warning, queue: ai, state: waiting, job: forge-worker }
+            exp_annotations:
+              summary: 'Queue ai has had more than 100 waiting jobs for 10 minutes'
+
+  - name: a dead-lettered job alerts at once
+    interval: 1m
+    input_series:
+      - series: 'forge_jobs_dead_lettered_total{queue="email", job="password-reset"}'
+        values: '0 0 1 1'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: ForgeJobsDeadLettered
+        exp_alerts:
+          - exp_labels: { severity: warning, queue: email, job: password-reset }
+            exp_annotations:
+              summary: 'email/password-reset jobs failed every attempt and were dead-lettered'
+
+  - name: failing model calls alert per feature
+    interval: 1m
+    input_series:
+      - series: 'forge_llm_request_duration_seconds_count{feature="/v1/chat", operation="chat", model="gpt-4.1-mini", outcome="ok"}'
+        values: '0+5x25'
+      - series: 'forge_llm_request_duration_seconds_count{feature="/v1/chat", operation="chat", model="gpt-4.1-mini", outcome="error_retryable"}'
+        values: '0+5x25'
+      - series: 'forge_llm_request_duration_seconds_count{feature="/v1/drafts", operation="structured", model="gpt-4.1-mini", outcome="ok"}'
+        values: '0+10x25'
+    alert_rule_test:
+      - eval_time: 22m
+        alertname: ForgeLlmErrorRate
+        exp_alerts:
+          - exp_labels: { severity: warning, feature: /v1/chat }
+            exp_annotations: { summary: 'More than 20% of model calls for /v1/chat are failing' }
