@@ -8,7 +8,9 @@ from psycopg_pool import AsyncConnectionPool, PoolTimeout
 
 from app.api import health, v1
 from app.core.config import Settings, get_settings
+from app.core.errors import init_error_reporting
 from app.core.logging import configure_logging
+from app.core.metrics import MetricsMiddleware, start_metrics_server
 from app.core.request_context import RequestContextMiddleware
 from app.llm.factory import build_embedder, build_provider
 from app.rag.store import Store
@@ -22,11 +24,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     """
     settings = settings or get_settings()
     configure_logging(settings.log_level, settings.log_json)
+    init_error_reporting(settings)
 
     is_production = settings.environment == "production"
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        start_metrics_server(settings.metrics_port)
         if settings.database_url is None:
             app.state.store = None
             yield
@@ -64,6 +68,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_exception_handler(psycopg.OperationalError, _store_unavailable)
     app.add_exception_handler(PoolTimeout, _store_unavailable)
     app.add_middleware(RequestContextMiddleware)
+    # Added last, so it runs first and times everything, including the request ID middleware.
+    app.add_middleware(MetricsMiddleware)
     app.include_router(health.router)
     app.include_router(v1.router)
     return app

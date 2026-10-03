@@ -82,6 +82,10 @@ aws ssm put-parameter --overwrite --type SecureString \
   --name /forge-dev/github-app-private-key --value "$(cat forge.private-key.pem)"
 aws ssm put-parameter --overwrite --type SecureString \
   --name /forge-dev/github-webhook-secret --value "$WEBHOOK_SECRET"
+
+# error_reporting = true   (docs/observability.md#errors)
+aws ssm put-parameter --overwrite --type SecureString \
+  --name /forge-dev/sentry-dsn --value "$SENTRY_DSN"
 ```
 
 **5. Email.** SES verifies the domain through the DKIM records Terraform creates. A new SES
@@ -224,6 +228,11 @@ aws ecs describe-services --cluster forge-dev --services api worker web ai-servi
 Alarms (SNS topic `forge-dev-alarms`): API 5xx, API p95 latency, unhealthy API or web targets,
 database CPU and free storage, and Redis memory (Redis is set to `noeviction`, so a full Redis
 rejects new jobs rather than silently dropping queued ones).
+
+The CloudWatch dashboard `forge-dev` shows the same at a glance: requests and 5xx, API p95,
+healthy targets, CPU and memory per service, database CPU and connections, Redis memory. The
+detailed application metrics (routes, queues, model calls) and the request-ID correlation are
+described in [observability](observability.md).
 
 ## Verified
 

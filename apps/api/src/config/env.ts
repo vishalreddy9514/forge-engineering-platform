@@ -26,6 +26,12 @@ export const EnvSchema = z
       )
       .pipe(z.array(z.url())),
     SWAGGER_ENABLED: booleanString.optional(),
+    /** Prometheus metrics on a port of their own, never behind the proxy; 0 turns it off. */
+    METRICS_PORT: z.coerce.number().int().min(0).max(65535).default(9464),
+    /** Error reporting (observability/errors.ts); unset turns it off. */
+    SENTRY_DSN: z.url().optional(),
+    SENTRY_ENVIRONMENT: z.string().optional(),
+    SENTRY_RELEASE: z.string().optional(),
     /** Number of reverse proxies in front of the API (Nginx/ALB), so req.ip is the client IP. */
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
     /**

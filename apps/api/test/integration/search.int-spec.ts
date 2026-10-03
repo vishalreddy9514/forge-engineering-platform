@@ -207,11 +207,12 @@ describe('search, related issues, assistant chat and indexing (fake AI service, 
         where: { eventType: 'search.index', aggregateId: issue.id },
         orderBy: { id: 'asc' },
       });
+      // Each event carries the ID of the request that caused it (architecture §11).
       expect(rows.map((r) => r.payload)).toEqual([
-        { sourceType: 'ISSUE', sourceId: issue.id },
-        { sourceType: 'ISSUE', sourceId: issue.id },
-        { sourceType: 'ISSUE', sourceId: issue.id },
-        { sourceType: 'COMMENT', sourceId: comment.id },
+        { sourceType: 'ISSUE', sourceId: issue.id, requestId: expect.any(String) },
+        { sourceType: 'ISSUE', sourceId: issue.id, requestId: expect.any(String) },
+        { sourceType: 'ISSUE', sourceId: issue.id, requestId: expect.any(String) },
+        { sourceType: 'COMMENT', sourceId: comment.id, requestId: expect.any(String) },
       ]);
 
       // Other test files run their own relays over the same outbox table in parallel and may
@@ -679,7 +680,7 @@ describe('search, related issues, assistant chat and indexing (fake AI service, 
 
       const outbox = await t.prisma.outboxEvent.findMany({ where: { aggregateId: created.id } });
       expect(outbox.map((r) => r.payload)).toEqual([
-        { sourceType: 'UPLOAD', sourceId: created.id },
+        { sourceType: 'UPLOAD', sourceId: created.id, requestId: expect.any(String) },
       ]);
       await expect(
         indexing.indexSource({ sourceType: 'UPLOAD', sourceId: created.id }),
@@ -719,10 +720,10 @@ describe('search, related issues, assistant chat and indexing (fake AI service, 
     const w = await world();
     const admin = await signIn(t, { isAdmin: true });
     await t.http.post('/api/v1/admin/search/reindex').set(w.pm.auth).expect(403);
-    await t.http.post('/api/v1/admin/search/reindex').set(admin.auth).expect(202);
+    const res = await t.http.post('/api/v1/admin/search/reindex').set(admin.auth).expect(202);
     const jobs = await indexingQueue.getJobs(['waiting']);
     expect(jobs.map((job) => [job.name, job.data as unknown])).toEqual([
-      [INDEXING_JOBS.BACKFILL, { all: true }],
+      [INDEXING_JOBS.BACKFILL, { all: true, requestId: res.headers['x-request-id'] }],
     ]);
   });
 });

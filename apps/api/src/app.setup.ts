@@ -10,6 +10,7 @@ import { ProblemDetailsFilter } from './common/http/problem-details.filter';
 import { REQUEST_ID_HEADER } from './common/http/request-id';
 import { type Env } from './config/env';
 import { GITHUB_WEBHOOK_PATH } from './github/github-webhook.controller';
+import { requestObservability } from './observability/http-metrics';
 
 export const API_PREFIX = 'api/v1';
 /**
@@ -31,6 +32,8 @@ export function configureApp(app: NestExpressApplication): INestApplication {
   server.keepAliveTimeout = KEEP_ALIVE_TIMEOUT_MS;
   server.headersTimeout = KEEP_ALIVE_TIMEOUT_MS + 1_000;
 
+  // First: the request ID and the latency timer cover everything after it.
+  app.use(requestObservability);
   app.set('trust proxy', config.get('TRUST_PROXY_HOPS', { infer: true }));
   app.disable('x-powered-by');
   app.use(helmet());

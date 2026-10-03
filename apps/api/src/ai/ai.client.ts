@@ -12,6 +12,9 @@ import {
   SearchResponse,
   SummaryResponse,
 } from './ai.wire';
+import { REQUEST_ID_HEADER } from '../common/http/request-id';
+import { aiUnavailable } from '../observability/metrics';
+import { currentRequestId } from '../observability/request-context';
 
 const PING_TTL_MS = 30_000;
 const PING_TIMEOUT_MS = 2_000;
@@ -163,7 +166,10 @@ export class AiClient {
   }
 
   private async post(path: string, body: unknown, signal: AbortSignal): Promise<Response> {
-    if (!this.configured) throw new AiUnavailableException();
+    if (!this.configured) {
+      aiUnavailable.inc();
+      throw new AiUnavailableException();
+    }
     let res: Response;
     try {
       res = await fetch(`${this.baseUrl ?? ''}${path}`, {
@@ -171,6 +177,8 @@ export class AiClient {
         headers: {
           Authorization: `Bearer ${this.token ?? ''}`,
           'Content-Type': 'application/json',
+          // The AI service logs under the same ID as the request or job that called it.
+          ...requestIdHeader(),
         },
         body: JSON.stringify(body),
         signal,
@@ -181,6 +189,7 @@ export class AiClient {
       }
       this.logger.warn(`AI service unreachable: ${String(error)}`);
       this.lastPing = { at: Date.now(), ok: false };
+      aiUnavailable.inc();
       throw new AiUnavailableException();
     }
     if (res.ok) return res;
@@ -194,4 +203,9 @@ export class AiClient {
     // 502 when the output was unusable or the provider refused (retrying will not help).
     throw new AiFailedError(message, res.status === 503 || res.status === 504);
   }
+}
+
+function requestIdHeader(): Record<string, string> {
+  const requestId = currentRequestId();
+  return requestId ? { [REQUEST_ID_HEADER]: requestId } : {};
 }

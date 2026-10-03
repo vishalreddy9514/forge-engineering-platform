@@ -6,8 +6,10 @@ import { QUEUES } from '../infrastructure/queue/queue.module';
 import { EMAIL_JOBS, type IssueAssignedEmailJob, type PasswordResetEmailJob } from './email.jobs';
 import { MailerService } from './mailer.service';
 import { renderIssueAssigned, renderPasswordReset } from './templates';
+import { Instrumented } from '../observability/instrumented';
 
 /** Runs in the worker process. Failures throw, so BullMQ retries with backoff. */
+@Instrumented(QUEUES.EMAIL)
 @Processor(QUEUES.EMAIL, { concurrency: 5 })
 export class EmailProcessor extends WorkerHost {
   private readonly logger = new Logger(EmailProcessor.name);

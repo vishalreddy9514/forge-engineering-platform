@@ -9,6 +9,8 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 
+import { reportError } from '../../observability/errors';
+import { routeLabel } from '../../observability/metrics';
 import { TooManyRequestsException } from '../errors/too-many-requests.exception';
 import { STATUS_CODES } from 'node:http';
 
@@ -31,6 +33,10 @@ export class ProblemDetailsFilter implements ExceptionFilter {
         { err: exception, requestId: problem.requestId },
         'Unhandled error while processing request',
       );
+    }
+    // Bugs, not the errors the API means to return (validation, 404, degraded AI is a 503).
+    if (!(exception instanceof HttpException)) {
+      reportError(exception, { route: routeLabel(req) });
     }
 
     if (exception instanceof TooManyRequestsException) {

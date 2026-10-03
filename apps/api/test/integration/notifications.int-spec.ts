@@ -111,7 +111,12 @@ describe('outbox relay and notifications (real Postgres + Redis)', () => {
       expect(await outboxFor(issue.id)).toEqual([
         expect.objectContaining({
           eventType: 'issue.assigned',
-          payload: { issueId: issue.id, assigneeId: w.dev.id, actorId: w.pm.id },
+          payload: {
+            issueId: issue.id,
+            assigneeId: w.dev.id,
+            actorId: w.pm.id,
+            requestId: expect.any(String),
+          },
           publishedAt: null,
         }),
       ]);
