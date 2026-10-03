@@ -25,7 +25,7 @@ const STATUS_STYLES: Record<IssueStatus, string> = {
   TODO: 'bg-secondary text-secondary-foreground',
   IN_PROGRESS: 'bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-200',
   IN_REVIEW: 'bg-violet-100 text-violet-900 dark:bg-violet-950 dark:text-violet-200',
-  DONE: 'bg-success/15 text-success',
+  DONE: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200',
   CANCELLED: 'bg-muted text-muted-foreground line-through',
 };
 

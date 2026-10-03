@@ -1,9 +1,11 @@
 import { type CanActivate, type ExecutionContext, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import type { Request, Response } from 'express';
 
 import type { AuthenticatedRequest } from '../auth/auth.types';
 import { TooManyRequestsException } from '../common/errors/too-many-requests.exception';
+import type { Env } from '../config/env';
 import {
   DEFAULT_RATE_LIMIT,
   RATE_LIMIT_KEY,
@@ -18,12 +20,18 @@ import { RateLimiterService } from './rate-limiter.service';
  */
 @Injectable()
 export class RateLimitGuard implements CanActivate {
+  private readonly enabled: boolean;
+
   constructor(
     private readonly reflector: Reflector,
     private readonly limiter: RateLimiterService,
-  ) {}
+    config: ConfigService<Env, true>,
+  ) {
+    this.enabled = config.get('RATE_LIMITS_ENABLED', { infer: true });
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    if (!this.enabled) return true;
     const targets = [context.getHandler(), context.getClass()];
     if (this.reflector.getAllAndOverride<boolean>(SKIP_RATE_LIMIT_KEY, targets)) return true;
 

@@ -8,14 +8,15 @@ history with cited sources.
 AI is a feature of the product, not the product. Every core workflow works with the AI service
 switched off.
 
-> **Status: Phase 12 of 20 (dashboard).** Each project's Overview tab is now its dashboard:
-> open issues by status and priority, the active sprint's progress and burndown, workload per
-> person, pull requests opened and merged per week, median and p90 time to resolve, and AI
-> requests, tokens and estimated cost per feature, over the last 4 to 26 weeks. Before that: AI
-> code review (Phase 11), RAG search and cited chat (Phase 10), the AI assistant (Phase 9), the
-> GitHub App integration (Phase 8), sprints (Phase 7), issues and notifications (Phase 6),
-> projects (Phase 5), authentication and RBAC (Phase 4), the schema (Phase 3) and the monorepo
-> (Phase 2).
+> **Status: Phase 13 of 20 (test hardening).** Playwright drives the built stack through the
+> critical journeys (sign-in, issues and the board, sprints, notifications, roles, AI drafting and
+> the cited assistant), checking every page with axe against WCAG 2.1 AA, in CI on every push.
+> Domain-service coverage is gated at 90 % of lines (95 % measured). The journeys found and fixed a
+> sign-out on reload, a hydration failure on every public page, and three accessibility defects.
+> Before that: the dashboard (Phase 12), AI code review (Phase 11), RAG search and cited chat
+> (Phase 10), the AI assistant (Phase 9), the GitHub App integration (Phase 8), sprints (Phase 7),
+> issues and notifications (Phase 6), projects (Phase 5), authentication and RBAC (Phase 4), the
+> schema (Phase 3) and the monorepo (Phase 2).
 
 ## Stack
 
@@ -41,7 +42,8 @@ packages/
   config/       Shared TypeScript, ESLint and Prettier presets
 infrastructure/
   docker/       Postgres init scripts (extensions, test database, AI service login)
-docs/           Requirements, architecture, ADRs
+e2e/            Playwright journeys and axe accessibility checks against the built stack
+docs/           Requirements, architecture, ADRs, testing
 ```
 
 ## Local development
@@ -90,6 +92,8 @@ including the Python service, in dependency order and caches the results.
 | `pnpm format`                                | Prettier over the repository (Ruff formats Python)                   |
 | `pnpm --filter @forge/api test:e2e`          | Only the API's HTTP-level tests                                      |
 | `pnpm --filter @forge/api test:integration`  | Database tests against a throwaway Postgres (needs Docker)           |
+| `pnpm --filter @forge/api test:coverage`     | Unit and integration tests with the domain-service coverage gate     |
+| `pnpm e2e`                                   | Browser journeys and accessibility checks (see docs/testing.md)      |
 | `pnpm --filter @forge/api db:migrate`        | Create and apply a migration after editing `schema.prisma`           |
 | `pnpm --filter @forge/api db:studio`         | Browse the database in Prisma Studio                                 |
 | `pnpm infra:down`                            | Stop the containers (add `-v` to `docker compose down` to wipe data) |
@@ -103,6 +107,7 @@ including the Python service, in dependency order and caches the results.
   observability, API conventions
 - [API reference](docs/api.md): conventions, errors, and the auth, user and admin endpoints
 - [Security](docs/security.md): implemented controls, how each is tested, and deliberate trade-offs
+- [Testing](docs/testing.md): the test layers, the coverage gate, and the end-to-end journeys
 - [GitHub App setup](docs/github-app-setup.md): registering the App, configuration, local webhooks
 - [Database design](docs/database.md): ER diagrams, integrity rules, indexes, search, and
   why each constraint exists

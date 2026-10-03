@@ -70,9 +70,10 @@ describe('api client', () => {
     expect(refreshCalls).toBe(1);
   });
 
-  it('retries the refresh once when another tab won the race (409)', async () => {
-    fetchMock.mockReturnValueOnce(json(409, {})).mockReturnValueOnce(json(200, session('t2')));
-    await expect(refreshSession()).resolves.toMatchObject({ accessToken: 't2' });
+  it('treats a failed refresh as signed out, without retrying it', async () => {
+    fetchMock.mockReturnValueOnce(json(401, {}));
+    await expect(refreshSession()).resolves.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('reports an expired session when refresh fails, and surfaces the 401', async () => {

@@ -16,7 +16,10 @@ import {
 import Link from 'next/link';
 
 const PR_STYLES: Record<PullRequestState | 'DRAFT', { icon: LucideIcon; className: string }> = {
-  OPEN: { icon: GitPullRequest, className: 'bg-success/15 text-success' },
+  OPEN: {
+    icon: GitPullRequest,
+    className: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200',
+  },
   DRAFT: { icon: GitPullRequestDraft, className: 'bg-muted text-muted-foreground' },
   MERGED: {
     icon: GitMerge,

@@ -9,8 +9,11 @@ import { PrismaService } from '../infrastructure/database/prisma.service';
 import { generateOpaqueToken, hashToken } from './token-hash';
 
 /**
- * A token presented again within this window after being rotated is treated as a benign race
- * (two tabs refreshing at once, sharing one cookie jar), not as theft.
+ * A rotated token presented again within this window is exchanged once more for a new token in
+ * the same family, instead of being treated as theft (the "reuse interval" of Auth0 and Okta).
+ * The browser may never have received the first successor: a reload or navigation that cancels
+ * the refresh response after the server rotated leaves the old cookie in place, and two tabs can
+ * refresh at the same moment. Outside the window, reuse revokes the whole family (ADR-0016).
  */
 export const REUSE_GRACE_MS = 10_000;
 
@@ -23,14 +26,13 @@ export interface IssuedRefreshToken {
 export type RotationResult =
   | { kind: 'rotated'; userId: string; issued: IssuedRefreshToken }
   | { kind: 'invalid' }
-  | { kind: 'race' }
   | { kind: 'reuse'; userId: string; familyId: string };
 
 /**
- * Opaque refresh tokens with rotation and reuse detection (ADR-0003). Every refresh consumes
- * the presented token and issues a successor in the same family. Presenting a consumed token
- * later means it was copied, so the whole family is revoked and the thief and the victim are
- * both logged out.
+ * Opaque refresh tokens with rotation and reuse detection (ADR-0003, ADR-0016). Every refresh
+ * consumes the presented token and issues a successor in the same family. Presenting a consumed
+ * token after the reuse interval means it was copied, so the whole family is revoked and the
+ * thief and the victim are both logged out.
  */
 @Injectable()
 export class RefreshTokenService {
@@ -72,22 +74,19 @@ export class RefreshTokenService {
     if (!existing || existing.revokedAt || existing.expiresAt <= now || !existing.user.isActive) {
       return { kind: 'invalid' };
     }
-    if (existing.usedAt) {
-      if (now.getTime() - existing.usedAt.getTime() < REUSE_GRACE_MS) return { kind: 'race' };
+    if (existing.usedAt && now.getTime() - existing.usedAt.getTime() >= REUSE_GRACE_MS) {
       await this.revokeFamily(existing.familyId);
       return { kind: 'reuse', userId: existing.userId, familyId: existing.familyId };
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // Claim atomically: of two concurrent refreshes with the same token exactly one gets
-      // count = 1; the other sees count = 0 and is told to retry (the browser will by then
-      // hold the winner's new cookie).
-      const claimed = await tx.refreshToken.updateMany({
+      // Mark it used (the first use only: usedAt keeps the time the grace window starts from).
+      // A token already used a moment ago, or claimed by a concurrent request, still gets a
+      // successor: whoever presents it may never have received the first one.
+      await tx.refreshToken.updateMany({
         where: { id: existing.id, usedAt: null, revokedAt: null },
         data: { usedAt: now },
       });
-      if (claimed.count === 0) return { kind: 'race' } as const;
-
       const issued = await this.issue(existing.userId, meta, { familyId: existing.familyId, tx });
       return { kind: 'rotated', userId: existing.userId, issued } as const;
     });

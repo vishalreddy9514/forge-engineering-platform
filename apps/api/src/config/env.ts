@@ -28,6 +28,12 @@ export const EnvSchema = z
     SWAGGER_ENABLED: booleanString.optional(),
     /** Number of reverse proxies in front of the API (Nginx/ALB), so req.ip is the client IP. */
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
+    /**
+     * Per-route request limits (rate-limit.guard.ts). Only the browser end-to-end suite turns
+     * them off: every page load refreshes the session from one address, which a real user never
+     * does at that rate. Refused in production.
+     */
+    RATE_LIMITS_ENABLED: booleanString.default(true),
 
     // ---- Authentication (ADR-0003, ADR-0010) ----
     /** Origin of the web app: used in emailed links and to reject cross-site cookie requests. */
@@ -125,6 +131,13 @@ export const EnvSchema = z
         path: ['GITHUB_APP_ID'],
         message:
           'Set GITHUB_APP_ID, GITHUB_APP_SLUG, GITHUB_APP_PRIVATE_KEY and GITHUB_WEBHOOK_SECRET together, or none of them',
+      });
+    }
+    if (env.NODE_ENV === 'production' && !env.RATE_LIMITS_ENABLED) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['RATE_LIMITS_ENABLED'],
+        message: 'Rate limits cannot be turned off in production',
       });
     }
     if (env.NODE_ENV === 'production' && (!env.JWT_PRIVATE_KEY || !env.JWT_PUBLIC_KEY)) {

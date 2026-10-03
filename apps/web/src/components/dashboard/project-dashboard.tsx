@@ -185,7 +185,9 @@ function DashboardBody({ dashboard, projectKey }: { dashboard: Dashboard; projec
       <div className="grid gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Active sprint</CardTitle>
+            <CardTitle>
+              <h3>Active sprint</h3>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {activeSprint ? (
@@ -211,7 +213,9 @@ function DashboardBody({ dashboard, projectKey }: { dashboard: Dashboard; projec
       <div className="grid gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Pull requests</CardTitle>
+            <CardTitle>
+              <h3>Pull requests</h3>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {pullRequests.repositories === 0 ? (
@@ -245,7 +249,9 @@ function DashboardBody({ dashboard, projectKey }: { dashboard: Dashboard; projec
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>AI usage</CardTitle>
+            <CardTitle>
+              <h3>AI usage</h3>
+            </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4">
             <WeeklyColumns

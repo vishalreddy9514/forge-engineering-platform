@@ -328,13 +328,16 @@ sequenceDiagram
     alt token valid and not yet used
         A->>DB: mark used, INSERT new token (same family)
         A-->>B: 200 {new accessToken} + Set-Cookie: new rt
-    else token already used (reuse = likely theft)
+    else token used less than 10 s ago (lost response, or another tab)
+        A->>DB: INSERT new token (same family)
+        A-->>B: 200 {new accessToken} + Set-Cookie: new rt
+    else token used earlier (reuse = likely theft)
         A->>DB: revoke entire family
         A-->>B: 401, forces re-login on all devices using that family
     end
 ```
 
-Decisions ([ADR-0003](adr/0003-auth-tokens.md), [ADR-0010](adr/0010-es256-access-tokens-and-revocation.md)): argon2id password hashing; access JWT signed
+Decisions ([ADR-0003](adr/0003-auth-tokens.md), [ADR-0010](adr/0010-es256-access-tokens-and-revocation.md), [ADR-0016](adr/0016-refresh-token-reuse-interval.md)): argon2id password hashing; access JWT signed
 with an asymmetric key pair (ES256) so the key can be rotated through `kid`; refresh tokens are
 opaque random 256-bit values stored **hashed** (SHA-256); CSRF risk on the refresh endpoint is
 mitigated by `SameSite=Strict`, the narrow cookie `Path` and an `Origin` header check.

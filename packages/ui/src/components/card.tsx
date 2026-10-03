@@ -19,9 +19,17 @@ export function CardHeader({ className, ...props }: React.ComponentProps<'div'>)
   return <div data-slot="card-header" className={cn('grid gap-1.5 px-6', className)} {...props} />;
 }
 
-export function CardTitle({ className, ...props }: React.ComponentProps<'h3'>) {
+/**
+ * Styling only: put the heading element inside, at the level the page needs (`<h2>`, `<h3>`…).
+ * A heading here would nest headings, which HTML does not allow and React cannot hydrate.
+ */
+export function CardTitle({ className, ...props }: React.ComponentProps<'div'>) {
   return (
-    <h3 data-slot="card-title" className={cn('leading-none font-semibold', className)} {...props} />
+    <div
+      data-slot="card-title"
+      className={cn('leading-none font-semibold', className)}
+      {...props}
+    />
   );
 }
 

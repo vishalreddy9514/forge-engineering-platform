@@ -21,3 +21,4 @@ An ADR is never edited after it is accepted. A new ADR supersedes it.
 | 0013 | [A deterministic model provider and contract files](0013-ai-provider-fake-and-contract-files.md)                                | Accepted |
 | 0014 | [The API owns indexed documents, and runs the assistant's tool itself](0014-rag-indexing-ownership-and-chat-tool-round-trip.md) | Accepted |
 | 0015 | [AI reviews stay in Forge; the GitHub App stays read-only](0015-ai-review-stays-read-only-on-github.md)                         | Accepted |
+| 0016 | [A short reuse interval for rotated refresh tokens](0016-refresh-token-reuse-interval.md)                                       | Accepted |
