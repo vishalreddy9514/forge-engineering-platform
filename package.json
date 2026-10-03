@@ -28,7 +28,7 @@
   "devDependencies": {
     "@forge/config": "workspace:*",
     "prettier": "3.9.9",
-    "turbo": "2.11.4",
+    "turbo": "2.11.5",
     "typescript": "5.9.3"
   },
   "prettier": "@forge/config/prettier"
