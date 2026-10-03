@@ -96,7 +96,7 @@ Key points:
 
 - **One origin.** The browser only talks to the proxy, so `web` and `api` share an origin.
   During development (apps running on the host with hot reload), a Next.js rewrite of
-  `/api/*` plays the proxy's role; Nginx takes over in the fully containerised stack (Phase 14). The
+  `/api/*` plays the proxy's role; Nginx takes over in the containerised stack ([docker.md](docker.md)). The
   refresh cookie can be `SameSite=Strict` and CORS is only needed for local tooling.
 - **`ai-service` is never exposed publicly.** It accepts calls from `api` and `worker` only,
   authenticated with a shared service token (an internal network plus a bearer secret, as

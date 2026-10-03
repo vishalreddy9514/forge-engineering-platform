@@ -33,7 +33,12 @@ const env: Record<string, string> = {
   NEXT_TELEMETRY_DISABLED: '1',
 };
 
-const BASE_URL = 'http://localhost:3000';
+/**
+ * Set to test an already running stack (e.g. the containers behind Nginx:
+ * `E2E_BASE_URL=http://localhost:8080 pnpm e2e`); otherwise Playwright starts the services.
+ */
+const EXTERNAL = process.env.E2E_BASE_URL;
+const BASE_URL = EXTERNAL ?? 'http://localhost:3000';
 const reuse = !process.env.CI;
 
 export default defineConfig({
@@ -54,41 +59,43 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer: [
-    {
-      name: 'ai-service',
-      command: 'uv run uvicorn app.main:create_app --factory --port 8000',
-      cwd: `${root}apps/ai-service`,
-      url: 'http://127.0.0.1:8000/health/live',
-      env,
-      reuseExistingServer: reuse,
-      timeout: 120_000,
-    },
-    {
-      name: 'api',
-      command: 'node dist/main.js',
-      cwd: `${root}apps/api`,
-      url: 'http://127.0.0.1:4000/api/v1/health/ready',
-      env,
-      reuseExistingServer: reuse,
-      timeout: 120_000,
-    },
-    {
-      name: 'worker',
-      command: 'node scripts/worker.mjs',
-      url: 'http://127.0.0.1:4099',
-      env,
-      reuseExistingServer: reuse,
-      timeout: 60_000,
-    },
-    {
-      name: 'web',
-      command: 'pnpm exec next start --port 3000',
-      cwd: `${root}apps/web`,
-      url: `${BASE_URL}/login`,
-      env: { ...env, NODE_ENV: 'production' },
-      reuseExistingServer: reuse,
-      timeout: 60_000,
-    },
-  ],
+  webServer: EXTERNAL
+    ? undefined
+    : [
+        {
+          name: 'ai-service',
+          command: 'uv run uvicorn app.main:create_app --factory --port 8000',
+          cwd: `${root}apps/ai-service`,
+          url: 'http://127.0.0.1:8000/health/live',
+          env,
+          reuseExistingServer: reuse,
+          timeout: 120_000,
+        },
+        {
+          name: 'api',
+          command: 'node dist/main.js',
+          cwd: `${root}apps/api`,
+          url: 'http://127.0.0.1:4000/api/v1/health/ready',
+          env,
+          reuseExistingServer: reuse,
+          timeout: 120_000,
+        },
+        {
+          name: 'worker',
+          command: 'node scripts/worker.mjs',
+          url: 'http://127.0.0.1:4099',
+          env,
+          reuseExistingServer: reuse,
+          timeout: 60_000,
+        },
+        {
+          name: 'web',
+          command: 'pnpm exec next start --port 3000',
+          cwd: `${root}apps/web`,
+          url: `${BASE_URL}/login`,
+          env: { ...env, NODE_ENV: 'production' },
+          reuseExistingServer: reuse,
+          timeout: 60_000,
+        },
+      ],
 });

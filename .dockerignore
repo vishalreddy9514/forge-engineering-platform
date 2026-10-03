@@ -1,0 +1,23 @@
+# Build context for every image is the repository root; send only what builds need.
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/.turbo
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/*.tsbuildinfo
+# Generated in the image by `prisma generate`; a host copy would hide what the image produces.
+apps/api/src/generated
+e2e/test-results
+e2e/playwright-report
+.git
+.github
+.env
+.env.*
+!.env.example
+docs
+infrastructure/terraform
