@@ -1,8 +1,8 @@
 # Security
 
 > What is implemented today, and the trade-offs that were chosen deliberately. The threat model
-> and OWASP mappings are in [architecture §6](architecture.md#6-security-architecture);
-> hardening continues in Phase 18.
+> and OWASP mappings are in [architecture §6](architecture.md#6-security-architecture); the
+> OWASP ASVS Level 1 self-assessment is in [asvs](asvs.md).
 
 ## Authentication
 
@@ -87,6 +87,34 @@ Uploaded documents are text only (Markdown or plain text, at most 1 MB, sent as 
 with the same sanitising Markdown renderer as comments). Only those two routes accept bodies above
 the default 100 kB limit.
 
+## Browser hardening
+
+| Control                 | Implementation                                                                                                                                                                                           | Verified by                                                                                          |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Content Security Policy | A fresh 128-bit nonce per page (`script-src 'nonce-…' 'strict-dynamic'`, no inline or eval script), `object-src 'none'`, `base-uri 'none'`, `frame-ancestors 'none'`; uploads only to the storage origin | `proxy.test.ts`; `security.spec.ts` (every page loads with no violation, injected markup cannot run) |
+| Other headers           | `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Cross-Origin-Opener-Policy`, `Permissions-Policy`; HSTS for a year, set by the ALB where TLS ends                                 | `security.spec.ts`, `terraform test`, ZAP                                                            |
+| Nothing secret in URLs  | The sign-in, register and reset forms POST, so a submit before the page hydrates sends no password in the address (ZAP found it)                                                                         | `auth-forms.test.tsx`, ZAP 10024                                                                     |
+| No cached personal data | `Cache-Control: no-store` on every API response; the client cache is cleared on sign-out and session expiry                                                                                              | `app.e2e-spec.ts`, `auth-provider.test.tsx`                                                          |
+| Markdown cannot attack  | No raw HTML is rendered and `javascript:` links are dropped; the CSP stops script even if that ever failed                                                                                               | `security.spec.ts` (an attacking description)                                                        |
+
+Making the app run under a strict CSP needed one change: Zod compiles fast parsers with
+`new Function` when it can, and probes for that when a schema is built, which reported a
+violation on every page. The browser now runs Zod without compilation
+(`instrumentation-client.ts`).
+
+## Database privileges
+
+| Login               | Used by          | Can                                                                                                                                                       | Verified by                                |
+| ------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| schema owner        | migrate job only | Everything: runs migrations and creates the logins below                                                                                                  | `terraform test`                           |
+| `forge_app_service` | API, worker      | Read and write rows in the application tables. No DDL, no `TRUNCATE`, no migration history, and the audit log is insert-only for it as well as by trigger | `db-logins.int-spec.ts` (mutation-checked) |
+| `forge_ai_service`  | AI service       | The RAG tables only                                                                                                                                       | `db-logins.int-spec.ts`                    |
+
+The roles and grants live in migrations (with default privileges, so later tables are covered);
+the logins and their passwords are created by `prisma/db-logins.ts`, which the migrate job runs
+after migrating. A SQL injection or a compromised API task can therefore not drop a table,
+disable the audit log's triggers or rewrite migration history.
+
 ## Data protection in logs
 
 - The request logger records an allow-list (`id`, `method`, `url`, `userAgent`), never raw
@@ -128,6 +156,8 @@ in each issue's own history instead.) Each entry has the actor, IP, user agent a
 | Image provenance      | Images published from `main` only, with an SBOM, BuildKit provenance and a Sigstore-signed build attestation; deploy by `sha-<commit>` digest | `gh attestation verify` ([cicd.md](cicd.md)) |
 | Container hardening   | Non-root users in every container; no npm, corepack or yarn in runtime images; no build tooling or package caches in runtime images           | `docker compose exec … id`; Trivy            |
 | Dependency updates    | Dependabot for npm, uv, GitHub Actions, compose images and Dockerfile base images, weekly                                                     | `.github/dependabot.yml`                     |
+| Secrets in git        | gitleaks over the full history on every PR; reviewed false positives are allow-listed narrowly in `.gitleaks.toml`                            | CI `secrets` job (a committed key fails it)  |
+| Running application   | OWASP ZAP baseline against the production images on every PR; any new warning fails, ignores carry a reason in `.zap/rules.tsv`               | CI end-to-end job                            |
 
 ## AWS deployment
 
@@ -145,10 +175,12 @@ Details in [deployment](deployment.md).
 | Supply chain          | Deploys verify each image's signed provenance from `images.yml`, copy it by digest, and refuse any image not pinned by digest                                                 | `promote-images.sh`; `terraform test`              |
 | Containers            | Read-only root filesystems (only `/tmp` writable), non-root users, an init process, no ECS Exec                                                                               | Local rehearsal with `--read-only`                 |
 | Misconfiguration      | Trivy scans `infrastructure/terraform` on every PR; High and Critical findings fail CI                                                                                        | CI `terraform` job                                 |
+| Audit logs            | ALB access logs, attachment-bucket access logs and VPC flow logs (rejected traffic in dev, all in prod) in a private, TLS-only log bucket, kept 90 days                       | `terraform test` (mutation-checked)                |
 
 Accepted Medium and Low findings: deletion protection is off in dev (so it can be torn down; it
-is on in prod), there are no VPC flow logs or S3 access logs yet (Phase 18), and CloudWatch log
-groups use AWS-managed rather than customer-managed keys.
+is on in prod), the log bucket is not versioned (its objects expire), the Terraform state bucket
+has no access log of its own, and CloudWatch log groups use AWS-managed rather than
+customer-managed keys.
 
 ## Deliberate trade-offs
 
@@ -160,6 +192,8 @@ groups use AWS-managed rather than customer-managed keys.
 | The session-hint cookie (`forge_session`) is readable by JavaScript     | It holds no credential (the value is `1`); it only lets the web proxy redirect before rendering                                                                                                      |
 | Every GitHub installation belongs to the deployment                     | v1 is single-organisation: any installation of this App is the organisation's, and project managers may link any of its repositories                                                                 |
 | The migrate image may ship two High findings that Prisma pins           | `mysql2` and `deepmerge-ts` are exact dependencies of the Prisma CLI; overriding them runs Prisma on untested versions. The image is a one-shot job with no listener; Criticals still fail the build |
-| The API and worker connect to RDS as the schema owner                   | Migrations need the owner and run in a separate task; a separate least-privilege runtime role is planned for security hardening (Phase 18). The AI service already has its own restricted login      |
+| No multi-factor authentication yet                                      | The one ASVS Level 1 gap (4.3.1). Admin routes re-check `isAdmin` in the database and are audited; TOTP for admins is the next step                                                                  |
+| Inline style attributes are allowed by the CSP (`style-src-attr`)       | React renders a few computed styles (label colours, chart positions). Style attributes cannot run script; `<style>` elements still need the nonce                                                    |
+| `pnpm dev` connects as the schema owner                                 | Local development migrates and runs with one login for speed; the containerised stack and AWS use `forge_app_service`, and the integration tests check its limits                                    |
 | The deploy role has broad rights over the services one environment uses | Terraform manages them end to end. Its IAM rights, the part that could escalate, are confined by the permissions boundary, and only the protected `dev` GitHub environment can assume it             |
 | One fck-nat instance in dev                                             | A failure stops outbound calls (GitHub, OpenAI, image pulls for new tasks) but not the tasks already serving. prod uses a managed NAT Gateway                                                        |

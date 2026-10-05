@@ -1,0 +1,4 @@
+10019	IGNORE	Content-Type missing: only on the empty-bodied 307 redirect from / to /login
+10109	IGNORE	Modern Web Application: informational (suggests the AJAX spider); the Playwright journeys cover the client app
+10111	IGNORE	Authentication Request Identified: informational; it found the sign-in form
+10202	IGNORE	Anti-CSRF tokens: forms are sent by script to the API, which uses bearer tokens; its two cookie endpoints use SameSite=Strict and an Origin allow-list (docs/security.md). A native POST only re-renders the page

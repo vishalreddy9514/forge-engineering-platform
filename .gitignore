@@ -53,3 +53,6 @@ e2e/playwright-report/
 
 # Local secrets for the containerised stack (stack-env.mjs)
 infrastructure/docker/.stack.env
+
+# Local ZAP baseline output (CI uploads it as an artifact)
+zap/

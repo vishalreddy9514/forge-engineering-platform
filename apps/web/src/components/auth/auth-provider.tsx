@@ -6,6 +6,7 @@ import {
   SESSION_HINT_COOKIE,
   type UserProfile,
 } from '@forge/types';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import {
   createContext,
@@ -40,6 +41,7 @@ function hasSessionHint(): boolean {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [state, setState] = useState<AuthState>({ status: 'loading', user: null });
 
   // On load, turn the refresh cookie (if any) into an in-memory access token.
@@ -61,13 +63,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setSessionExpiredHandler(() => {
+      queryClient.clear();
       setState({ status: 'anonymous', user: null });
       router.replace('/login?expired=1');
     });
     return () => {
       setSessionExpiredHandler(undefined);
     };
-  }, [router]);
+  }, [router, queryClient]);
 
   const login = useCallback(async (body: LoginRequest) => {
     const session = await authApi.login(body);
@@ -81,9 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await authApi.logout().catch(() => undefined);
+    // Drop everything fetched for this person, so whoever signs in next in this tab never sees
+    // it, not even for the moment before their own data arrives (ASVS 8.2.3).
+    queryClient.clear();
     setState({ status: 'anonymous', user: null });
     router.replace('/login');
-  }, [router]);
+  }, [router, queryClient]);
 
   const value = useMemo(
     () => ({ state, login, register, logout }),

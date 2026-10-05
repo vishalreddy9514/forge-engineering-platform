@@ -23,6 +23,11 @@ ephemeral "random_password" "ai_db" {
   special = false
 }
 
+ephemeral "random_password" "app_db" {
+  length  = 40
+  special = false
+}
+
 resource "aws_security_group" "db" {
   name        = "${var.name}-db"
   description = "PostgreSQL: reachable from the application tasks only"
@@ -175,15 +180,31 @@ resource "aws_elasticache_replication_group" "this" {
 
 resource "aws_ssm_parameter" "database_url" {
   name             = "/${var.name}/database-url"
-  description      = "API, worker and migrate: the owner role, TLS verified"
+  description      = "Migrate task only: the schema owner, TLS verified"
   type             = "SecureString"
   value_wo         = "postgresql://forge:${ephemeral.random_password.db.result}@${aws_db_instance.this.address}:5432/forge?${local.app_tls}"
   value_wo_version = var.secret_versions.database
 }
 
+resource "aws_ssm_parameter" "app_db_password" {
+  name             = "/${var.name}/app-db-password"
+  description      = "Password of forge_app_service, set by the migrate task (prisma/db-logins.ts)"
+  type             = "SecureString"
+  value_wo         = ephemeral.random_password.app_db.result
+  value_wo_version = var.secret_versions.database
+}
+
+resource "aws_ssm_parameter" "app_database_url" {
+  name             = "/${var.name}/app-database-url"
+  description      = "API and worker: forge_app_service, rows only (no DDL, insert-only audit log)"
+  type             = "SecureString"
+  value_wo         = "postgresql://forge_app_service:${ephemeral.random_password.app_db.result}@${aws_db_instance.this.address}:5432/forge?${local.app_tls}"
+  value_wo_version = var.secret_versions.database
+}
+
 resource "aws_ssm_parameter" "ai_db_password" {
   name             = "/${var.name}/ai-db-password"
-  description      = "Password of forge_ai_service, set by the migrate task (prisma/ai-login.ts)"
+  description      = "Password of forge_ai_service, set by the migrate task (prisma/db-logins.ts)"
   type             = "SecureString"
   value_wo         = ephemeral.random_password.ai_db.result
   value_wo_version = var.secret_versions.database

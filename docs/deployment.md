@@ -106,7 +106,7 @@ sequenceDiagram
     GH->>ECR: crane copy by digest (immutable sha-<commit> tag)
     GH->>TF: images = { api = ecr/forge-api@sha256:… , … }
     TF->>ECS: register task definitions
-    TF->>ECS: run the migrate task and wait (prisma migrate deploy, AI login)
+    TF->>ECS: run the migrate task and wait (prisma migrate deploy, service logins)
     Note over TF,ECS: a failed migration fails the apply; no service changes
     TF->>ECS: update services (rolling, circuit breaker with rollback)
     TF-->>GH: wait for steady state
@@ -126,8 +126,10 @@ sequenceDiagram
 
 | SSM parameter (`/forge-dev/…`)                    | Created by                     | Read by                     |
 | ------------------------------------------------- | ------------------------------ | --------------------------- |
-| `database-url`                                    | Terraform (generated password) | api, worker, migrate        |
-| `ai-database-url`                                 | Terraform (generated password) | ai-service                  |
+| `database-url` (schema owner)                     | Terraform (generated password) | migrate                     |
+| `app-database-url` (`forge_app_service`)          | Terraform (generated password) | api, worker                 |
+| `app-db-password`                                 | Terraform (generated password) | migrate (creates the login) |
+| `ai-database-url` (`forge_ai_service`)            | Terraform (generated password) | ai-service                  |
 | `ai-db-password`                                  | Terraform (generated password) | migrate (creates the login) |
 | `redis-url`                                       | Terraform (generated token)    | api, worker                 |
 | `jwt-private-key`, `jwt-public-key`               | Terraform (ES256 key pair)     | api, worker                 |
@@ -143,7 +145,7 @@ sequenceDiagram
   start. No secret is a plain environment variable (asserted by the Terraform tests).
 - **Rotation.** Bump a number in `secret_versions` (for example `database = 2`) and deploy: a new
   value is generated, written to the database and SSM together, the migrate task re-runs (which
-  updates the AI login), and every task definition changes so running tasks are replaced.
+  updates the service logins), and every task definition changes so running tasks are replaced.
   Rotating `jwt` signs everybody out.
 
 ## Database TLS
@@ -252,8 +254,8 @@ Without an AWS account (no credentials were available while building this phase)
   created the AI login (and was a no-op the second time); the API was ready with the database
   and Redis; the AI service was ready as `forge_ai_service`; the web app reached the API through
   `http://api:4000`; a registration was written over a verified TLS connection.
-- The AI login script and the SES mail transport have their own tests
-  (`test/integration/ai-login.int-spec.ts`, `src/mail/mailer.service.spec.ts`).
+- The login script and the SES mail transport have their own tests
+  (`test/integration/db-logins.int-spec.ts`, `src/mail/mailer.service.spec.ts`).
 
 Not yet verified: the apply itself against AWS, IAM policy completeness for the deploy role (a
 missing permission would show up as an `AccessDenied` in the first apply), and SES delivery.

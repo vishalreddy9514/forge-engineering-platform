@@ -1,6 +1,7 @@
 import {
   ChangePasswordRequest,
   Email,
+  PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   RegisterRequest,
   UpdateProfileRequest,
@@ -23,6 +24,15 @@ describe('auth schemas', () => {
     expect(RegisterRequest.safeParse({ ...base, password: 'correct horse battery' }).success).toBe(
       true,
     );
+  });
+
+  it('accepts long passphrases in any script, with spaces and emoji (ASVS 2.1.2, 2.1.4)', () => {
+    const base = { email: 'a@b.co', displayName: 'A' };
+    // Counted in characters (code points): the emoji is one character, not two.
+    const longest = Array.from('ключ 鍵 🔑 '.repeat(20)).slice(0, PASSWORD_MAX_LENGTH).join('');
+    expect(Array.from(longest)).toHaveLength(PASSWORD_MAX_LENGTH);
+    expect(RegisterRequest.safeParse({ ...base, password: longest }).success).toBe(true);
+    expect(RegisterRequest.safeParse({ ...base, password: `${longest}x` }).success).toBe(false);
   });
 
   it('rejects a new password equal to the current one', () => {

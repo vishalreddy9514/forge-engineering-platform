@@ -164,3 +164,19 @@ variable "wait_for_steady_state" {
   type        = bool
   default     = true
 }
+
+variable "access_log_retention_days" {
+  description = "Days the load balancer, attachment-bucket and VPC flow logs are kept."
+  type        = number
+  default     = 90
+}
+
+variable "flow_log_traffic" {
+  description = "VPC flow logs: REJECT (what the security groups refused) or ALL."
+  type        = string
+  default     = "REJECT"
+  validation {
+    condition     = contains(["REJECT", "ALL"], var.flow_log_traffic)
+    error_message = "Use REJECT or ALL."
+  }
+}

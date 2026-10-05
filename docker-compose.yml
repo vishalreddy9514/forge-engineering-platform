@@ -94,9 +94,12 @@ services:
       target: migrate
       secrets: [build_ca]
     image: forge-migrate:local
+    # Migrations run as the schema owner. Then db-logins.ts creates (or updates) the
+    # least-privilege login the API and worker use. `pnpm stack:seed` loads the demo data.
+    command: ['sh', '-c', 'prisma migrate deploy && tsx prisma/db-logins.ts']
     environment:
-      DATABASE_URL: &database-url postgresql://${POSTGRES_USER:-forge}:${POSTGRES_PASSWORD:-forge_dev_password}@postgres:5432/${POSTGRES_DB:-forge}
-    # Applies pending migrations, then exits. `pnpm stack:seed` loads the demo data.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-forge}:${POSTGRES_PASSWORD:-forge_dev_password}@postgres:5432/${POSTGRES_DB:-forge}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-forge_app_dev_password_local_only}
     depends_on:
       postgres: { condition: service_healthy }
     restart: 'no'
@@ -123,7 +126,8 @@ services:
       HIBP_ENABLED: ${STACK_HIBP_ENABLED:-true}
       LOG_PRETTY: 'false'
       LOG_LEVEL: ${LOG_LEVEL_STACK:-info}
-      DATABASE_URL: *database-url
+      # Rows only: no DDL, an insert-only audit log (the forge_app role, Phase 18).
+      DATABASE_URL: postgresql://forge_app_service:${APP_DB_PASSWORD:-forge_app_dev_password_local_only}@postgres:5432/${POSTGRES_DB:-forge}
       REDIS_URL: redis://redis:6379
       # Behind Nginx: req.ip is the browser's address, from X-Forwarded-For.
       TRUST_PROXY_HOPS: '1'
@@ -195,6 +199,9 @@ services:
       dockerfile: apps/web/Dockerfile
       secrets: [build_ca]
     image: forge-web:local
+    environment:
+      # The CSP lets browsers upload here only: the pre-signed URLs point at object storage.
+      STORAGE_ORIGIN: http://localhost:${S3_PORT:-8333}
     depends_on:
       api: { condition: service_healthy }
     restart: unless-stopped
