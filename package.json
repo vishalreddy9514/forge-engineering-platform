@@ -17,6 +17,7 @@
     "check": "turbo run lint typecheck test",
     "e2e": "pnpm --filter @forge/e2e e2e",
     "format": "prettier --write .",
+    "docs:check": "node scripts/check-docs-links.mjs",
     "format:check": "prettier --check .",
     "infra:up": "docker compose up -d --wait",
     "infra:down": "docker compose down",
