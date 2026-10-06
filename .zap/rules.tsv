@@ -2,3 +2,5 @@
 10109	IGNORE	Modern Web Application: informational (suggests the AJAX spider); the Playwright journeys cover the client app
 10111	IGNORE	Authentication Request Identified: informational; it found the sign-in form
 10202	IGNORE	Anti-CSRF tokens: forms are sent by script to the API, which uses bearer tokens; its two cookie endpoints use SameSite=Strict and an Origin allow-list (docs/security.md). A native POST only re-renders the page
+10049	IGNORE	Non-Storable Content: deliberate. Pages carry a per-request CSP nonce and API responses are no-store (docs/security.md), so neither may be cached
+90004	IGNORE	Cross-Origin-Embedder-Policy: only needed for cross-origin isolation (SharedArrayBuffer, precise timers), which the app does not use. COOP same-origin is set and the CSP limits embedded content to this origin
