@@ -4,8 +4,10 @@ import type { Job } from 'bullmq';
 import { QUEUES } from '../infrastructure/queue/queue.module';
 import type { OutboxJob } from '../outbox/outbox.events';
 import { NotificationFanout } from './notification-fanout.service';
+import { Instrumented } from '../observability/instrumented';
 
 /** Consumes domain events relayed from the outbox. Throws on failure so BullMQ retries. */
+@Instrumented(QUEUES.NOTIFICATIONS)
 @Processor(QUEUES.NOTIFICATIONS, { concurrency: 10 })
 export class NotificationsProcessor extends WorkerHost {
   constructor(private readonly fanout: NotificationFanout) {

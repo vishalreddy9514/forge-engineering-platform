@@ -125,6 +125,7 @@ locals {
       AI_SERVICE_URL        = "http://ai-service:8000"
       AI_DAILY_TOKEN_BUDGET = tostring(var.ai_daily_token_budget)
       CONFIG_REVISION       = local.config_revision
+      SENTRY_ENVIRONMENT    = var.environment
     },
     local.github ? {
       GITHUB_APP_ID   = tostring(var.github_app.id)
@@ -144,7 +145,10 @@ locals {
       GITHUB_APP_PRIVATE_KEY = aws_ssm_parameter.external["github-app-private-key"].arn
       GITHUB_WEBHOOK_SECRET  = aws_ssm_parameter.external["github-webhook-secret"].arn
     } : {},
+    local.sentry_secret,
   )
+
+  sentry_secret = var.error_reporting ? { SENTRY_DSN = aws_ssm_parameter.external["sentry-dsn"].arn } : {}
 }
 
 module "api" {
@@ -227,10 +231,11 @@ module "ai_service" {
   memory = var.sizes["ai-service"].memory
   port   = 8000
   environment = {
-    NODE_ENV        = "production"
-    AI_LOG_JSON     = "true"
-    AI_PROVIDER     = var.ai_provider
-    CONFIG_REVISION = local.config_revision
+    NODE_ENV           = "production"
+    AI_LOG_JSON        = "true"
+    AI_PROVIDER        = var.ai_provider
+    CONFIG_REVISION    = local.config_revision
+    SENTRY_ENVIRONMENT = var.environment
   }
   secrets = merge(
     {
@@ -238,6 +243,7 @@ module "ai_service" {
       AI_DATABASE_URL  = module.data.parameter_arns.ai_database_url
     },
     var.ai_provider == "openai" ? { OPENAI_API_KEY = aws_ssm_parameter.external["openai-api-key"].arn } : {},
+    local.sentry_secret,
   )
   health_check_command = ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=2).status == 200 else 1)"]
   task_role_arn        = aws_iam_role.task["ai-service"].arn

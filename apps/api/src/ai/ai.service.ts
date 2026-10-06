@@ -12,6 +12,7 @@ import { AiUsageService } from './ai-usage.service';
 import { AiClient } from './ai.client';
 import { AiUnavailableException } from './ai.errors';
 import { loadThread } from './thread';
+import { traced } from '../observability/request-context';
 
 export const AI_JOBS = { ISSUE_SUMMARY: 'issue.summary', PR_REVIEW: 'pr.review' } as const;
 
@@ -76,7 +77,7 @@ export class AiService {
       }));
     if (!pending) {
       const data: SummaryJob = { aiJobId: job.id };
-      await this.queue.add(AI_JOBS.ISSUE_SUMMARY, data, {
+      await this.queue.add(AI_JOBS.ISSUE_SUMMARY, traced(data), {
         jobId: `ai-job-${job.id}`,
         attempts: 3,
         backoff: { type: 'exponential', delay: 10_000 },

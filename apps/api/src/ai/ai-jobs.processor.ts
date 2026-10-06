@@ -13,6 +13,7 @@ import { AiFailedError, AiUnavailableException } from './ai.errors';
 import { AI_JOBS, type SummaryJob } from './ai.service';
 import { PullRequestReviewer } from './pr-reviewer';
 import { loadThread } from './thread';
+import { Instrumented } from '../observability/instrumented';
 
 /** Thrown for a job that cannot succeed (its subject was deleted): fail now, do not retry. */
 class Gone extends Error {}
@@ -23,6 +24,7 @@ class Gone extends Error {}
  * backoff, a GitHub rate limit delays the job until the limit resets (without using a retry),
  * and the requester is notified when the result is ready or has finally failed.
  */
+@Instrumented(QUEUES.AI)
 @Processor(QUEUES.AI, { concurrency: 2 })
 export class AiJobProcessor extends WorkerHost {
   private readonly logger = new Logger(AiJobProcessor.name);

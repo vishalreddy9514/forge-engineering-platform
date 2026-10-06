@@ -42,6 +42,7 @@ resource "aws_ssm_parameter" "external" {
   for_each = toset(concat(
     var.ai_provider == "openai" ? ["openai-api-key"] : [],
     local.github ? ["github-app-private-key", "github-webhook-secret"] : [],
+    var.error_reporting ? ["sentry-dsn"] : [],
   ))
   name        = "/${local.name}/${each.key}"
   description = "Set with: aws ssm put-parameter --overwrite --type SecureString --name /${local.name}/${each.key}"

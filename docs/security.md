@@ -95,6 +95,18 @@ the default 100 kB limit.
   `token` or `resetUrl` fields as a second line of defence.
 - `/health/ready` reports "Unavailable" rather than driver errors, which name internal hosts.
 - Email jobs, which contain reset links, are removed from Redis as soon as they are delivered.
+- Request IDs taken from `X-Request-ID` are accepted only if short and made of
+  `[A-Za-z0-9._-]`, in the API and in job data, so a client cannot inject lines into logs.
+
+## Metrics and error reports
+
+- Metrics are served on port 9464, which neither Nginx nor the ALB routes and no AWS security
+  group admits; they never leave the private network. Labels hold route templates and queue
+  names, never IDs, users or content (and unknown paths share one `unmatched` series).
+- Error reports (Sentry, opt-in) carry the stack, request ID, service and route or queue. The
+  SDKs collect no user, cookies, bodies, query strings or local variables, and a `beforeSend`
+  scrubber drops authenticating headers and anything left; tested by sending a real error to a
+  fake Sentry endpoint ([observability](observability.md#errors)).
 
 ## Audit log
 

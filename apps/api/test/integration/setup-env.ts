@@ -13,6 +13,7 @@ Object.assign(process.env, {
   DATABASE_URL: process.env.INTEGRATION_DATABASE_URL,
   REDIS_URL: redisUrl.toString(),
   LOG_LEVEL: 'fatal',
+  METRICS_PORT: '0',
   HIBP_ENABLED: 'false',
   WEB_ORIGIN: 'http://localhost:3000',
   CORS_ORIGINS: 'http://localhost:3000',

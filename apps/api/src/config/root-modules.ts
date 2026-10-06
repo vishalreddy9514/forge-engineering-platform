@@ -2,6 +2,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
 
 import { resolveRequestId } from '../common/http/request-id';
+import { currentRequestId } from '../observability/request-context';
 import { type Env, validateEnv } from './env';
 
 /** Configuration and logging shared by both processes (API and worker). */
@@ -21,7 +22,14 @@ export function loggerModule(service: 'api' | 'worker') {
     useFactory: (config: ConfigService<Env, true>) => ({
       pinoHttp: {
         level: config.get('LOG_LEVEL', { infer: true }),
-        genReqId: resolveRequestId,
+        // requestObservability (app.setup.ts) has already settled the ID; reuse it.
+        genReqId: (req, res) => (req as { id?: string }).id ?? resolveRequestId(req, res),
+        // Every line written while serving a request or running a job carries its request ID,
+        // including logs from services that never see the HTTP request (the worker).
+        mixin: () => {
+          const requestId = currentRequestId();
+          return requestId ? { requestId } : {};
+        },
         // Credentials must never reach log storage.
         redact: {
           // Defence in depth behind the serializers below.

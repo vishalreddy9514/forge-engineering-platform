@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import type { JobsOptions, Queue } from 'bullmq';
 
 import { QUEUES } from '../infrastructure/queue/queue.module';
+import { traced } from '../observability/request-context';
 
 export const GITHUB_JOBS = {
   SYNC_INSTALLATION: 'installation.sync',
@@ -40,7 +41,7 @@ export class GithubJobs {
 
   async syncInstallation(installationId: number): Promise<void> {
     const data: SyncInstallationJob = { installationId };
-    await this.queue.add(GITHUB_JOBS.SYNC_INSTALLATION, data, {
+    await this.queue.add(GITHUB_JOBS.SYNC_INSTALLATION, traced(data), {
       ...RETRIES,
       deduplication: { id: `installation-sync-${String(installationId)}` },
     });
@@ -48,7 +49,7 @@ export class GithubJobs {
 
   async syncRepository(repositoryId: string, options: { relink?: boolean } = {}): Promise<void> {
     const data: SyncRepositoryJob = { repositoryId, relink: options.relink ?? false };
-    await this.queue.add(GITHUB_JOBS.SYNC_REPOSITORY, data, {
+    await this.queue.add(GITHUB_JOBS.SYNC_REPOSITORY, traced(data), {
       ...RETRIES,
       deduplication: { id: `repository-sync-${repositoryId}${options.relink ? '-relink' : ''}` },
     });
@@ -57,7 +58,7 @@ export class GithubJobs {
   /** One job per delivery: the delivery ID is the job ID, so a redelivery never queues twice. */
   async processWebhook(deliveryId: string): Promise<void> {
     const data: ProcessWebhookJob = { deliveryId };
-    await this.queue.add(GITHUB_JOBS.PROCESS_WEBHOOK, data, {
+    await this.queue.add(GITHUB_JOBS.PROCESS_WEBHOOK, traced(data), {
       ...RETRIES,
       jobId: `delivery-${deliveryId}`,
     });

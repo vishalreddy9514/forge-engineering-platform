@@ -82,6 +82,12 @@ variable "github_app" {
   default = null
 }
 
+variable "error_reporting" {
+  description = "Report errors to Sentry; reads the DSN from /forge-<env>/sentry-dsn (set by an operator)."
+  type        = bool
+  default     = false
+}
+
 variable "secret_versions" {
   description = "Bump one to generate a new value and roll it out (write-only; never in state)."
   type = object({

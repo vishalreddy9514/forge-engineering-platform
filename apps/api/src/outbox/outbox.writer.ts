@@ -1,5 +1,6 @@
 import type { Prisma } from '../generated/prisma/client';
 import type { DomainEvents, DomainEventType, IndexedSourceType } from './outbox.events';
+import { traced } from '../observability/request-context';
 
 /**
  * Records a domain event in the same transaction as the change it describes: the event exists
@@ -16,7 +17,8 @@ export async function writeOutbox<T extends DomainEventType>(
       aggregateType: aggregate.type,
       aggregateId: aggregate.id,
       eventType: type,
-      payload,
+      // The request that caused the event, so the jobs it triggers log the same ID.
+      payload: traced(payload),
     },
   });
 }

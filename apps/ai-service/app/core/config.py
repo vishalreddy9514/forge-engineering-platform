@@ -24,6 +24,12 @@ class Settings(BaseSettings):
         default="INFO", validation_alias="AI_LOG_LEVEL"
     )
     log_json: bool = Field(default=True, validation_alias="AI_LOG_JSON")
+    # Prometheus metrics on a port of their own, never routed by the proxy; 0 turns it off.
+    metrics_port: int = Field(default=9464, ge=0, le=65535, validation_alias="METRICS_PORT")
+    # Error reporting (app/core/errors.py); unset turns it off.
+    sentry_dsn: SecretStr | None = Field(default=None, validation_alias="SENTRY_DSN")
+    sentry_environment: str | None = Field(default=None, validation_alias="SENTRY_ENVIRONMENT")
+    sentry_release: str | None = Field(default=None, validation_alias="SENTRY_RELEASE")
     # Shared secret the API and worker send as a bearer token. Minimum length keeps
     # accidental placeholder values like "changeme" out of any environment.
     service_token: SecretStr = Field(min_length=32, validation_alias="AI_SERVICE_TOKEN")

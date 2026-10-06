@@ -6,6 +6,7 @@ import { REDIS_CLIENT } from '../infrastructure/redis/redis.module';
 import { createAppJwt } from './app-jwt';
 import { GithubApiError, GithubRateLimitError } from './github.errors';
 import { GithubSettings } from './github.settings';
+import { githubRateLimitRemaining } from '../observability/metrics';
 
 export type Query = Record<string, string | number | undefined>;
 
@@ -185,6 +186,7 @@ export class GithubClient {
     const reset = Number(headers.get('x-ratelimit-reset'));
     if (!headers.has('x-ratelimit-remaining') || !Number.isFinite(remaining) || !reset) return;
     const budget: Budget = { remaining, resetAt: reset * 1000 };
+    githubRateLimitRemaining.set({ installation: String(installationId) }, remaining);
     const ttl = budget.resetAt - Date.now();
     if (ttl > 0) {
       await this.redis.set(budgetKey(installationId), JSON.stringify(budget), 'PX', ttl);

@@ -3,6 +3,7 @@ from openai import AsyncOpenAI
 from app.core.config import Settings
 from app.llm.base import ChatProvider
 from app.llm.fake import FakeChatProvider
+from app.llm.metered import MeteredChatProvider, MeteredEmbedder
 from app.llm.openai_provider import OpenAIChatProvider
 from app.rag.embedder import EmbeddingProvider, FakeEmbedder, OpenAIEmbedder
 
@@ -21,12 +22,18 @@ def _openai_client(settings: Settings) -> AsyncOpenAI:
 
 def build_provider(settings: Settings) -> ChatProvider:
     """Built once per process in create_app, so the HTTP connection pool is reused."""
-    if settings.provider == "fake":
-        return FakeChatProvider()
-    return OpenAIChatProvider(_openai_client(settings), settings.openai_chat_model)
+    provider: ChatProvider = (
+        FakeChatProvider()
+        if settings.provider == "fake"
+        else OpenAIChatProvider(_openai_client(settings), settings.openai_chat_model)
+    )
+    return MeteredChatProvider(provider)
 
 
 def build_embedder(settings: Settings) -> EmbeddingProvider:
-    if settings.provider == "fake":
-        return FakeEmbedder()
-    return OpenAIEmbedder(_openai_client(settings), settings.openai_embedding_model)
+    embedder: EmbeddingProvider = (
+        FakeEmbedder()
+        if settings.provider == "fake"
+        else OpenAIEmbedder(_openai_client(settings), settings.openai_embedding_model)
+    )
+    return MeteredEmbedder(embedder)

@@ -10,6 +10,7 @@ import {
   type IndexSourceJob,
 } from './indexing.jobs';
 import { IndexingService } from './indexing.service';
+import { Instrumented } from '../observability/instrumented';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -19,6 +20,7 @@ const HOUR = 60 * 60 * 1000;
  * provider's rate limit. Failures retry with backoff (the AI service being down is the common
  * case); whatever still fails is picked up by the periodic backfill.
  */
+@Instrumented(QUEUES.INDEXING)
 @Processor(QUEUES.INDEXING, { concurrency: 3 })
 export class IndexingProcessor extends WorkerHost implements OnApplicationBootstrap {
   private readonly logger = new Logger(IndexingProcessor.name);

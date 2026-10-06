@@ -8,6 +8,7 @@ import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/infrastructure/database/prisma.service';
 import { QUEUES } from '../src/infrastructure/queue/queue.module';
 import { REDIS_CLIENT } from '../src/infrastructure/redis/redis.module';
+import { registry } from '../src/observability/metrics';
 
 describe('API (e2e)', () => {
   let app: NestExpressApplication;
@@ -56,6 +57,40 @@ describe('API (e2e)', () => {
       const server = app.getHttpServer();
       expect(server.keepAliveTimeout).toBeGreaterThan(120_000);
       expect(server.headersTimeout).toBeGreaterThan(server.keepAliveTimeout);
+    });
+  });
+
+  describe('request metrics and IDs', () => {
+    const count = async (labels: Record<string, string>) => {
+      const metric = (await registry.getMetricsAsJSON()).find(
+        (m) => m.name === 'forge_http_request_duration_seconds',
+      );
+      return (metric?.values ?? [])
+        .filter((v) => (v as { metricName?: string }).metricName?.endsWith('_count'))
+        .filter((v) => Object.entries(labels).every(([k, want]) => v.labels[k] === want))
+        .reduce((sum, v) => sum + v.value, 0);
+    };
+
+    it('records each request by route template and status, and reuses a safe upstream ID', async () => {
+      registry.resetMetrics();
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/health/live')
+        .set('X-Request-ID', 'alb-trace-1')
+        .expect(200);
+      expect(res.headers['x-request-id']).toBe('alb-trace-1');
+      await request(app.getHttpServer()).get('/api/v1/no-such-route/12345').expect(404);
+
+      expect(await count({ route: '/api/v1/health/live', method: 'GET', status: '200' })).toBe(1);
+      // Unknown paths share one series, so scanners cannot create unbounded label values.
+      expect(await count({ route: 'unmatched', status: '404' })).toBe(1);
+    });
+
+    it('mints an ID when the upstream one is unsafe to log', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/health/live')
+        .set('X-Request-ID', 'spaces and <angle> brackets')
+        .expect(200);
+      expect(res.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
     });
   });
 

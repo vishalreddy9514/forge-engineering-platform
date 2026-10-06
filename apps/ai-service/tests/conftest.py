@@ -24,6 +24,8 @@ def settings() -> Settings:
         service_token=SecretStr(TEST_TOKEN),
         # Explicitly off: a developer's .env must not point unit tests at a real database.
         database_url=None,
+        # Each test app would otherwise start a metrics server on the same port.
+        metrics_port=0,
     )
 
 
@@ -66,6 +68,7 @@ def db_settings(test_database: ScratchDatabase) -> Settings:
         log_json=False,
         service_token=SecretStr(TEST_TOKEN),
         database_url=SecretStr(test_database.service_url),
+        metrics_port=0,
     )
 
 

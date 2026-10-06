@@ -6,8 +6,10 @@ import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { configureApp } from './app.setup';
 import { type Env } from './config/env';
+import { initErrorReporting } from './observability/errors';
 
 async function bootstrap(): Promise<void> {
+  initErrorReporting('api');
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
   app.useLogger(app.get(Logger));
   configureApp(app);

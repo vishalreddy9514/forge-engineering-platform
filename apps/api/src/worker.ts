@@ -1,9 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger } from 'nestjs-pino';
 
+import { initErrorReporting } from './observability/errors';
 import { WorkerModule } from './worker.module';
 
 async function bootstrap(): Promise<void> {
+  initErrorReporting('worker');
   const app = await NestFactory.createApplicationContext(WorkerModule, { bufferLogs: true });
   app.useLogger(app.get(Logger));
   // SIGTERM (ECS task stop, Ctrl+C) lets in-flight jobs finish before the process exits.

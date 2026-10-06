@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common';
 import type { JobsOptions, Queue } from 'bullmq';
 
 import { QUEUES } from '../infrastructure/queue/queue.module';
+import { traced } from '../observability/request-context';
 
 export const INDEXING_JOBS = {
   /** From the outbox: an issue, comment or upload changed (payload: IndexSourceJob). */
@@ -54,7 +55,7 @@ export class IndexingJobs {
       await this.queue.addBulk(
         jobs.slice(start, start + 500).map((data) => ({
           name: INDEXING_JOBS.SOURCE,
-          data,
+          data: traced(data),
           opts: {
             ...OPTIONS,
             deduplication: {
@@ -69,7 +70,7 @@ export class IndexingJobs {
 
   async repository(repositoryId: string, force = false): Promise<void> {
     const data: IndexRepositoryJob = { repositoryId, force };
-    await this.queue.add(INDEXING_JOBS.REPOSITORY, data, {
+    await this.queue.add(INDEXING_JOBS.REPOSITORY, traced(data), {
       ...OPTIONS,
       deduplication: { id: `index:repository:${repositoryId}`, keepLastIfActive: true },
     });
@@ -77,7 +78,7 @@ export class IndexingJobs {
 
   async backfill(all = false): Promise<void> {
     const data: BackfillJob = { all };
-    await this.queue.add(INDEXING_JOBS.BACKFILL, data, {
+    await this.queue.add(INDEXING_JOBS.BACKFILL, traced(data), {
       ...OPTIONS,
       deduplication: { id: `index:backfill:${String(all)}`, keepLastIfActive: true },
     });
