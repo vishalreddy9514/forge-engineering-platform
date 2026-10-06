@@ -19,7 +19,9 @@ import { decodeCursorParts, encodeCursorParts } from '../common/http/cursor';
 import type { RequestMeta } from '../common/http/request-meta';
 import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../infrastructure/database/prisma.service';
+import { OPEN_ISSUES } from '../issues/open-issues';
 import {
+  type ProjectCounts,
   projectDetailInclude,
   projectSummaryInclude,
   toProjectDetail,
@@ -61,18 +63,47 @@ export class ProjectsService {
     });
     const page = rows.slice(0, query.limit);
     const last = page.at(-1);
+    const counts = await this.counts(page.map((project) => project.id));
     return {
-      data: page.map(toProjectSummary),
+      data: page.map((project) => toProjectSummary(project, countsOf(counts, project.id))),
       nextCursor: rows.length > query.limit && last ? encodeCursorParts(last.name, last.id) : null,
     };
   }
 
   async get(projectId: string, user: AuthUser): Promise<ProjectDetail> {
-    const project = await this.prisma.project.findUniqueOrThrow({
-      where: { id: projectId },
-      include: projectDetailInclude(user.id),
-    });
-    return toProjectDetail(project);
+    const [project, counts] = await Promise.all([
+      this.prisma.project.findUniqueOrThrow({
+        where: { id: projectId },
+        include: projectDetailInclude(user.id),
+      }),
+      this.counts([projectId]),
+    ]);
+    return toProjectDetail(project, countsOf(counts, projectId));
+  }
+
+  /** Members and open issues of these projects only (index ranges, not whole-table groups). */
+  private async counts(projectIds: string[]): Promise<Map<string, ProjectCounts>> {
+    if (projectIds.length === 0) return new Map();
+    const [members, open] = await Promise.all([
+      this.prisma.projectMember.groupBy({
+        by: ['projectId'],
+        where: { projectId: { in: projectIds } },
+        _count: { _all: true },
+      }),
+      this.prisma.issue.groupBy({
+        by: ['projectId'],
+        where: { projectId: { in: projectIds }, ...OPEN_ISSUES },
+        _count: { _all: true },
+      }),
+    ]);
+    const counts = new Map<string, ProjectCounts>();
+    for (const row of members)
+      counts.set(row.projectId, { members: row._count._all, openIssues: 0 });
+    for (const row of open) {
+      const entry = counts.get(row.projectId) ?? { members: 0, openIssues: 0 };
+      counts.set(row.projectId, { ...entry, openIssues: row._count._all });
+    }
+    return counts;
   }
 
   /** The creator becomes the first project manager, in the same transaction. */
@@ -226,3 +257,6 @@ export class ProjectsService {
     });
   }
 }
+
+const countsOf = (counts: Map<string, ProjectCounts>, projectId: string): ProjectCounts =>
+  counts.get(projectId) ?? { members: 0, openIssues: 0 };

@@ -5,23 +5,23 @@ import type { EffectiveRole } from '../access-control/permissions';
 import type { Prisma } from '../generated/prisma/client';
 import { toUserSummary, USER_SUMMARY_SELECT } from '../users/user-summary';
 
-const OPEN_ISSUES: Prisma.IssueWhereInput = {
-  deletedAt: null,
-  status: { notIn: ['DONE', 'CANCELLED'] },
-};
-
-/** Everything a project card needs, in one query (counts included). */
+/** The caller's role. Counts come separately (ProjectsService.counts): a Prisma `_count` here
+ *  grouped every open issue of every project on each request (Phase 19). */
 export const projectSummaryInclude = (userId: string) =>
   ({
     members: { where: { userId }, select: { role: { select: { key: true } } } },
-    _count: { select: { members: true, issues: { where: OPEN_ISSUES } } },
   }) as const satisfies Prisma.ProjectInclude;
+
+export interface ProjectCounts {
+  members: number;
+  openIssues: number;
+}
 
 type SummaryRow = Prisma.ProjectGetPayload<{
   include: ReturnType<typeof projectSummaryInclude>;
 }>;
 
-export function toProjectSummary(project: SummaryRow): ProjectSummary {
+export function toProjectSummary(project: SummaryRow, counts: ProjectCounts): ProjectSummary {
   const membership = project.members[0];
   const myRole: EffectiveRole = membership ? ProjectRole.parse(membership.role.key) : 'ADMIN';
   return {
@@ -32,8 +32,8 @@ export function toProjectSummary(project: SummaryRow): ProjectSummary {
     archivedAt: project.archivedAt?.toISOString() ?? null,
     createdAt: project.createdAt.toISOString(),
     myRole,
-    memberCount: project._count.members,
-    openIssueCount: project._count.issues,
+    memberCount: counts.members,
+    openIssueCount: counts.openIssues,
   };
 }
 
@@ -51,10 +51,10 @@ export const projectDetailInclude = (userId: string) =>
 
 type DetailRow = Prisma.ProjectGetPayload<{ include: ReturnType<typeof projectDetailInclude> }>;
 
-export function toProjectDetail(project: DetailRow): ProjectDetail {
+export function toProjectDetail(project: DetailRow, counts: ProjectCounts): ProjectDetail {
   const sprint = project.sprints[0];
   return {
-    ...toProjectSummary(project),
+    ...toProjectSummary(project, counts),
     defaultAssignee: project.defaultAssignee ? toUserSummary(project.defaultAssignee) : null,
     createdBy: toUserSummary(project.createdBy),
     activeSprint: sprint
@@ -78,15 +78,16 @@ export function toProjectMember(member: MemberRow): ProjectMember {
   };
 }
 
-export const LABEL_INCLUDE = { _count: { select: { issues: true } } } as const;
-type LabelRow = Prisma.LabelGetPayload<{ include: typeof LABEL_INCLUDE }>;
+// Issue counts come from LabelsService (per label, by index), not a Prisma `_count`, which
+// grouped every issue-label link in the database on each request (Phase 19).
+type LabelRow = Prisma.LabelGetPayload<object>;
 
-export function toLabel(label: LabelRow): Label {
+export function toLabel(label: LabelRow, issueCount: number): Label {
   return {
     id: label.id,
     name: label.name,
     color: label.color,
     description: label.description,
-    issueCount: label._count.issues,
+    issueCount,
   };
 }

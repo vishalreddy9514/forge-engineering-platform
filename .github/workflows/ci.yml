@@ -183,9 +183,9 @@ jobs:
         run: docker compose down --volumes
 
   e2e:
-    name: End-to-end on the containers (Playwright, axe, ZAP)
+    name: End-to-end on the containers (Playwright, axe, ZAP, k6)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     env:
       CI: 'true'
       # The production images, with rate limits and the breached-password lookup off for the
@@ -228,6 +228,27 @@ jobs:
         with:
           name: zap-report
           path: zap/zap-report.*
+          retention-days: 14
+      # Load tests against 100k issues on the same images (NFR-1, NFR-3): the thresholds in the
+      # scripts fail the build. Short runs on a shared runner, so a regression gate with wide
+      # margins rather than the reference measurement (docs/performance.md).
+      - name: Performance dataset (100k issues)
+        run: pnpm stack:perf-seed
+      - name: Load tests (k6)
+        run: |
+          mkdir -p perf-results && chmod a+rwX perf-results
+          for script in crud issue-list; do
+            docker run --rm --network host -v "$PWD/perf:/perf:ro" -v "$PWD/perf-results:/out" \
+              -e DURATION=30s \
+              grafana/k6@sha256:3ddc8b1a33a2c3d8edc6e99b6a762ae36cba08788463458f5e6a7703e14eb77d \
+              run --quiet --summary-export "/out/$script.json" "/perf/$script.js"
+          done
+      - name: k6 summaries
+        if: success() || failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: k6-summaries
+          path: perf-results/
           retention-days: 14
       - name: Image sizes
         if: always()

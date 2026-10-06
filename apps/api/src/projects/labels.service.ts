@@ -2,7 +2,7 @@ import type { CreateLabelRequest, Label, UpdateLabelRequest } from '@forge/types
 import { ConflictException, Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../infrastructure/database/prisma.service';
-import { LABEL_INCLUDE, toLabel } from './project.mappers';
+import { toLabel } from './project.mappers';
 
 const duplicateName = (name: string | undefined) =>
   new ConflictException({
@@ -19,19 +19,29 @@ export class LabelsService {
   async list(projectId: string): Promise<Label[]> {
     const labels = await this.prisma.label.findMany({
       where: { projectId },
-      include: LABEL_INCLUDE,
       orderBy: { name: 'asc' },
     });
-    return labels.map(toLabel);
+    const counts = await this.prisma.issueLabel.groupBy({
+      by: ['labelId'],
+      where: { labelId: { in: labels.map((label) => label.id) } },
+      _count: { _all: true },
+    });
+    const byLabel = new Map(counts.map((row) => [row.labelId, row._count._all]));
+    return labels.map((label) => toLabel(label, byLabel.get(label.id) ?? 0));
+  }
+
+  private async withCount(label: { id: string } & Parameters<typeof toLabel>[0]): Promise<Label> {
+    return toLabel(label, await this.prisma.issueLabel.count({ where: { labelId: label.id } }));
   }
 
   async create(projectId: string, input: CreateLabelRequest): Promise<Label> {
     try {
+      // A new label is on no issue yet.
       return toLabel(
         await this.prisma.label.create({
           data: { projectId, ...input, description: input.description ?? null },
-          include: LABEL_INCLUDE,
         }),
+        0,
       );
     } catch (error) {
       // Names are citext: "Bug" and "bug" collide.
@@ -42,12 +52,8 @@ export class LabelsService {
 
   async update(labelId: string, input: UpdateLabelRequest): Promise<Label> {
     try {
-      return toLabel(
-        await this.prisma.label.update({
-          where: { id: labelId },
-          data: input,
-          include: LABEL_INCLUDE,
-        }),
+      return await this.withCount(
+        await this.prisma.label.update({ where: { id: labelId }, data: input }),
       );
     } catch (error) {
       if (isUniqueViolation(error)) throw duplicateName(input.name);

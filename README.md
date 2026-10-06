@@ -8,12 +8,13 @@ history with cited sources.
 AI is a feature of the product, not the product. Every core workflow works with the AI service
 switched off.
 
-> **Status: Phase 18 of 20 (security hardening).** Every page runs under a nonce-based Content
-> Security Policy, the API and worker connect to the database with a login that cannot change
-> the schema or the audit log, CI scans the full git history for secrets and runs an OWASP ZAP
-> baseline against the production images, AWS keeps load balancer, storage and VPC flow logs,
-> and the OWASP ASVS Level 1 self-assessment has one stated gap ([asvs](docs/asvs.md),
-> [security](docs/security.md)). Before that: observability with metrics, one request ID end to
+> **Status: Phase 19 of 20 (performance).** Load-tested with k6 against 100,000 issues on the
+> production images: the CRUD mix at 50 requests a second has a p95 of 15 ms (target 250) and
+> the issue list 25 ms (target 150). The tests found and fixed a comment count that scanned
+> every comment, a missing sort index and a search that returned the wrong first page; CI now
+> runs the load tests on every PR ([performance](docs/performance.md)). Before that: security
+> hardening with a nonce-based CSP, a least-privilege database login, gitleaks, ZAP and an ASVS
+> Level 1 checklist (Phase 18, [asvs](docs/asvs.md)), observability with metrics, one request ID end to
 > end, error reporting and dashboards (Phase 17, [observability](docs/observability.md)), AWS
 > with Terraform, deployed through GitHub OIDC with no secret in Terraform
 > state (Phase 16, [deployment](docs/deployment.md)), CI/CD with
@@ -115,6 +116,7 @@ including the Python service, in dependency order and caches the results.
 - [API reference](docs/api.md): conventions, errors, and the auth, user and admin endpoints
 - [Security](docs/security.md): implemented controls, how each is tested, and deliberate trade-offs
 - [ASVS](docs/asvs.md): the OWASP ASVS Level 1 checklist, requirement by requirement
+- [Performance](docs/performance.md): load tests, results against NFR-1 and NFR-3, query plans
 - [Testing](docs/testing.md): the test layers, the coverage gate, and the end-to-end journeys
 - [Running in containers](docs/docker.md): the production images, the stack, and why it is built this way
 - [CI/CD](docs/cicd.md): the workflows, image publishing, signing, and the vulnerability policy
