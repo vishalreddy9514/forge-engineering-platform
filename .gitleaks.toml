@@ -1,0 +1,10 @@
+# Secret scanning (NFR-7): gitleaks' default rules over the full git history, in CI.
+# Every allowlist entry is a reviewed false positive, as narrow as possible.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "CloudWatch alarm names in the Terraform tests (generic-api-key matches 'api-latency-p95')"
+paths = ['''infrastructure/terraform/modules/stack/tests/stack\.tftest\.hcl''']
+regexes = ['''api-latency-p95''']

@@ -21,6 +21,9 @@ mock_provider "aws" {
   mock_data "aws_ami" {
     defaults = { id = "ami-0123456789abcdef0" }
   }
+  mock_data "aws_elb_service_account" {
+    defaults = { arn = "arn:aws:iam::652711504416:root" }
+  }
   # Provider validation still runs on mocked values: ARNs used as arguments must look real.
   mock_resource "aws_sns_topic" {
     defaults = { arn = "arn:aws:sns:eu-west-2:123456789012:forge-dev-alarms" }
@@ -69,6 +72,16 @@ mock_provider "aws" {
   mock_resource "aws_ses_domain_identity" {
     defaults = { arn = "arn:aws:ses:eu-west-2:123456789012:identity/forge.example.com" }
   }
+}
+
+# Distinct ARNs for the two database URLs, so the tests can tell which login a task gets.
+override_resource {
+  target = module.data.aws_ssm_parameter.database_url
+  values = { arn = "arn:aws:ssm:eu-west-2:123456789012:parameter/forge-dev/database-url" }
+}
+override_resource {
+  target = module.data.aws_ssm_parameter.app_database_url
+  values = { arn = "arn:aws:ssm:eu-west-2:123456789012:parameter/forge-dev/app-database-url" }
 }
 
 # random and tls are local (no network or credentials), so the real ones generate the
@@ -206,8 +219,47 @@ run "dev_running" {
     error_message = "The API reads its database URL from SSM, trusts the ALB hop and sends mail through SES."
   }
   assert {
+    condition = alltrue([
+      for m in [module.api, module.worker] :
+      { for x in jsondecode(m.container_definitions)[0].secrets : x.name => x.valueFrom }["DATABASE_URL"] == "arn:aws:ssm:eu-west-2:123456789012:parameter/forge-dev/app-database-url"
+    ])
+    error_message = "The API and worker connect as the least-privilege login, never as the schema owner."
+  }
+  assert {
+    condition = (
+      { for x in jsondecode(module.migrate.container_definitions)[0].secrets : x.name => x.valueFrom }["DATABASE_URL"] == "arn:aws:ssm:eu-west-2:123456789012:parameter/forge-dev/database-url" &&
+      contains([for x in jsondecode(module.migrate.container_definitions)[0].secrets : x.name], "APP_DB_PASSWORD") &&
+      strcontains(jsondecode(module.migrate.container_definitions)[0].command[2], "prisma/db-logins.ts")
+    )
+    error_message = "Only the migrate task holds the owner URL, and it creates the service logins after migrating."
+  }
+  assert {
     condition     = jsondecode(module.worker.container_definitions)[0].command == ["node", "dist/worker.js"]
     error_message = "The worker is the API image with the worker entry point."
+  }
+
+  # ---- Infrastructure audit logs (Phase 18)
+  assert {
+    condition = (
+      aws_lb.this[0].access_logs[0].enabled &&
+      aws_lb.this[0].access_logs[0].bucket == aws_s3_bucket.logs.id &&
+      aws_s3_bucket_logging.attachments.target_bucket == aws_s3_bucket.logs.id &&
+      aws_flow_log.vpc.traffic_type == "REJECT" &&
+      aws_flow_log.vpc.log_destination == "${aws_s3_bucket.logs.arn}/vpc/"
+    )
+    error_message = "Load balancer requests, attachment object access and rejected VPC traffic are logged to the log bucket."
+  }
+  assert {
+    condition = (
+      aws_s3_bucket_public_access_block.logs.block_public_policy &&
+      aws_s3_bucket_public_access_block.logs.restrict_public_buckets &&
+      aws_s3_bucket_lifecycle_configuration.logs.rule[0].expiration[0].days == 90
+    )
+    error_message = "The log bucket is private and its logs expire."
+  }
+  assert {
+    condition     = startswith(aws_lb_listener.https[0].routing_http_response_strict_transport_security_header_value, "max-age=31536000")
+    error_message = "HTTPS responses carry HSTS for a year."
   }
 
   # ---- Dashboard

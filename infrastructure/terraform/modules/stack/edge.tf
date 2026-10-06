@@ -64,6 +64,16 @@ resource "aws_lb" "this" {
   # AI drafts and chat stream as Server-Sent Events; allow quiet periods between events.
   idle_timeout               = 120
   enable_deletion_protection = var.deletion_protection
+
+  # Who called what, from where, and how long it took (logging.tf).
+  access_logs {
+    bucket  = aws_s3_bucket.logs.id
+    prefix  = "alb"
+    enabled = true
+  }
+
+  # The load balancer checks that it may write to the bucket when logging is turned on.
+  depends_on = [aws_s3_bucket_policy.logs]
 }
 
 resource "aws_lb_listener" "http" {
@@ -89,6 +99,10 @@ resource "aws_lb_listener" "https" {
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
   certificate_arn   = aws_acm_certificate_validation.this.certificate_arn
+
+  # HSTS is set where TLS ends, on every response: browsers then refuse plain HTTP to the
+  # domain for a year (the web app sets the other security headers itself).
+  routing_http_response_strict_transport_security_header_value = "max-age=31536000; includeSubDomains"
 
   default_action {
     type             = "forward"

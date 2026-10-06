@@ -13,10 +13,12 @@ output "redis_replication_group_id" {
 output "parameter_arns" {
   description = "SSM parameters the tasks read as secrets."
   value = {
-    database_url    = aws_ssm_parameter.database_url.arn
-    ai_db_password  = aws_ssm_parameter.ai_db_password.arn
-    ai_database_url = aws_ssm_parameter.ai_database_url.arn
-    redis_url       = one(aws_ssm_parameter.redis_url[*].arn)
+    database_url     = aws_ssm_parameter.database_url.arn
+    app_db_password  = aws_ssm_parameter.app_db_password.arn
+    app_database_url = aws_ssm_parameter.app_database_url.arn
+    ai_db_password   = aws_ssm_parameter.ai_db_password.arn
+    ai_database_url  = aws_ssm_parameter.ai_database_url.arn
+    redis_url        = one(aws_ssm_parameter.redis_url[*].arn)
   }
 }
 

@@ -12,7 +12,23 @@ const nextConfig: NextConfig = {
   headers() {
     return Promise.resolve([
       {
-        // The URL carries a password-reset token: never leak it in Referer headers.
+        // Every response. The Content Security Policy is set per request by the proxy (it
+        // needs a nonce); HSTS is set where TLS ends (the ALB), not here.
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+          },
+        ],
+      },
+      {
+        // The URL carries a password-reset token: never leak it in Referer headers. Listed
+        // last, so it replaces the policy above for this page.
         source: '/reset-password',
         headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
       },

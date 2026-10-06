@@ -8,12 +8,14 @@ history with cited sources.
 AI is a feature of the product, not the product. Every core workflow works with the AI service
 switched off.
 
-> **Status: Phase 17 of 20 (observability).** Every service exports Prometheus metrics
-> (requests by route, jobs and queues, every model call's latency, tokens and cost), one request
-> ID follows a request from the proxy through the queue to the AI service, errors can go to
-> Sentry scrubbed of personal data, and an `observability` compose profile adds Prometheus, a
-> provisioned Grafana dashboard and tested alert rules ([observability](docs/observability.md)).
-> Before that: AWS with Terraform, deployed through GitHub OIDC with no secret in Terraform
+> **Status: Phase 18 of 20 (security hardening).** Every page runs under a nonce-based Content
+> Security Policy, the API and worker connect to the database with a login that cannot change
+> the schema or the audit log, CI scans the full git history for secrets and runs an OWASP ZAP
+> baseline against the production images, AWS keeps load balancer, storage and VPC flow logs,
+> and the OWASP ASVS Level 1 self-assessment has one stated gap ([asvs](docs/asvs.md),
+> [security](docs/security.md)). Before that: observability with metrics, one request ID end to
+> end, error reporting and dashboards (Phase 17, [observability](docs/observability.md)), AWS
+> with Terraform, deployed through GitHub OIDC with no secret in Terraform
 > state (Phase 16, [deployment](docs/deployment.md)), CI/CD with
 > signed, scanned images (Phase 15), Docker (Phase 14), test hardening with Playwright and axe
 > (Phase 13), the dashboard (Phase 12), AI code review (Phase 11), RAG search and cited chat
@@ -112,6 +114,7 @@ including the Python service, in dependency order and caches the results.
   observability, API conventions
 - [API reference](docs/api.md): conventions, errors, and the auth, user and admin endpoints
 - [Security](docs/security.md): implemented controls, how each is tested, and deliberate trade-offs
+- [ASVS](docs/asvs.md): the OWASP ASVS Level 1 checklist, requirement by requirement
 - [Testing](docs/testing.md): the test layers, the coverage gate, and the end-to-end journeys
 - [Running in containers](docs/docker.md): the production images, the stack, and why it is built this way
 - [CI/CD](docs/cicd.md): the workflows, image publishing, signing, and the vulnerability policy

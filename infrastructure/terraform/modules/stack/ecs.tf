@@ -135,7 +135,8 @@ locals {
 
   app_secrets = merge(
     {
-      DATABASE_URL     = module.data.parameter_arns.database_url
+      # The least-privilege login (forge_app): the owner URL is the migrate task's alone.
+      DATABASE_URL     = module.data.parameter_arns.app_database_url
       JWT_PRIVATE_KEY  = aws_ssm_parameter.jwt_private_key.arn
       JWT_PUBLIC_KEY   = aws_ssm_parameter.jwt_public_key.arn
       AI_SERVICE_TOKEN = aws_ssm_parameter.ai_service_token.arn
@@ -303,8 +304,9 @@ module "migrate" {
   region             = local.service_defaults.region
   execution_role_arn = local.service_defaults.execution_role_arn
 
-  image   = var.images.migrate
-  command = ["sh", "-c", "prisma migrate deploy && tsx prisma/ai-login.ts"]
+  image = var.images.migrate
+  # Migrations as the schema owner, then the logins the services run as (prisma/db-logins.ts).
+  command = ["sh", "-c", "prisma migrate deploy && tsx prisma/db-logins.ts"]
   cpu     = 512
   memory  = 1024
   environment = {
@@ -312,8 +314,9 @@ module "migrate" {
     SSL_CERT_FILE = "/opt/rds-global-bundle.pem"
   }
   secrets = {
-    DATABASE_URL   = module.data.parameter_arns.database_url
-    AI_DB_PASSWORD = module.data.parameter_arns.ai_db_password
+    DATABASE_URL    = module.data.parameter_arns.database_url
+    APP_DB_PASSWORD = module.data.parameter_arns.app_db_password
+    AI_DB_PASSWORD  = module.data.parameter_arns.ai_db_password
   }
   task_role_arn      = aws_iam_role.task["migrate"].arn
   create_service     = false
