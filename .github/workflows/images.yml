@@ -1,0 +1,150 @@
+name: Images
+
+# Builds the four container images on every pull request (and scans them), and on main and
+# release tags also pushes them to GitHub Container Registry with SBOM and provenance
+# attestations. Deployments use the immutable digests this workflow prints.
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+concurrency:
+  group: images-${{ github.ref }}
+  # Never cancel a run that may already have pushed for main.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+# Every action is pinned to a full commit SHA; Dependabot keeps the pins and comments current.
+jobs:
+  image:
+    name: ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write # push to ghcr.io (main and tags only)
+      id-token: write # keyless signing of the provenance attestation
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: api
+            dockerfile: apps/api/Dockerfile
+            target: runtime
+            # Serves traffic: any fixable High or Critical vulnerability fails the build.
+            blocking: CRITICAL,HIGH
+          - image: migrate
+            dockerfile: apps/api/Dockerfile
+            target: migrate
+            # One-shot job with no listener; Prisma pins two dependencies with fixable Highs
+            # (docs/cicd.md). Criticals still fail the build; Highs are reported.
+            blocking: CRITICAL
+          - image: web
+            dockerfile: apps/web/Dockerfile
+            target: runtime
+            blocking: CRITICAL,HIGH
+          - image: ai-service
+            dockerfile: apps/ai-service/Dockerfile
+            target: runtime
+            blocking: CRITICAL,HIGH
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/forge-${{ matrix.image }}
+      PUSH: ${{ github.event_name != 'pull_request' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=sha,format=long
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+          labels: |
+            org.opencontainers.image.title=forge-${{ matrix.image }}
+
+      # Build once into the local image store, so the scan sees exactly what would ship.
+      - name: Build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
+          load: true
+          tags: forge-${{ matrix.image }}:scan
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max
+
+      - name: Vulnerabilities (report)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: forge-${{ matrix.image }}:scan
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          format: table
+          output: trivy.txt
+          exit-code: '0'
+      - name: Vulnerabilities (gate)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: forge-${{ matrix.image }}:scan
+          scanners: vuln
+          severity: ${{ matrix.blocking }}
+          ignore-unfixed: true
+          exit-code: '1'
+          skip-setup-trivy: true
+      - name: Report
+        if: always()
+        run: |
+          {
+            echo "### forge-${{ matrix.image }}"
+            echo
+            echo "Fixable High and Critical vulnerabilities (blocking: ${{ matrix.blocking }}):"
+            echo '```'
+            cat trivy.txt 2>/dev/null || echo 'no report'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - if: env.PUSH == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Same inputs, so every layer comes from the cache: this pushes what was scanned.
+      - id: push
+        if: env.PUSH == 'true'
+        name: Push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          provenance: mode=max
+          sbom: true
+
+      - if: env.PUSH == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - if: env.PUSH == 'true'
+        name: Digest
+        run: |
+          echo "${{ env.IMAGE }}@${{ steps.push.outputs.digest }}" | tee -a "$GITHUB_STEP_SUMMARY"
