@@ -208,7 +208,7 @@ services:
 
   proxy:
     profiles: [app]
-    image: nginx:1.29-alpine
+    image: nginx:1.31-alpine
     user: '101:101'
     ports:
       - '127.0.0.1:${APP_PORT:-8080}:8080'
