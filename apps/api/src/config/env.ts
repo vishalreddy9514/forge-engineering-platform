@@ -53,6 +53,11 @@ export const EnvSchema = z
     HIBP_ENABLED: booleanString.default(true),
 
     // ---- Email ----
+    /**
+     * `smtp` (Mailpit locally) or `ses`: Amazon SES's API with the task role's credentials, so
+     * no SMTP password exists in AWS. The region comes from AWS_REGION.
+     */
+    MAIL_TRANSPORT: z.enum(['smtp', 'ses']).default('smtp'),
     SMTP_HOST: z.string().default('localhost'),
     SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(1025),
     SMTP_SECURE: booleanString.default(false),

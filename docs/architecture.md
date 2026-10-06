@@ -678,15 +678,19 @@ Cost-aware choices ([ADR-0005](adr/0005-aws-ecs-fargate-cost-aware.md)):
 | SSM Parameter Store                | Secrets Manager       | Free for standard parameters                                 |
 | RDS db.t4g.micro single-AZ (dev)   | Aurora / Multi-AZ     | Multi-AZ is a one-variable switch for prod                   |
 | pgvector in RDS                    | OpenSearch / Pinecone | No extra service; one backup; transactional with source data |
-| `desired_count = 0` switch         | Always on             | Scale to zero between demos (RDS stopped too)                |
+| `hibernate` switch                 | Always on             | Between demos: no services, ALB, NAT or Redis; RDS stopped   |
 
-Estimated dev cost when running is ~$60–75/month, and about $5/month when stopped (storage,
-Route 53, ECR). The itemised table is in `docs/deployment.md` (Phase 16).
+As built (Phase 16), dev costs about $85/month running and about $4/month hibernated; the
+itemised table, and why it is above the original ~$75 estimate (public IPv4 charges), are in
+[deployment](deployment.md#cost).
 
-Environments: `dev` (built by Phase 16) and `prod` (the same Terraform modules with different
-`tfvars`: Multi-AZ RDS, 2 tasks per service, no Spot for api/web). Terraform state is kept in
-S3 with native lockfile locking. CI deploys through GitHub OIDC, so there are no long-lived AWS
-keys.
+Environments: `dev` (deployed by `.github/workflows/deploy.yml`) and `prod` (the same Terraform
+modules with different `tfvars`: Multi-AZ RDS, a Redis replica, a NAT Gateway, 2+ tasks per
+service with CPU autoscaling, no Spot for api/web). Terraform state is kept in S3 with native
+lockfile locking. CI deploys through GitHub OIDC, so there are no long-lived AWS keys, and no
+secret is ever in the Terraform state (write-only arguments). Images are deployed by digest
+after their signed provenance is verified, and the migrate task runs before any service is
+updated ([deployment](deployment.md)).
 
 ## 11. Observability
 
