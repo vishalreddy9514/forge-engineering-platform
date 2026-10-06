@@ -2,7 +2,7 @@
 # Forge API and worker (one image, two commands), plus a `migrate` target for schema changes.
 # Build from the repository root: docker build -f apps/api/Dockerfile .
 
-FROM node:22-bookworm-slim AS base
+FROM node:25-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=true
 RUN corepack enable
 WORKDIR /repo
@@ -40,7 +40,7 @@ RUN cd /out/node_modules/.pnpm \
 # ---- Migrations and seed (one-shot job): needs the Prisma CLI and tsx ----
 # A fresh stage with the installed workspace, without the build stage's package manager
 # download cache or the deploy output.
-FROM node:22-bookworm-slim AS migrate
+FROM node:25-bookworm-slim AS migrate
 # Debian security fixes published since the base image was built (Trivy fails the build on
 # fixable High/Critical findings; base images are often rebuilt days later).
 RUN apt-get update && apt-get -y upgrade --no-install-recommends && rm -rf /var/lib/apt/lists/*
@@ -62,7 +62,7 @@ USER node
 CMD ["prisma", "migrate", "deploy"]
 
 # ---- Runtime ----
-FROM node:22-bookworm-slim AS runtime
+FROM node:25-bookworm-slim AS runtime
 ENV NODE_ENV=production
 # Debian security fixes published since the base image was built (Trivy fails the build on
 # fixable High/Critical findings; base images are often rebuilt days later).

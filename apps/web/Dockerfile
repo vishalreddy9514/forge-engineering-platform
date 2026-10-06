@@ -2,7 +2,7 @@
 # Forge web app: the Next.js standalone server (only the files it traces, no node_modules tree).
 # Build from the repository root: docker build -f apps/web/Dockerfile .
 
-FROM node:22-bookworm-slim AS base
+FROM node:25-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=true NEXT_TELEMETRY_DISABLED=1
 RUN corepack enable
 WORKDIR /repo
@@ -28,7 +28,7 @@ ARG API_INTERNAL_URL=http://api:4000
 ENV API_INTERNAL_URL=${API_INTERNAL_URL}
 RUN pnpm --filter @forge/types build && pnpm --filter @forge/web build
 
-FROM node:22-bookworm-slim AS runtime
+FROM node:25-bookworm-slim AS runtime
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 # Debian security fixes published since the base image was built (Trivy fails the build on
 # fixable High/Critical findings; base images are often rebuilt days later).
