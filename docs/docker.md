@@ -67,6 +67,10 @@ flowchart LR
   buffering off so AI drafts and chat stream as Server-Sent Events, and Nginx's request ID is
   passed on as `X-Request-Id`, which the API logs and returns. The API trusts one proxy hop
   (`TRUST_PROXY_HOPS=1`), so rate limits and audit rows see the browser's address.
+- **Least-privilege database logins.** `migrate` connects as the schema owner and, after the
+  migrations, creates `forge_app_service` (`prisma/db-logins.ts`); `api` and `worker` connect as
+  that login, which can read and write rows but not change the schema or the audit log
+  ([security](security.md#database-privileges)).
 - **The AI service has no published port.** Only `api` and `worker` reach it, on the compose
   network, with the shared service token (architecture §3).
 - **Attachments bypass the proxy.** Browsers upload and download with pre-signed URLs, so the
@@ -84,7 +88,9 @@ observability up -d` adds Prometheus (`:9090`) and Grafana (`:3001`, the Forge s
 CI (`End-to-end on the containers`) builds the three images, starts this stack, seeds it inside
 the migrate image, and runs every Playwright journey through Nginx on port 8080: sign-in, issues
 and the board, sprints, notifications and roles, AI drafts and the cited assistant, attachments
-to and from object storage, and the axe accessibility checks. It runs the images with
+to and from object storage, the Content Security Policy, and the axe accessibility checks. It
+then runs an OWASP ZAP baseline scan against the same stack; any warning not reviewed in
+`.zap/rules.tsv` fails the build. It runs the images with
 `STACK_NODE_ENV=test`, `STACK_RATE_LIMITS_ENABLED=false` and `STACK_HIBP_ENABLED=false` (no
 breached-password lookup against the outside service), as the suite's local launcher does; that
 is the only difference from production (see [testing](testing.md)).
@@ -92,6 +98,10 @@ is the only difference from production (see [testing](testing.md)).
 Found while containerising: SeaweedFS's defaults preallocated 1 GB per volume file and created
 seven at once for a new bucket, so the first upload took about 7 GB of disk in local
 development. The compose command now uses 64 MB volumes without preallocation.
+
+Found while hardening: Nginx resolved `api` and `web` once, at start, so after `pnpm stack:up`
+recreated a container with a new image it answered 502. The upstreams now use `resolve`, which
+looks the names up again as they change.
 
 Found by CI's clean checkout: Prisma infers the generated client's import extension from the
 tsconfig it can see, and the image runs `prisma generate` before `tsconfig.json` is copied, so

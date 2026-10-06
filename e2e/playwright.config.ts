@@ -31,6 +31,9 @@ const env: Record<string, string> = {
   LOG_PRETTY: 'false',
   AI_LOG_LEVEL: 'WARNING',
   NEXT_TELEMETRY_DISABLED: '1',
+  // The web app's CSP allows uploads to this origin only (the pre-signed URLs point at it).
+  STORAGE_ORIGIN:
+    process.env.S3_PUBLIC_ENDPOINT ?? process.env.S3_ENDPOINT ?? 'http://localhost:8333',
 };
 
 /**

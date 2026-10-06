@@ -37,6 +37,12 @@ export function configureApp(app: NestExpressApplication): INestApplication {
   app.set('trust proxy', config.get('TRUST_PROXY_HOPS', { infer: true }));
   app.disable('x-powered-by');
   app.use(helmet());
+  // API responses hold personal data and are only valid for the caller: no browser or shared
+  // cache may keep them (ASVS 8.2.1). Event streams set their own `no-cache, no-transform`.
+  app.use((_req: express.Request, res: express.Response, next: express.NextFunction) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
   app.use(cookieParser());
   // Webhook signatures cover the exact bytes GitHub sent, so this route gets the raw body
   // (the JSON parser then skips it). GitHub caps payloads at 25 MB; larger ones are rare and

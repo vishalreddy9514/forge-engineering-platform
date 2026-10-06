@@ -42,7 +42,13 @@ export function LoginForm() {
   });
 
   return (
-    <form onSubmit={(event) => void onSubmit(event)} noValidate className="grid gap-4">
+    <form
+      // POST, so a submit before hydration never puts the fields in the URL (ZAP 10024).
+      method="post"
+      onSubmit={(event) => void onSubmit(event)}
+      noValidate
+      className="grid gap-4"
+    >
       {params.get('expired') && !formError && (
         <Alert>Your session has expired. Sign in again to continue.</Alert>
       )}

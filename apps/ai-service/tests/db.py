@@ -54,6 +54,9 @@ def create_database(server_url: str) -> ScratchDatabase:
         conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
     admin = with_database(server_url, name)
     with psycopg.connect(admin, autocommit=True) as conn:
+        # Prisma creates its history table before the first migration, and migrations may refer
+        # to it (the runtime role's REVOKE), so it must exist when they are applied directly.
+        conn.execute('CREATE TABLE "_prisma_migrations" (id varchar(36) PRIMARY KEY)')
         for migration in sorted(MIGRATIONS.glob("*/migration.sql")):
             conn.execute(migration.read_text())
         # Roles are per server, so the login may already exist from an earlier run.

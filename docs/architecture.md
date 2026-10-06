@@ -356,18 +356,18 @@ mitigated by `SameSite=Strict`, the narrow cookie `Path` and an `Origin` header 
 
 ### 6.3 Threat model: OWASP Top 10 (2021) mapping
 
-| Risk                          | Control in Forge                                                                                                                                                                    |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A01 Broken access control     | Global auth guard; project guard on every project-scoped route; 404 on non-membership; IDOR tests for every resource type in the Supertest suite                                    |
-| A02 Cryptographic failures    | TLS at the ALB; argon2id; hashed refresh and reset tokens; RDS/S3 encryption at rest; no secrets in the repo (gitleaks)                                                             |
-| A03 Injection                 | Prisma parameterised queries; `$queryRaw` only with tagged templates (lint rule bans `$queryRawUnsafe`); Zod validation on every input; Markdown sanitised with DOMPurify on render |
-| A04 Insecure design           | This threat model; rate limits; state machines for status and sprint transitions                                                                                                    |
-| A05 Security misconfiguration | Helmet (strict CSP, HSTS, `X-Content-Type-Options`, `frame-ancestors 'none'`); explicit CORS allow-list; production error responses without stack traces                            |
-| A06 Vulnerable components     | Dependabot; `pnpm audit` / `pip-audit`; Trivy image scan in CI                                                                                                                      |
-| A07 Auth failures             | Refresh rotation with reuse detection; login throttling; breached-password check; generic login errors                                                                              |
-| A08 Integrity failures        | GitHub webhook HMAC verified with a constant-time compare on the raw body; pinned action SHAs in CI; signed image digests deployed                                                  |
-| A09 Logging failures          | Audit log (FR-13); structured logs with request ID; secrets and tokens redacted by a logger serializer                                                                              |
-| A10 SSRF                      | Only fixed outbound hosts (GitHub API, OpenAI). No user-supplied URLs are fetched server-side. Attachments go browser → S3 directly                                                 |
+| Risk                          | Control in Forge                                                                                                                                                                                                                  |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A01 Broken access control     | Global auth guard; project guard on every project-scoped route; 404 on non-membership; IDOR tests for every resource type in the Supertest suite; the API's database login can only read and write rows                           |
+| A02 Cryptographic failures    | TLS 1.2+ at the ALB with HSTS; argon2id; hashed refresh and reset tokens; RDS/S3 encryption at rest; no secrets in the repo (gitleaks over the full history in CI)                                                                |
+| A03 Injection                 | Prisma parameterised queries; raw SQL only with tagged templates (a lint rule bans the unsafe forms); Zod validation on every input; Markdown rendered without raw HTML; a nonce-based CSP                                        |
+| A04 Insecure design           | This threat model; rate limits; state machines for status and sprint transitions                                                                                                                                                  |
+| A05 Security misconfiguration | Web: per-request nonce CSP, `frame-ancestors 'none'`, `nosniff`, Permissions-Policy; HSTS at the ALB; API: Helmet and `Cache-Control: no-store`; explicit CORS allow-list; no stack traces in responses; ZAP baseline on every PR |
+| A06 Vulnerable components     | Dependabot; Trivy scans every image (all npm and Python packages in it) and fails on fixable High/Critical                                                                                                                        |
+| A07 Auth failures             | Refresh rotation with reuse detection; login throttling; breached-password check; generic login errors                                                                                                                            |
+| A08 Integrity failures        | GitHub webhook HMAC verified with a constant-time compare on the raw body; pinned action SHAs in CI; signed image digests deployed                                                                                                |
+| A09 Logging failures          | Audit log (FR-13); structured logs with one request ID end to end; secrets redacted; ALB, attachment-bucket and VPC flow logs in AWS                                                                                              |
+| A10 SSRF                      | Only fixed outbound hosts (GitHub API, OpenAI). No user-supplied URLs are fetched server-side. Attachments go browser → S3 directly                                                                                               |
 
 ### 6.4 LLM-specific risks (OWASP LLM Top 10)
 

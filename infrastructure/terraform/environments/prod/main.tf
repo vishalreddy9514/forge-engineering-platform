@@ -50,6 +50,8 @@ module "forge" {
   redis_replicas           = var.redis_replicas
   deletion_protection      = var.deletion_protection
   container_insights       = var.container_insights
+  # Every accepted and rejected connection, not only what the security groups refused.
+  flow_log_traffic = "ALL"
 
   permissions_boundary_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/forge-workload-boundary"
 }

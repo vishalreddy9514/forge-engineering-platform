@@ -166,6 +166,13 @@ describe('API (e2e)', () => {
       expect(res.headers['x-powered-by']).toBeUndefined();
     });
 
+    it('forbids caching any API response (ASVS 8.2.1)', async () => {
+      const ok = await request(app.getHttpServer()).get('/api/v1/health/live');
+      const missing = await request(app.getHttpServer()).get('/api/v1/does-not-exist');
+      expect(ok.headers['cache-control']).toBe('no-store');
+      expect(missing.headers['cache-control']).toBe('no-store');
+    });
+
     it('allows CORS only for configured origins', async () => {
       const allowed = await request(app.getHttpServer())
         .options('/api/v1/health/live')

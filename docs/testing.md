@@ -37,6 +37,8 @@ project through the API, so the tests are independent and run in parallel.
 | `collaboration.spec.ts` | An assignment notifies the developer (outbox → worker), who follows it; viewers are read-only; outsiders see nothing          |
 | `ai.spec.ts`            | A streamed issue draft fills the form; the assistant answers from freshly indexed work and cites the issue                    |
 | `accessibility.spec.ts` | Search, notifications, members, labels, settings, documents and code pages                                                    |
+| `attachments.spec.ts`   | A file uploads to object storage and downloads intact through pre-signed URLs                                                 |
+| `security.spec.ts`      | Every main page and an upload run under the CSP with no violation; markup in a description and injected script cannot run     |
 
 Every page a journey passes through is checked with axe for WCAG 2.1 A and AA (NFR-13).
 
