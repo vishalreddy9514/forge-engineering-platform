@@ -7,7 +7,9 @@ export const ISSUE_SUMMARY_INCLUDE = {
   project: { select: { key: true } },
   assignee: { select: USER_SUMMARY_SELECT },
   labels: { select: { label: { select: { id: true, name: true, color: true } } } },
-  _count: { select: { comments: { where: { deletedAt: null } } } },
+  // No `_count` of comments here: Prisma computes it by grouping every comment in the table and
+  // joining the result, which made a 50-row page scan all comments and all issues (Phase 19).
+  // IssuesService counts the comments of the returned issues only.
   // The current sprint membership (at most one, by a partial unique index).
   sprintIssues: {
     where: { removedAt: null },
@@ -27,7 +29,7 @@ type DetailRow = Prisma.IssueGetPayload<{ include: typeof ISSUE_DETAIL_INCLUDE }
 /** Dates-only column (due date) as YYYY-MM-DD. */
 export const toDateOnly = (date: Date | null) => date?.toISOString().slice(0, 10) ?? null;
 
-export function toIssueSummary(issue: SummaryRow): IssueSummary {
+export function toIssueSummary(issue: SummaryRow, commentCount: number): IssueSummary {
   return {
     id: issue.id,
     key: `${issue.project.key}-${issue.number}`,
@@ -41,16 +43,16 @@ export function toIssueSummary(issue: SummaryRow): IssueSummary {
     sprint: issue.sprintIssues[0]?.sprint ?? null,
     storyPoints: issue.storyPoints,
     dueDate: toDateOnly(issue.dueDate),
-    commentCount: issue._count.comments,
+    commentCount,
     version: issue.version,
     createdAt: issue.createdAt.toISOString(),
     updatedAt: issue.updatedAt.toISOString(),
   };
 }
 
-export function toIssueDetail(issue: DetailRow): IssueDetail {
+export function toIssueDetail(issue: DetailRow, commentCount: number): IssueDetail {
   return {
-    ...toIssueSummary(issue),
+    ...toIssueSummary(issue, commentCount),
     projectId: issue.projectId,
     projectKey: issue.project.key,
     description: issue.description,

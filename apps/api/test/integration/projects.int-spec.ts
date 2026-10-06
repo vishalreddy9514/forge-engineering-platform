@@ -398,6 +398,88 @@ describe('projects, members and labels (HTTP, real Postgres + Redis)', () => {
     });
   });
 
+  describe('counts', () => {
+    // Counted per page since Phase 19 (not with Prisma `_count`): every count is pinned here so
+    // a mix-up between rows, deleted items or closed issues cannot pass unnoticed.
+    it('reports members, open issues, label use and comments on lists and details', async () => {
+      const pm = await signIn(t);
+      const dev = await signIn(t);
+      const project = await createProject(pm);
+      await addMember(project, pm, dev, 'DEVELOPER');
+      const other = await createProject(pm); // its issues must not be counted
+      const label = (
+        await t.http
+          .post(`/api/v1/projects/${project.id}/labels`)
+          .set(pm.auth)
+          .send({ name: 'counted', color: '#1d76db' })
+          .expect(201)
+      ).body as { id: string };
+
+      const issue = async (projectId: string, body: Record<string, unknown>) =>
+        (
+          await t.http
+            .post(`/api/v1/projects/${projectId}/issues`)
+            .set(pm.auth)
+            .send(body)
+            .expect(201)
+        ).body as { id: string; version: number };
+      const a = await issue(project.id, {
+        title: 'Open, labelled',
+        labelIds: [label.id],
+      });
+      await issue(project.id, { title: 'Open, labelled too', labelIds: [label.id] });
+      const done = await issue(project.id, { title: 'Closed' });
+      await t.http
+        .patch(`/api/v1/issues/${done.id}`)
+        .set(pm.auth)
+        .send({ version: done.version, status: 'TODO' })
+        .expect(200);
+      const todo = await t.http.get(`/api/v1/issues/${done.id}`).set(pm.auth).expect(200);
+      await t.http
+        .patch(`/api/v1/issues/${done.id}`)
+        .set(pm.auth)
+        .send({ version: (todo.body as { version: number }).version, status: 'CANCELLED' })
+        .expect(200);
+      await issue(other.id, { title: 'Elsewhere' });
+
+      const comments = `/api/v1/issues/${a.id}/comments`;
+      await t.http.post(comments).set(pm.auth).send({ body: 'one' }).expect(201);
+      const second = await t.http.post(comments).set(pm.auth).send({ body: 'two' }).expect(201);
+      await t.http.post(comments).set(pm.auth).send({ body: 'three' }).expect(201);
+      await t.http
+        .delete(`/api/v1/comments/${(second.body as { id: string }).id}`)
+        .set(pm.auth)
+        .expect(204);
+
+      const detail = await t.http.get(`/api/v1/projects/${project.id}`).set(pm.auth);
+      expect(detail.body).toMatchObject({ memberCount: 2, openIssueCount: 2 });
+      const list = await t.http.get('/api/v1/projects?limit=100').set(pm.auth).expect(200);
+      const card = (list.body.data as { id: string }[]).find((p) => p.id === project.id);
+      expect(card).toMatchObject({ memberCount: 2, openIssueCount: 2 });
+
+      const labels = await t.http
+        .get(`/api/v1/projects/${project.id}/labels`)
+        .set(pm.auth)
+        .expect(200);
+      expect(labels.body).toEqual([expect.objectContaining({ name: 'counted', issueCount: 2 })]);
+
+      const issues = await t.http
+        .get(`/api/v1/projects/${project.id}/issues?limit=50`)
+        .set(pm.auth)
+        .expect(200);
+      const counts = Object.fromEntries(
+        (issues.body.data as { id: string; commentCount: number }[]).map((i) => [
+          i.id,
+          i.commentCount,
+        ]),
+      );
+      expect(counts[a.id]).toBe(2); // the deleted comment is not counted
+      expect(Object.values(counts).filter((n) => n === 0)).toHaveLength(2);
+      const single = await t.http.get(`/api/v1/issues/${a.id}`).set(pm.auth).expect(200);
+      expect(single.body.commentCount).toBe(2);
+    });
+  });
+
   describe('labels', () => {
     it('creates, renames, recolours and deletes labels; names are unique per project', async () => {
       const pm = await signIn(t);

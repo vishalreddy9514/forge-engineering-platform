@@ -36,16 +36,26 @@ const fieldError = (path: string, message: string) =>
 const PRIORITY_ORDER = IssuePriorityEnum.options;
 const SEARCH_LIMIT = 1000;
 
+/** The list orders (orderBy below) in SQL, for the capped keyword-search prefetch. */
+const SEARCH_ORDER: Record<ListIssuesQuery['sort'], Prisma.Sql> = {
+  updated: Prisma.sql`updated_at DESC, id DESC`,
+  priority: Prisma.sql`priority ASC, updated_at DESC, id DESC`,
+  created: Prisma.sql`number DESC`,
+};
+
 @Injectable()
 export class IssuesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async get(issueId: string): Promise<IssueDetail> {
-    const issue = await this.prisma.issue.findUniqueOrThrow({
-      where: { id: issueId },
-      include: ISSUE_DETAIL_INCLUDE,
-    });
-    return toIssueDetail(issue);
+    const [issue, commentCount] = await Promise.all([
+      this.prisma.issue.findUniqueOrThrow({
+        where: { id: issueId },
+        include: ISSUE_DETAIL_INCLUDE,
+      }),
+      this.countComments(issueId),
+    ]);
+    return toIssueDetail(issue, commentCount);
   }
 
   async getByKey(projectId: string, number: number): Promise<IssueDetail> {
@@ -53,7 +63,23 @@ export class IssuesService {
       where: { projectId_number: { projectId, number } },
       include: ISSUE_DETAIL_INCLUDE,
     });
-    return toIssueDetail(issue);
+    return toIssueDetail(issue, await this.countComments(issue.id));
+  }
+
+  /** Visible comments on one issue (an index range on issue_comments). */
+  private countComments(issueId: string): Promise<number> {
+    return this.prisma.issueComment.count({ where: { issueId, deletedAt: null } });
+  }
+
+  /** Visible comments per issue, for the issues of one page only. */
+  private async commentCounts(issueIds: string[]): Promise<Map<string, number>> {
+    if (issueIds.length === 0) return new Map();
+    const rows = await this.prisma.issueComment.groupBy({
+      by: ['issueId'],
+      where: { issueId: { in: issueIds }, deletedAt: null },
+      _count: { _all: true },
+    });
+    return new Map(rows.map((row) => [row.issueId, row._count._all]));
   }
 
   async create(projectId: string, input: CreateIssueRequest, user: AuthUser): Promise<IssueDetail> {
@@ -257,7 +283,7 @@ export class IssuesService {
     } else if (query.sprint) {
       filters.push({ sprintIssues: { some: { removedAt: null, sprintId: query.sprint } } });
     }
-    if (query.q) filters.push({ id: { in: await this.search(projectId, query.q) } });
+    if (query.q) filters.push({ id: { in: await this.search(projectId, query.q, query.sort) } });
 
     const cursor = query.cursor ? this.cursorFilter(query.sort, query.cursor) : undefined;
     if (cursor) filters.push(cursor);
@@ -270,8 +296,9 @@ export class IssuesService {
     });
     const page = rows.slice(0, query.limit);
     const last = page.at(-1);
+    const comments = await this.commentCounts(page.map((issue) => issue.id));
     return {
-      data: page.map(toIssueSummary),
+      data: page.map((issue) => toIssueSummary(issue, comments.get(issue.id) ?? 0)),
       nextCursor: rows.length > query.limit && last ? this.encodeCursor(query.sort, last) : null,
     };
   }
@@ -280,12 +307,19 @@ export class IssuesService {
    * Keyword search (FR-11.1): the generated full-text column (stemmed, so "resetting" finds
    * "reset"), plus a substring match on the title for partial words and issue-key fragments.
    */
-  private async search(projectId: string, q: string): Promise<string[]> {
+  private async search(
+    projectId: string,
+    q: string,
+    sort: ListIssuesQuery['sort'],
+  ): Promise<string[]> {
     const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    // The matches are capped, so take them in the list's own order: the cap then drops the end
+    // of the list, never an arbitrary part of it (with 6k matches it used to drop the newest).
     const rows = await this.prisma.$queryRaw<{ id: string }[]>`
       SELECT id FROM issues
       WHERE project_id = ${projectId}::uuid AND deleted_at IS NULL
         AND (search_vector @@ websearch_to_tsquery('english', ${q}) OR title ILIKE ${like})
+      ORDER BY ${SEARCH_ORDER[sort]}
       LIMIT ${SEARCH_LIMIT}`;
     return rows.map((row) => row.id);
   }

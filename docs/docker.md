@@ -8,6 +8,7 @@ outside, and migrations applied by a one-shot job before anything starts.
 cp .env.example .env    # once (optional: the stack works without it)
 pnpm stack:up           # builds the images, migrates, starts everything, waits until healthy
 pnpm stack:seed         # optional demo data (the same seed as `pnpm db:seed`)
+pnpm stack:perf-seed    # optional: project PERF with 100,000 issues for the load tests (docs/performance.md)
 open http://localhost:8080
 pnpm stack:down
 ```
