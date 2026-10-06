@@ -56,3 +56,6 @@ infrastructure/docker/.stack.env
 
 # Local ZAP baseline output (CI uploads it as an artifact)
 zap/
+
+# Local k6 summaries (CI uploads them as an artifact)
+perf-results/

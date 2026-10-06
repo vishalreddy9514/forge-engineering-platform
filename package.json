@@ -22,6 +22,7 @@
     "infra:down": "docker compose down",
     "stack:up": "node infrastructure/docker/stack-env.mjs && docker compose --profile app up --detach --build --wait",
     "stack:seed": "docker compose --profile app run --rm migrate prisma db seed",
+    "stack:perf-seed": "docker compose --profile app run --rm migrate tsx prisma/perf-seed.ts",
     "stack:down": "docker compose --profile app down",
     "clean": "turbo run clean && rm -rf node_modules .turbo"
   },

@@ -217,6 +217,28 @@ describe('issues and comments (HTTP, real Postgres + Redis)', () => {
       expect(await search('100%_\\')).toEqual([]); // LIKE wildcards are escaped
     });
 
+    it('keeps the first matches in the list order when a search matches more than its cap', async () => {
+      const w = await world();
+      // 1,100 matches, more than the search's cap of 1,000, written in one statement. Number n
+      // was updated n minutes ago, so the newest match has number 1 and the highest is oldest.
+      await t.prisma.$executeRaw`
+        INSERT INTO issues (id, project_id, number, title, reporter_id, priority, updated_at)
+        SELECT gen_random_uuid(), ${w.project.id}::uuid, n, format('Needle %s', n), ${w.pm.id}::uuid,
+               (CASE WHEN n = 1100 THEN 'CRITICAL' ELSE 'LOW' END)::issue_priority,
+               now() - n * interval '1 minute'
+        FROM generate_series(1, 1100) AS n`;
+      const first = async (sort: string) => {
+        const res = await t.http
+          .get(`/api/v1/projects/${w.project.id}/issues?q=needle&sort=${sort}&limit=1`)
+          .set(w.pm.auth)
+          .expect(200);
+        return (res.body.data as { number: number }[])[0]?.number;
+      };
+      expect(await first('updated')).toBe(1);
+      expect(await first('created')).toBe(1100);
+      expect(await first('priority')).toBe(1100); // the only critical one, and the oldest
+    });
+
     it('pages through every issue exactly once in each sort order', async () => {
       const { w } = await seeded();
       for (let i = 0; i < 4; i++)

@@ -3,11 +3,12 @@ import { Injectable } from '@nestjs/common';
 
 import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../infrastructure/database/prisma.service';
+import { OPEN_ISSUES } from '../issues/open-issues';
 import { SprintsService } from '../sprints/sprints.service';
 import { toUserSummary, USER_SUMMARY_SELECT } from '../users/user-summary';
 import { oneDecimal, weekSeries } from './weeks';
 
-const OPEN: Prisma.IssueWhereInput = { deletedAt: null, status: { notIn: ['DONE', 'CANCELLED'] } };
+const OPEN: Prisma.IssueWhereInput = OPEN_ISSUES;
 const dateOnly = (date: Date) => date.toISOString().slice(0, 10);
 const zeros = <K extends string>(keys: readonly K[]) =>
   Object.fromEntries(keys.map((k) => [k, 0])) as Record<K, number>;
