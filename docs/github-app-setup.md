@@ -39,7 +39,7 @@ GITHUB_WEBHOOK_SECRET=<the webhook secret>
 ```
 
 All four or none: the API refuses to start with a partial set, and a malformed key fails at
-startup rather than at the first sync. In AWS these come from SSM Parameter Store (Phase 16);
+startup rather than at the first sync. In AWS these come from SSM Parameter Store ([deployment](deployment.md#one-time-setup));
 the private key never goes into the database. Optional tuning:
 
 | Variable                    | Default                  | Meaning                                                                              |

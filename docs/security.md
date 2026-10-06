@@ -117,6 +117,27 @@ in each issue's own history instead.) Each entry has the actor, IP, user agent a
 | Container hardening   | Non-root users in every container; no npm, corepack or yarn in runtime images; no build tooling or package caches in runtime images           | `docker compose exec … id`; Trivy            |
 | Dependency updates    | Dependabot for npm, uv, GitHub Actions, compose images and Dockerfile base images, weekly                                                     | `.github/dependabot.yml`                     |
 
+## AWS deployment
+
+Details in [deployment](deployment.md).
+
+| Control               | Implementation                                                                                                                                                                | Tested by                                          |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| Network exposure      | Only the ALB is public (443; 80 redirects). Every task, the database and Redis are in private subnets; each security group admits named security groups, never address ranges | `terraform test` (stack.tftest.hcl)                |
+| Encryption in transit | TLS 1.2+/1.3 policy on the ALB; `rds.force_ssl`; every database client verifies the RDS certificate and hostname; Redis over TLS with an auth token                           | `terraform test`; local TLS rehearsal (deployment) |
+| Encryption at rest    | RDS, ElastiCache, S3 (SSE-S3), ECR and EBS encrypted                                                                                                                          | `terraform test`; Trivy config scan                |
+| Secrets               | Generated with ephemeral resources and written through write-only arguments: never in Terraform state or plans. Tasks receive SSM references, never values                    | `terraform test`                                   |
+| Deploy credentials    | GitHub OIDC; the role trusts only this repository's `dev` environment; no AWS keys anywhere                                                                                   | Review of `bootstrap/`                             |
+| IAM escalation        | The deploy role can only create `forge-<env>-*` roles that carry the `forge-workload-boundary` permissions boundary, and cannot edit the boundary or the deploy roles         | Review of `bootstrap/iam.tf`                       |
+| Application IAM       | Only the API and worker role has permissions: object read, write and delete in the attachments bucket, and `ses:SendEmail` from the app's own address                         | Review of `modules/stack/ecs.tf`                   |
+| Supply chain          | Deploys verify each image's signed provenance from `images.yml`, copy it by digest, and refuse any image not pinned by digest                                                 | `promote-images.sh`; `terraform test`              |
+| Containers            | Read-only root filesystems (only `/tmp` writable), non-root users, an init process, no ECS Exec                                                                               | Local rehearsal with `--read-only`                 |
+| Misconfiguration      | Trivy scans `infrastructure/terraform` on every PR; High and Critical findings fail CI                                                                                        | CI `terraform` job                                 |
+
+Accepted Medium and Low findings: deletion protection is off in dev (so it can be torn down; it
+is on in prod), there are no VPC flow logs or S3 access logs yet (Phase 18), and CloudWatch log
+groups use AWS-managed rather than customer-managed keys.
+
 ## Deliberate trade-offs
 
 | Decision                                                                | Why                                                                                                                                                                                                  |
@@ -127,3 +148,6 @@ in each issue's own history instead.) Each entry has the actor, IP, user agent a
 | The session-hint cookie (`forge_session`) is readable by JavaScript     | It holds no credential (the value is `1`); it only lets the web proxy redirect before rendering                                                                                                      |
 | Every GitHub installation belongs to the deployment                     | v1 is single-organisation: any installation of this App is the organisation's, and project managers may link any of its repositories                                                                 |
 | The migrate image may ship two High findings that Prisma pins           | `mysql2` and `deepmerge-ts` are exact dependencies of the Prisma CLI; overriding them runs Prisma on untested versions. The image is a one-shot job with no listener; Criticals still fail the build |
+| The API and worker connect to RDS as the schema owner                   | Migrations need the owner and run in a separate task; a separate least-privilege runtime role is planned for security hardening (Phase 18). The AI service already has its own restricted login      |
+| The deploy role has broad rights over the services one environment uses | Terraform manages them end to end. Its IAM rights, the part that could escalate, are confined by the permissions boundary, and only the protected `dev` GitHub environment can assume it             |
+| One fck-nat instance in dev                                             | A failure stops outbound calls (GitHub, OpenAI, image pulls for new tasks) but not the tasks already serving. prod uses a managed NAT Gateway                                                        |

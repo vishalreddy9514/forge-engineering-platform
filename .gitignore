@@ -34,6 +34,8 @@ htmlcov/
 *.tfstate.*
 *.tfplan
 crash.log
+# Written by the deploy workflow (image digests for one run)
+images.auto.tfvars.json
 
 # OS / editor
 .DS_Store

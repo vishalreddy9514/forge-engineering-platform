@@ -1,0 +1,118 @@
+name: Deploy
+
+# Deploys a commit on main to AWS (docs/deployment.md): verifies each image's signed provenance,
+# copies it from GitHub Container Registry to ECR by digest, then `terraform apply`, which runs
+# the migrations before rolling the services. Skipped until AWS is configured (TF_STATE_BUCKET).
+on:
+  workflow_run:
+    workflows: [Images]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Full commit SHA on main whose images to deploy
+        required: true
+      hibernate:
+        description: Scale dev to (almost) zero, keeping its data
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to dev
+    if: >-
+      vars.TF_STATE_BUCKET != '' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: dev
+      url: ${{ steps.apply.outputs.url }}
+    permissions:
+      contents: read
+      id-token: write # assume the deploy role through GitHub OIDC
+      packages: read # read the images from ghcr.io
+      attestations: read # verify their provenance
+    env:
+      COMMIT: ${{ inputs.commit || github.event.workflow_run.head_sha }}
+      HIBERNATE: ${{ inputs.hibernate || false }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_VAR_domain_name: ${{ vars.FORGE_DOMAIN }}
+      TF_VAR_hosted_zone_name: ${{ vars.FORGE_HOSTED_ZONE }}
+      TF_IN_AUTOMATION: 'true'
+    defaults:
+      run:
+        working-directory: infrastructure/terraform/environments/dev
+    steps:
+      - name: Check the commit
+        working-directory: .
+        run: |
+          [[ "$COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "Not a full commit SHA: $COMMIT" >&2; exit 1; }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.COMMIT }}
+          fetch-depth: 0
+      - name: Only commits on main deploy
+        working-directory: .
+        run: git merge-base --is-ancestor "$COMMIT" origin/main
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: imjasonh/setup-crane@feee3b6bb0d4c68370f256a4502498c9227e5c6b # v0.7
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.5
+          terraform_wrapper: false
+
+      - name: Promote images to ECR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ github.repository_owner }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          account=$(aws sts get-caller-identity --query Account --output text)
+          export ECR_REGISTRY="${account}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          echo "$GH_TOKEN" | crane auth login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          aws ecr get-login-password | crane auth login "$ECR_REGISTRY" -u AWS --password-stdin
+          "$GITHUB_WORKSPACE/.github/scripts/promote-images.sh" images.auto.tfvars.json
+
+      - name: Terraform init
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${TF_STATE_BUCKET}" -backend-config="region=${AWS_REGION}"
+      - id: apply
+        name: Terraform apply (migrations first, then a rolling deploy)
+        env:
+          ALARM_EMAIL: ${{ vars.FORGE_ALARM_EMAIL }}
+        run: |
+          args=(-input=false -auto-approve -var "hibernate=${HIBERNATE}")
+          if [[ -n "$ALARM_EMAIL" ]]; then args+=(-var "alarm_email=${ALARM_EMAIL}"); fi
+          terraform apply "${args[@]}"
+          echo "url=$(terraform output -raw url)" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test
+        if: env.HIBERNATE != 'true'
+        env:
+          URL: ${{ steps.apply.outputs.url }}
+        run: |
+          for path in /api/v1/health/ready /login; do
+            curl --fail --silent --show-error --retry 10 --retry-delay 15 --retry-all-errors \
+              -o /dev/null -w "${path} %{http_code} %{time_total}s\n" "${URL}${path}"
+          done
+          {
+            echo "### Deployed ${COMMIT::12} to dev"
+            echo
+            echo "${URL}"
+          } >> "$GITHUB_STEP_SUMMARY"
