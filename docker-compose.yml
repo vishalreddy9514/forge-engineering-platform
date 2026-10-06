@@ -267,9 +267,11 @@ services:
 
 secrets:
   # Optional: an extra CA certificate for builds behind a TLS-intercepting proxy
-  # (BUILD_CA_CERT=/path/to/ca.pem). Empty by default, and then unused.
+  # (BUILD_CA_CERT=/path/to/ca.pem). Empty by default, and then unused. The default is an empty
+  # file in the repository, not /dev/null: newer buildx refuses to read files outside the project
+  # without an --allow=fs.read entitlement.
   build_ca:
-    file: ${BUILD_CA_CERT:-/dev/null}
+    file: ${BUILD_CA_CERT:-./infrastructure/docker/no-build-ca.pem}
 
 volumes:
   prometheus-data:
