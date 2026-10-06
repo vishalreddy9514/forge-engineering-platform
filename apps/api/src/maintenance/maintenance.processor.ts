@@ -5,6 +5,7 @@ import type { Job, Queue } from 'bullmq';
 import { AttachmentCleanup } from '../attachments/attachment-cleanup.service';
 import { QUEUES } from '../infrastructure/queue/queue.module';
 import { OutboxRelay } from '../outbox/outbox.relay';
+import { Instrumented } from '../observability/instrumented';
 
 export const MAINTENANCE_JOBS = {
   CLEANUP_UPLOADS: 'attachments.cleanup',
@@ -17,6 +18,7 @@ const HOUR = 60 * 60 * 1000;
  * Periodic housekeeping. Job schedulers live in Redis and are upserted by ID, so every worker
  * replica can register them at startup without creating duplicates.
  */
+@Instrumented(QUEUES.MAINTENANCE)
 @Processor(QUEUES.MAINTENANCE, { concurrency: 1 })
 export class MaintenanceProcessor extends WorkerHost implements OnApplicationBootstrap {
   constructor(

@@ -249,6 +249,24 @@ describe('AI assistant (fake AI service, real Postgres + Redis)', () => {
   // ───────────── summaries ─────────────
 
   describe('thread summaries (FR-7.2)', () => {
+    it('carries the request ID from the request, through the queued job, to the AI service', async () => {
+      const w = await world();
+      const issue = await issueWithThread(w);
+      const res = await t.http
+        .post(`/api/v1/issues/${issue.id}/ai/summaries`)
+        .set(w.dev.auth)
+        .set('X-Request-ID', 'trace-summary-1')
+        .expect(202);
+      expect(res.headers['x-request-id']).toBe('trace-summary-1');
+      const [queued] = await queue.getJobs(['waiting']);
+      expect(queued?.data).toMatchObject({ requestId: 'trace-summary-1' });
+
+      await runJobs();
+
+      const call = ai.requests.find((r) => r.path === '/v1/summaries');
+      expect(call?.requestId).toBe('trace-summary-1');
+    });
+
     it('queues one job per thread version, caches the result and notifies the requester', async () => {
       const w = await world();
       const issue = await issueWithThread(w);

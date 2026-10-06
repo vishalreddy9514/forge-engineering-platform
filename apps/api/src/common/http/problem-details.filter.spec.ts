@@ -4,15 +4,21 @@ import {
   HttpException,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 
+import * as errors from '../../observability/errors';
 import { ProblemDetailsFilter } from './problem-details.filter';
 
 function run(exception: unknown) {
   const res = { status: jest.fn(), type: jest.fn(), json: jest.fn() };
   res.status.mockReturnValue(res);
   res.type.mockReturnValue(res);
-  const req = { originalUrl: '/api/v1/things/1', id: 'req-1' };
+  const req = {
+    originalUrl: '/api/v1/things/1',
+    id: 'req-1',
+    route: { path: '/api/v1/things/:id' },
+  };
   const host = {
     switchToHttp: () => ({ getRequest: () => req, getResponse: () => res }),
   } as unknown as ArgumentsHost;
@@ -82,6 +88,30 @@ describe('ProblemDetailsFilter', () => {
       status: 500,
       instance: '/api/v1/things/1',
       requestId: 'req-1',
+    });
+  });
+
+  describe('error reporting', () => {
+    let report: jest.SpyInstance;
+
+    beforeEach(() => {
+      report = jest.spyOn(errors, 'reportError').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+      report.mockRestore();
+    });
+
+    it('reports unexpected errors with their route template', () => {
+      const bug = new TypeError("Cannot read properties of undefined (reading 'id')");
+      run(bug);
+      expect(report).toHaveBeenCalledWith(bug, { route: '/api/v1/things/:id' });
+    });
+
+    it('does not report the errors the API means to return (a degraded AI is a 503)', () => {
+      run(new NotFoundException());
+      run(new ServiceUnavailableException('The AI assistant is unavailable'));
+      expect(report).not.toHaveBeenCalled();
     });
   });
 });
