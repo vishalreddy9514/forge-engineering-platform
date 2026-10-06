@@ -17,6 +17,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM python:3.12-slim-bookworm AS runtime
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+# Debian security fixes published since the base image was built (Trivy fails the build on
+# fixable High/Critical findings; base images are often rebuilt days later).
+RUN apt-get update && apt-get -y upgrade --no-install-recommends && rm -rf /var/lib/apt/lists/*
 RUN useradd --system --uid 10001 --no-create-home forge
 WORKDIR /app
 # Amazon RDS's CA bundle, so the database's TLS certificate is verified in AWS

@@ -1,3 +1,10 @@
+import {
+  CreateBucketCommand,
+  DeleteObjectCommand,
+  PutObjectCommand,
+  S3Client,
+  S3ServiceException,
+} from '@aws-sdk/client-s3';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { RedisContainer, type StartedRedisContainer } from '@testcontainers/redis';
 import { GenericContainer, type StartedTestContainer, Wait } from 'testcontainers';
@@ -63,6 +70,7 @@ export default async function globalSetup(): Promise<void> {
   if (s3) {
     globalThis.__S3_CONTAINER__ = s3;
     s3Endpoint = `http://${s3.getHost()}:${String(s3.getMappedPort(8333))}`;
+    await untilWritable(s3Endpoint);
   }
   if (!url || !redisUrl || !s3Endpoint) throw new Error('Test infrastructure did not start');
 
@@ -77,4 +85,37 @@ export default async function globalSetup(): Promise<void> {
   process.env.INTEGRATION_DATABASE_URL = url;
   process.env.INTEGRATION_REDIS_URL = redisUrl;
   process.env.INTEGRATION_S3_ENDPOINT = s3Endpoint;
+}
+
+/**
+ * SeaweedFS answers /status before its volume server has registered with the master; until
+ * then every upload fails with InternalError. On a loaded machine that takes long enough for the
+ * first tests to hit it, so wait for a real write to succeed.
+ */
+async function untilWritable(endpoint: string, timeoutMs = 60_000): Promise<void> {
+  const s3 = new S3Client({
+    endpoint,
+    region: 'us-east-1',
+    forcePathStyle: true,
+    credentials: { accessKeyId: 'forge', secretAccessKey: 'forge_dev_storage_secret' },
+  });
+  const deadline = Date.now() + timeoutMs;
+  try {
+    for (;;) {
+      try {
+        await s3.send(new CreateBucketCommand({ Bucket: 'forge-test' })).catch((error: unknown) => {
+          if (!(error instanceof S3ServiceException && /BucketAlready/.test(error.name)))
+            throw error;
+        });
+        await s3.send(new PutObjectCommand({ Bucket: 'forge-test', Key: 'probe', Body: 'ok' }));
+        await s3.send(new DeleteObjectCommand({ Bucket: 'forge-test', Key: 'probe' }));
+        return;
+      } catch (error) {
+        if (Date.now() > deadline) throw error;
+        await new Promise((done) => setTimeout(done, 500));
+      }
+    }
+  } finally {
+    s3.destroy();
+  }
 }

@@ -41,6 +41,9 @@ RUN cd /out/node_modules/.pnpm \
 # A fresh stage with the installed workspace, without the build stage's package manager
 # download cache or the deploy output.
 FROM node:22-bookworm-slim AS migrate
+# Debian security fixes published since the base image was built (Trivy fails the build on
+# fixable High/Critical findings; base images are often rebuilt days later).
+RUN apt-get update && apt-get -y upgrade --no-install-recommends && rm -rf /var/lib/apt/lists/*
 # The base image's npm, corepack and yarn are not used at run time; removing them removes
 # their dependencies' advisories from the image too.
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
@@ -61,6 +64,9 @@ CMD ["prisma", "migrate", "deploy"]
 # ---- Runtime ----
 FROM node:22-bookworm-slim AS runtime
 ENV NODE_ENV=production
+# Debian security fixes published since the base image was built (Trivy fails the build on
+# fixable High/Critical findings; base images are often rebuilt days later).
+RUN apt-get update && apt-get -y upgrade --no-install-recommends && rm -rf /var/lib/apt/lists/*
 # The base image's npm, corepack and yarn are not used at run time; removing them removes
 # their dependencies' advisories from the image too.
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
