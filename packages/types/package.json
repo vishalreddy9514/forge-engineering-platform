@@ -28,7 +28,7 @@
   "devDependencies": {
     "@forge/config": "workspace:*",
     "@types/jest": "30.0.0",
-    "@types/node": "22.20.4",
+    "@types/node": "26.6.4",
     "eslint": "9.39.5",
     "jest": "30.5.2",
     "ts-jest": "29.4.14",
