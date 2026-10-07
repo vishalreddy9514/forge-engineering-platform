@@ -17,7 +17,7 @@ concurrency:
 permissions:
   contents: read
 
-# Every action is pinned to a full commit SHA; Dependabot keeps the pins and comments current.
+# Every action is pinned to a full commit SHA, with the release tag as a comment.
 jobs:
   image:
     name: ${{ matrix.image }}

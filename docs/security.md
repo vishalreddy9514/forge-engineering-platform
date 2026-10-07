@@ -155,7 +155,7 @@ in each issue's own history instead.) Each entry has the actor, IP, user agent a
 | Vulnerable components | Trivy scans every image on every PR and on main; any fixable High or Critical fails the images that serve traffic ([cicd.md](cicd.md))        | `images.yml` gate                            |
 | Image provenance      | Images published from `main` only, with an SBOM, BuildKit provenance and a Sigstore-signed build attestation; deploy by `sha-<commit>` digest | `gh attestation verify` ([cicd.md](cicd.md)) |
 | Container hardening   | Non-root users in every container; no npm, corepack or yarn in runtime images; no build tooling or package caches in runtime images           | `docker compose exec … id`; Trivy            |
-| Dependency updates    | Dependabot for npm, uv, GitHub Actions, compose images and Dockerfile base images, weekly                                                     | `.github/dependabot.yml`                     |
+| Dependency updates    | Manual; Trivy fails any image with a fixable High or Critical finding, and transitive fixes are pinned as pnpm `overrides`                    | `images.yml`, `pnpm-workspace.yaml`          |
 | Secrets in git        | gitleaks over the full history on every PR; reviewed false positives are allow-listed narrowly in `.gitleaks.toml`                            | CI `secrets` job (a committed key fails it)  |
 | Running application   | OWASP ZAP baseline against the production images on every PR; any new warning fails, ignores carry a reason in `.zap/rules.tsv`               | CI end-to-end job                            |
 

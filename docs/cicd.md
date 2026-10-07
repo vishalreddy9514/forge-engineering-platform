@@ -83,8 +83,11 @@ Getting there (Phase 15):
 
 - **Pinned actions.** Every `uses:` names a full commit SHA, with the release tag as a comment.
   A tag that is moved or compromised upstream cannot change what runs here.
-- **Dependabot** (`.github/dependabot.yml`) updates npm (grouped), the AI service's uv lockfile,
-  the GitHub Actions pins, the compose images and the Dockerfile base images, weekly.
+- **Dependency updates are manual.** Automated update PRs (Dependabot) are turned off. The
+  safety net is the image scan: a fixable High or Critical vulnerability in any package of an
+  image fails the build, on pull requests and on `main`, so a new advisory surfaces as a red
+  check rather than a pile of PRs. Transitive fixes go in `overrides` in
+  `pnpm-workspace.yaml`, each with the advisory it answers.
 - **Least privilege.** Workflows default to `contents: read`; only the image job asks for
   `packages: write`, `id-token: write` and `attestations: write`, and only uses them on `main`
   and tags. The deploy job asks for `id-token: write` (AWS through OIDC) and read access to
