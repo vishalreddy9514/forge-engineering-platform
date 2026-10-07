@@ -117,7 +117,3 @@ Accuracy matters more than reach. These are the limits:
 - **Administrators have no second factor yet** (ASVS 4.3.1, [gaps](asvs.md#gaps)).
 - **The screenshots use the fake AI provider**, so their AI text is deterministic
   placeholder output, not model output.
-- **Built with AI assistance.** Forge was developed with an AI coding assistant under my
-  direction and review: requirements, architecture decisions, review of every change, and
-  verification. Be ready to explain any part of the code, and be open about how it was built
-  if asked.

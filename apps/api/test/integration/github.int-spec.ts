@@ -444,7 +444,7 @@ describe('GitHub integration (recorded fixtures, real Postgres + Redis)', () => 
         await t.http.get(`/api/v1/projects/${w.project.id}/repositories`).set(w.pm.auth).expect(200)
       ).body as { counts: Record<string, number>; contributors: { login: string }[] }[];
       expect(linked?.counts).toEqual({ openPullRequests: 2, commits: 7, openIssues: 1 });
-      expect(linked?.contributors.map((c) => c.login)).toEqual(['vishalreddy9514', 'claude']);
+      expect(linked?.contributors.map((c) => c.login)).toEqual(['vishalreddy9514', 'sam-okafor']);
 
       // The issue page's Development panel.
       const dev1 = await t.http
