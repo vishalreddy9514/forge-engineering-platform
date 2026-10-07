@@ -24,7 +24,8 @@ has a compatibility cost that was checked against the rest of the stack:
 - **ESLint 9** in every package.
 - Everything else uses current releases (Next.js 16, React 19, Tailwind 4, Zod 4, Jest 30,
   Python 3.12, FastAPI, Ruff, mypy 2).
-- Versions are pinned exactly and kept up to date by Dependabot with grouped updates.
+- Versions are pinned exactly and kept up to date by Dependabot with grouped updates
+  (since turned off; see the update below).
 
 ## Alternatives considered
 
@@ -39,3 +40,10 @@ has a compatibility cost that was checked against the rest of the stack:
 - ➖ The upgrade to NestJS 12 and TypeScript 7 is deferred work. Upgrade trigger:
   `typescript-eslint` and `ts-jest` supporting TS 7, and Jest ESM support leaving
   experimental status (or a decision to move to Vitest).
+
+## Update (2026-10-07)
+
+Dependabot's version-update PRs are turned off: on a finished portfolio project they piled up
+faster than they were reviewed. Versions stay pinned and are updated by hand. Vulnerabilities
+are still caught: Trivy fails any image with a fixable High or Critical finding, which is how
+the `sharp` and `shell-quote` advisories were found and fixed (#41).

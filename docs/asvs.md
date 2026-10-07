@@ -121,18 +121,18 @@ does not exist in Forge).
 
 ## V14 Configuration
 
-| ID     | Requirement (short)                                     | Status | How                                                                          | Checked by                                     |
-| ------ | ------------------------------------------------------- | ------ | ---------------------------------------------------------------------------- | ---------------------------------------------- |
-| 14.2.1 | Components are up to date                               | Met    | Dependabot weekly; Trivy fails images with fixable High or Critical findings | `images.yml`                                   |
-| 14.3.2 | Debug modes off in production                           | Met    | `NODE_ENV=production`; no stack traces in responses                          | `problem-details.filter.spec.ts`               |
-| 14.3.3 | Headers do not expose versions                          | Met    | `x-powered-by` off in Next.js and Express; Nginx `server_tokens off`         | `app.e2e-spec.ts`, ZAP baseline                |
-| 14.4.1 | Every response has a correct `Content-Type` and charset | Met    | Except the empty-bodied redirect from `/` (reviewed, `.zap/rules.tsv`)       | ZAP baseline                                   |
-| 14.4.3 | A Content Security Policy                               | Met    | Per-request nonce, `strict-dynamic`, no inline or eval script                | `proxy.test.ts`, `security.spec.ts`, ZAP 10038 |
-| 14.4.4 | `X-Content-Type-Options: nosniff`                       | Met    | Web and API                                                                  | `security.spec.ts`, `app.e2e-spec.ts`          |
-| 14.4.5 | HSTS                                                    | Met    | Set by the ALB, where TLS ends                                               | `terraform test`                               |
-| 14.4.6 | A suitable `Referrer-Policy`                            | Met    | `strict-origin-when-cross-origin`; `no-referrer` on the reset page           | ZAP baseline                                   |
-| 14.4.7 | Framing restricted                                      | Met    | `frame-ancestors 'none'` and `X-Frame-Options: DENY`                         | `security.spec.ts`                             |
-| 14.5.3 | CORS `Origin` allow-list                                | Met    | Configured origins only                                                      | `app.e2e-spec.ts`                              |
+| ID     | Requirement (short)                                     | Status | How                                                                           | Checked by                                     |
+| ------ | ------------------------------------------------------- | ------ | ----------------------------------------------------------------------------- | ---------------------------------------------- |
+| 14.2.1 | Components are up to date                               | Met    | Trivy fails images with fixable High or Critical findings; updates are manual | `images.yml`                                   |
+| 14.3.2 | Debug modes off in production                           | Met    | `NODE_ENV=production`; no stack traces in responses                           | `problem-details.filter.spec.ts`               |
+| 14.3.3 | Headers do not expose versions                          | Met    | `x-powered-by` off in Next.js and Express; Nginx `server_tokens off`          | `app.e2e-spec.ts`, ZAP baseline                |
+| 14.4.1 | Every response has a correct `Content-Type` and charset | Met    | Except the empty-bodied redirect from `/` (reviewed, `.zap/rules.tsv`)        | ZAP baseline                                   |
+| 14.4.3 | A Content Security Policy                               | Met    | Per-request nonce, `strict-dynamic`, no inline or eval script                 | `proxy.test.ts`, `security.spec.ts`, ZAP 10038 |
+| 14.4.4 | `X-Content-Type-Options: nosniff`                       | Met    | Web and API                                                                   | `security.spec.ts`, `app.e2e-spec.ts`          |
+| 14.4.5 | HSTS                                                    | Met    | Set by the ALB, where TLS ends                                                | `terraform test`                               |
+| 14.4.6 | A suitable `Referrer-Policy`                            | Met    | `strict-origin-when-cross-origin`; `no-referrer` on the reset page            | ZAP baseline                                   |
+| 14.4.7 | Framing restricted                                      | Met    | `frame-ancestors 'none'` and `X-Frame-Options: DENY`                          | `security.spec.ts`                             |
+| 14.5.3 | CORS `Origin` allow-list                                | Met    | Configured origins only                                                       | `app.e2e-spec.ts`                              |
 
 ## Gaps
 

@@ -13,8 +13,8 @@ concurrency:
 permissions:
   contents: read
 
-# Every action is pinned to a full commit SHA (the tag in the comment is for people and for
-# Dependabot, which keeps both up to date): a moved tag cannot change what runs here.
+# Every action is pinned to a full commit SHA (the tag in the comment is for people): a moved
+# tag cannot change what runs here. Updating a pin means updating both.
 
 jobs:
   docs:
