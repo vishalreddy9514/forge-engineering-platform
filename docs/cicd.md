@@ -15,13 +15,16 @@ flowchart LR
 
 ## `ci.yml` (every pull request and every push to main)
 
-| Job                                                    | Checks                                                                                                               |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| TypeScript (lint, typecheck, test, build)              | Prettier, ESLint, `tsc`, unit/HTTP/integration tests with the coverage gate (Testcontainers), builds                 |
-| Python (ruff, mypy, pytest, retrieval eval)            | The AI service against real pgvector, including the hit-rate@5 ≥ 0.8 gate                                            |
-| Docker Compose (bootstrap, migrate, seed)              | A clean `docker compose up`, migrations, no schema drift, seed idempotency, the AI role's restrictions               |
-| End-to-end on the containers (Playwright, axe)         | Builds the images, starts the stack, seeds it, runs every journey through Nginx                                      |
-| Terraform (fmt, validate, test, misconfiguration scan) | `terraform fmt`, `validate` on every root, the mocked-provider plan tests, Trivy's IaC scan (High and Critical fail) |
+| Job                                                     | Checks                                                                                                                  |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| TypeScript (lint, typecheck, test, build)               | Prettier, ESLint, `tsc`, unit/HTTP/integration tests with the coverage gate (Testcontainers), builds                    |
+| Python (ruff, mypy, pytest, retrieval eval)             | The AI service against real pgvector, including the hit-rate@5 ≥ 0.8 gate                                               |
+| Docker Compose (bootstrap, migrate, seed)               | A clean `docker compose up`, migrations, no schema drift, seed idempotency, the AI role's restrictions                  |
+| End-to-end on the containers (Playwright, axe, ZAP, k6) | Builds the images, starts the stack, seeds it, runs every journey through Nginx, the ZAP baseline and the k6 load tests |
+| Terraform (fmt, validate, test, misconfiguration scan)  | `terraform fmt`, `validate` on every root, the mocked-provider plan tests, Trivy's IaC scan (High and Critical fail)    |
+| Secret scan (gitleaks, full history)                    | Every commit, against the allowlist in `.gitleaks.toml`                                                                 |
+| Observability config (promtool, dashboard)              | Prometheus config and alert rules, the alert rules' unit tests, the dashboard's queries                                 |
+| Docs (relative links and images resolve)                | Every relative link, heading anchor and image in the Markdown (`pnpm docs:check`)                                       |
 
 ## `images.yml` (pull requests, main, and `v*` tags)
 

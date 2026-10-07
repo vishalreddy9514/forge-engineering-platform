@@ -80,3 +80,20 @@ Writing them found real defects, each fixed with a test that fails without the f
   "Open" badges were 3.08:1 (now the same 100/900 pairing as the other status badges).
 - **An unlabelled control**: the attachment input was focusable but had no name; it is now
   hidden behind the "Attach files" button that opens it.
+
+## Screenshots and documentation links
+
+The README's screenshots are taken by a Playwright script (`e2e/screenshots/`), not by hand, so
+they can be retaken after a UI change. Run it against a seeded stack:
+
+```sh
+pnpm stack:up && pnpm stack:seed
+pnpm --filter @forge/e2e screenshots   # writes docs/images/*.png
+```
+
+It signs in as the demo project manager and, for the AI screens, rebuilds the search index as the
+admin first. It is not part of `pnpm e2e`: it asserts nothing beyond the page reaching the state
+it photographs.
+
+`pnpm docs:check` (`scripts/check-docs-links.mjs`) fails if a relative link, heading anchor or
+image in any Markdown file does not exist. CI runs it, and its own tests, on every pull request.
