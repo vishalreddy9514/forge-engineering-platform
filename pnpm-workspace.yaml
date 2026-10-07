@@ -16,3 +16,8 @@ allowBuilds:
   cpu-features: false
   ssh2: false
   protobufjs: false
+
+# Security floors for transitive dependencies (remove once the parent requires the fixed version).
+overrides:
+  sharp: '>=0.35.5' # GHSA-wq5f-xc86-pv6w (librsvg); pulled in by next
+  shell-quote: '>=1.11.0' # CVE-2026-102422; pinned at 1.9.0 by concurrently (api dev script)
